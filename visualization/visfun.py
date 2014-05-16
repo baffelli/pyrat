@@ -6,6 +6,7 @@ Created on Thu May 15 16:32:36 2014
 """
 import numpy as np
 
+
 def scale_array(*args,**kwargs):
     """
     This function scales an array between 0 and 1
@@ -71,16 +72,30 @@ def histeq(im,nbr_bins=256):
     im2 = np.interp(im.flatten(),bins[:-1],cdf)
     return im2.reshape(im.shape)
 
-def geocode_image(*args):
-    image = args[0]
-    pixel_size = args[1]
+def geocode_image(image,pixel_size,**args):
+    """
+    This function converst a GPRI image in polar coordinates into cartesian coordinates
+    Parameters
+    ----------
+    image : ndarray
+        The image to be converted.
+    pixel_size : double
+        The size of the pixel in the resulting cartesian image.
+    args*
+        List of arguments. Takes the first argument as the list of azimuth positions
+        and the second as the corresponding list of range positions.
+    Returns
+    -------
+    
+    """
+
     try:
         r_vec = image.r_vec
         az_vec = image.az_vec
     except AttributeError:
         if len(args) >= 4:
-            r_vec = args[3]
-            az_vec = args[2]
+            r_vec = args[0]
+            az_vec = args[1]
         else:
             raise TypeError
     #Image grid geometry
@@ -92,8 +107,8 @@ def geocode_image(*args):
     r_step = np.abs(r_vec[1] - r_vec[0])
     #Compute desired grid
     bound_grid = np.meshgrid(az_vec,r_vec)
-    x = bound_grid[1] * cos(bound_grid[0])
-    y = bound_grid[1] * sin(bound_grid[0])
+    x = bound_grid[1] * np.cos(bound_grid[0])
+    y = bound_grid[1] * np.sin(bound_grid[0])
     x_min = np.min(x)
     x_max = np.max(x)
     y_min = np.min(y)
@@ -121,8 +136,40 @@ def geocode_image(*args):
         idx_vec = (az_idx,r_idx) + remaining_axes
     #Take care of points outside of the image
     gc = image[idx_vec]
-    gc[az_idx == image.shape[0] -1] = nan
-    gc[r_idx == image.shape[1] - 1] = nan
-    gc[az_idx == 0] =nan
-    gc[r_idx == 0] = nan
+    gc[az_idx == image.shape[0] -1] = np.nan
+    gc[r_idx == image.shape[1] - 1] = np.nan
+    gc[az_idx == 0] = np.nan
+    gc[r_idx == 0] = np.nan
     return gc, x_vec, y_vec
+    
+def pauli_rgb(scattering_vector, normalized= False, log=False):
+        """
+        This function produces a rgb image from a scattering vector
+        Parameters
+        ----------
+        scattering_vector : ndarray 
+            the scattering vector to be represented
+        normalized : bool
+            set to true for the relative rgb image, where each channel is normalized by the sum
+        log : bool
+            set to True to display the channels in logarithmic form
+        """
+        data_diagonal = np.abs(scattering_vector) 
+        if not normalized:
+            if log:
+                span = np.log10(np.sum(data_diagonal,axis = 2))
+                data_diagonal = np.log10(data_diagonal)
+            else:
+                span = np.sum(data_diagonal,axis = 2)
+                pass
+            R = scale_array(data_diagonal[:,:,0])
+            G = scale_array(data_diagonal[:,:,1])
+            B = scale_array(data_diagonal[:,:,2])
+            out = np.zeros(R.shape+(3,))
+            out[:,:,0] = R
+            out[:,:,1] = G
+            out[:,:,2] = B
+        else:
+            span = np.sum(scattering_vector,axis=2)
+            out = np.abs(data_diagonal /span[:,:,None])
+        return out

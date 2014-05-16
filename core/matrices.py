@@ -4,9 +4,10 @@ Created on Thu May 15 14:20:32 2014
 
 @author: baffelli
 """
-from numpy import np
+import numpy as np
 from ..fileutils import gpri_files, other_files  
 from . import corefun
+from ..visualization import visfun
 
 class gpriImage(np.ndarray):
     def __new__(*args):
@@ -24,7 +25,7 @@ class gpriImage(np.ndarray):
 #                data_1.transpose([1,2,0])
             elif type(args[1]) is str:
                 path = args[1]
-                data_1= load_slc(path)
+                data_1= gpri_files.load_slc(path)
                 par = gpri_files.load_par(path + '.par')
         print data_1.shape
         obj = data_1.view(cls)
@@ -136,7 +137,7 @@ class scatteringMatrix(np.ndarray):
                 s_matrix = args[1]            
             elif type(args[1]) is str:
                 args = args[1:None]
-                s_matrix = load_scattering(*args,**kwargs)
+                s_matrix = other_files.load_scattering(*args,**kwargs)
             obj = np.asarray(s_matrix).view(cls)
         return obj
         
@@ -336,7 +337,7 @@ class scatteringMatrix(np.ndarray):
             k = k[:,:,[0,2,1]]
         else:
             pass
-        im = pauli_rgb(np.abs(k)**2,**kwargs)
+        im = visfun.pauli_rgb(np.abs(k)**2,**kwargs)
         return im
         
    
@@ -481,7 +482,7 @@ class coherencyMatrix(np.ndarray):
                 return obj
         elif type(args[1]) is gpriImage:    
             stack = args[1]
-            T = outer_product(stack)
+            T = corefun.outer_product(stack)
         # Finally, we must return the newly created object:
         obj = T.view(cls)
         obj.window = [1,1]
@@ -510,7 +511,16 @@ class coherencyMatrix(np.ndarray):
         self.az_vec = getattr(obj, 'az_vec', None)
 
     def boxcar_filter(self,window, discard= False):
-        T = self.__array_wrap__(smooth(self, window + [1,1]))
+        """
+        This function applies boxcar averaging on the coherency matrix
+        Parameters
+        ----------
+        window : tuple
+            a tuple of window sizes
+        discard :  bool, optional
+            set to true if only the centra pixel of the window has to be kept
+        """
+        T = self.__array_wrap__(corefun.smooth(self, window + [1,1]))
         if discard:
             T = T[0:None:window[0],1:None:window[1],:,:]
         return T
@@ -531,19 +541,13 @@ class coherencyMatrix(np.ndarray):
             k = np.diagonal(self,axis1 = 2, axis2 = 3)[:,:,[1,2,0]]
         else:
             k = np.diagonal(self,axis1 = 2, axis2 = 3)
-        im = pauli_rgb(k,**kwargs)
+        im = visfun.pauli_rgb(k,**kwargs)
         return im
        
 
     def generateRealizations(self, n_real, n_looks):
 #        #Generate unit vectors
          n_tot = n_real * n_looks
-#         v = np.random.normal(size=(3,n_tot))
-#         print type(v)
-#         #Compute square root of matrix
-#         l,w = np.linalg.eigh(self)
-#         T_sq = np.dot(np.dot(w,np.diag(np.sqrt(l))),w.transpose().conjugate())
-#         k = np.dot(T_sq,v)
          k = np.random.multivariate_normal(np.zeros((3)),self,n_tot)
          k = k.transpose()
          outers = np.einsum('i...,j...',k,k.conj())
@@ -551,16 +555,6 @@ class coherencyMatrix(np.ndarray):
          outers = np.mean(outers, axis = 1)
          return outers.view(coherencyMatrix)
 
-    def bilinear_form(self, vector1,vector2):
-        return np.array(np.einsum("...k,...kl,...l",vector1.conj(),self,vector2))
-        
-    def polinsar_coherency(self,vector1,vector2):
-        T1 = self[:,:,0:3,0:3] 
-        T2 = self[:,:,3:None,3:None]
-        omega = self[:,:,0:3,3:None]
-        n = omega.bilinear_form(vector1,vector2)
-        d = np.sqrt(T1.bilinear_form(vector1,vector1)*T2.bilinear_form(vector2,vector2))
-        return n/d
     
     def pauli_to_lexicographic(self):
         """

@@ -75,7 +75,7 @@ def shift_array(array,shift):
         elif current_shift < 0:
             index_list = index_list + (slice(abs(current_shift),None),)
     shifts = zip(pre_shifts,post_shifts)
-    array_1 = np.pad(array,tuple(shifts),mode='constant',constant_values = (0,))[index_list]
+    array_1 = np.pad(array,tuple(shifts),mode='constant',constant_values = (1,))[index_list]
     return array_1
     
 def is_hermitian(T):

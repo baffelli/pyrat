@@ -10,7 +10,7 @@ Utilities for GPRI calibration
 """
 import numpy as np
 from ..core import corefun
-from ..core import scatteringMatrix
+#from ..core import scatteringMatrix
 
 def coregister_channels(S):
     """
@@ -28,9 +28,9 @@ def coregister_channels(S):
         The image after coregistration.
     """
     S1 = S * 1
-    S1['HH'] = corefun.shift_array(S['HH'],(3,0))
-    S1['HV'] = corefun.shift_array(S['HV'],(2,0))
-    S1['HV'] = corefun.shift_array(S['VH'],(1,0))
+    S1['HH'] = corefun.shift_array(S['HH'],(-3,0))
+    S1['HV'] = corefun.shift_array(S['HV'],(-2,0))
+    S1['HV'] = corefun.shift_array(S['VH'],(-1,0))
     return S1
 
 def coregister_channels_FFT(S,shift_patch, oversampling = 1):
