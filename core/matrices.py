@@ -445,7 +445,7 @@ class coherencyMatrix(np.ndarray):
             basis = kwargs.get('basis')
         if type(args[1]) is np.ndarray:
             T = args[1]
-            if is_hermitian(T):
+            if corefun.is_hermitian(T):
                 obj = np.asarray(T).view(cls)
             else:
                 raise np.linalg.LinAlgError("T is not Hermitian")
@@ -456,14 +456,14 @@ class coherencyMatrix(np.ndarray):
             if agrisar:
                 s_matrix = scatteringMatrix(path,fmt='esar')
                 pauli = s_matrix.scattering_vector(bistatic = bistatic, basis = basis)
-                T = outer_product(pauli)
+                T = corefun.outer_product(pauli)
             elif coherency:
-                T = load_coherency(path,dim)
+                T = other_files.load_coherency(path,dim)
             elif polsarpro:
                 s_matrix = scatteringMatrix(path,dim,fmt='polsarpro')
                 #Pauli representation is defaulto
                 pauli = s_matrix.scattering_vector(bistatic = bistatic, basis = basis)
-                T = outer_product(pauli)
+                T = corefun.outer_product(pauli)
             elif gpri:
                 if 'chan' in kwargs:
                     chan = kwargs.get('chan')
@@ -471,7 +471,7 @@ class coherencyMatrix(np.ndarray):
                     chan = 'l'
                 s_matrix = scatteringMatrix(path,gpri = True, chan = chan)
                 pauli = s_matrix.scattering_vector(bistatic = bistatic, basis = basis)
-                T = outer_product(pauli)
+                T = corefun.outer_product(pauli)
                 obj = T.view(cls)
                 obj.window = [1,1]
                 obj.r_vec = s_matrix.r_vec
