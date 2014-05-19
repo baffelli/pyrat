@@ -382,8 +382,7 @@ class coherencyMatrix(np.ndarray):
             p = l / l_sum[:,:,np.newaxis]
             H = -np.sum( p * np.log10(p) / np.log10(3), axis = 2)
             alpha = np.arccos(np.abs(w[:,:,0,0:None]))
-            alpha[alpha > pi/2] = alpha[alpha > pi/2] - pi/2
-            rotated = w[:,:,1,0:None] * 1/sin(alpha)
+            rotated = w[:,:,1,0:None] * 1/np.sin(alpha)
             beta = np.arccos(np.abs(rotated))
             anisotropy = (l[:,:,1] - l[:,:,2]) / (l[:,:,1] + l[:,:,2])
             alpha_m = np.sum(alpha * p,axis = 2)
