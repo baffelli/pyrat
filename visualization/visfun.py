@@ -5,7 +5,8 @@ Created on Thu May 15 16:32:36 2014
 @author: baffelli
 """
 import numpy as np
-
+import matplotlib
+import matplotlib.pyplot as plt
 
 def scale_array(*args,**kwargs):
     """
@@ -173,3 +174,19 @@ def pauli_rgb(scattering_vector, normalized= False, log=False):
             span = np.sum(scattering_vector,axis=2)
             out = np.abs(data_diagonal /span[:,:,None])
         return out
+def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
+        """
+        This function is a wrapper to call imshow with a 
+        list produced by the geocode_image function
+        ----------
+        geocoded_image_list : list 
+            list containing the geocoded image and the x and y vectors of the new grid
+        """
+        ax = plt.gca()
+        plt.imshow(geocoded_image_list[0],**kwargs)
+        xv, yv = geocoded_image_list[1:None]
+        xv_idx = np.linspace(0,len(xv)-1,n_ticks).astype(np.int)
+        yv_idx = np.linspace(0,len(yv)-1,n_ticks).astype(np.int)
+        plt.xticks(xv_idx,np.ceil(xv[xv_idx]))
+        plt.yticks(yv_idx,np.ceil(yv[yv_idx]))
+        ax.set_aspect('equal')
