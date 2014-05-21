@@ -183,7 +183,12 @@ def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
             list containing the geocoded image and the x and y vectors of the new grid
         """
         ax = plt.gca()
-        plt.imshow(geocoded_image_list[0],**kwargs)
+        a = geocoded_image_list[0]
+        masked_array = np.ma.array(a, mask=np.isnan(a))
+        if 'cmap' in kwargs:
+            kwargs['cmap'] = kwargs['cmap'].set_bad('w',1.)
+        plt.imshow(masked_array,**kwargs)
+
         xv, yv = geocoded_image_list[1:None]
         xv_idx = np.linspace(0,len(xv)-1,n_ticks).astype(np.int)
         yv_idx = np.linspace(0,len(yv)-1,n_ticks).astype(np.int)
