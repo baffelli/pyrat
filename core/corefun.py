@@ -5,7 +5,8 @@ Created on Thu May 15 14:34:25 2014
 @author: baffelli
 """
 import numpy as np
-from scipy import ndimage
+import scipy
+from scipy import ndimage, fftpack
 def outer_product(data):
     """
     Computes the outer product of multimensional data along the last dimension
@@ -125,3 +126,5 @@ def transform(A,B,C):
     """
     out = np.einsum("...ik,...kl,...lj->...ij",A,B,C)
     return out
+
+

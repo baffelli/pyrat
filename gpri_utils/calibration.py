@@ -200,4 +200,23 @@ def natural_targets_calibration(S,area,estimation_window):
     return s_cal, sigma, C
 
     
+def get_shift(image1,image2, oversampling = 1, axes = (0,1)):
+    pad_size = zip(np.zeros(image1.ndim),np.zeros(image1.ndim))
+    for ax in axes:
+        pad_size[ax] = (image1.shape[ax] * oversampling/2,image1.shape[ax] * oversampling/2)
+    pad_size = tuple(pad_size)
+    image1_pad = np.pad(image1,pad_size,mode='constant')
+    image2_pad = np.pad(image2,pad_size,mode='constant')
+    corr_image = norm_xcorr(image1_pad,image2_pad, axes = axes)
+    shift = np.argmax(np.abs(corr_image))
+    shift_idx = np.unravel_index(shift,corr_image.shape)
+    shift_idx = np.array(shift_idx) - oversampling*np.array(image1.shape)
+    #    shift_idx = tuple(np.divide(np.subtract(shift_idx , np.divide(corr_image.shape,2.0)),oversampling))
+    return shift_idx, corr_image
+
+def norm_xcorr(image1,image2, axes = (0,1)):
+    image_1_hat = scipy.fftpack.fftn(image1, axes = axes)
+    image_2_hat = scipy.fftpack.fftn(image2, axes = axes)
+    phase_corr = scipy.fftpack.fftshift(scipy.fftpack.ifftn(image_1_hat * image_2_hat.conj() / (np.abs( image_1_hat * image_2_hat.conj())),axes = axes),axes= axes)
+    return phase_corr
 

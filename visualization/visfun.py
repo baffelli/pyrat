@@ -72,7 +72,7 @@ def histeq(im,nbr_bins=256):
     im2 = np.interp(im.flatten(),bins[:-1],cdf)
     return im2.reshape(im.shape)
 
-def geocode_image(image,pixel_size,**args):
+def geocode_image(image,pixel_size,*args):
     """
     This function converst a GPRI image in polar coordinates into cartesian coordinates
     Parameters
@@ -93,7 +93,7 @@ def geocode_image(image,pixel_size,**args):
         r_vec = image.r_vec
         az_vec = image.az_vec
     except AttributeError:
-        if len(args) >= 4:
+        if len(args) > 0:
             r_vec = args[0]
             az_vec = args[1]
         else:
