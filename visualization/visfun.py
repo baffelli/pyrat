@@ -8,6 +8,21 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
+def compute_dim(WIDTH,FACTOR):
+    """
+    This function computes the figure size
+    given the latex column width and the desired factor
+    """
+    fig_width_pt  = WIDTH * FACTOR
+    
+    inches_per_pt = 1.0 / 72.27
+    golden_ratio  = (np.sqrt(5) - 1.0) / 2.0  # because it looks good
+    
+    fig_width_in  = fig_width_pt * inches_per_pt  # figure width in inches
+    fig_height_in = fig_width_in * golden_ratio   # figure height in inches
+    fig_dims      = [fig_width_in, fig_height_in] # fig dims as a list
+    return fig_dims
+
 def scale_array(*args,**kwargs):
     """
     This function scales an array between 0 and 1
@@ -184,9 +199,7 @@ def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
         """
         ax = plt.gca()
         a = geocoded_image_list[0]
-        masked_array = np.ma.array(a, mask=np.isnan(a))
-        if 'cmap' in kwargs:
-            kwargs['cmap'] = kwargs['cmap'].set_bad('w',1.)
+        masked_array = np.ma.masked_where(np.isnan(a), a)
         plt.imshow(masked_array,**kwargs)
 
         xv, yv = geocoded_image_list[1:None]
