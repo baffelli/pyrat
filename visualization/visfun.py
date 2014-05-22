@@ -27,23 +27,24 @@ def compute_dim(WIDTH,FACTOR):
 
 def scale_array(*args,**kwargs):
     """
-    This function scales an array between 0 and 1
+    This function scales an array between 0 and 1.
+    
     Parameters
     ----------
     data : ndarray
-        The array to be scaled
+        The array to be scaled.
     min_val : double
-        The minimum value at which to cut the data
+        The minimum value at which to cut the data.
     max_val : double
-        The maximum value at which to clip the data
+        The maximum value at which to clip the data.
     top : double
-        The maximum value of the scaled array
+        The maximum value of the scaled array.
     bottom : dobule
-        The minium value of the scaled array
+        The minium value of the scaled array.
     Returns
     -------
     ndarray
-        The rescaled array
+        The rescaled array.
     """
     data = args[0]
     if 'min_val' in kwargs:
@@ -65,22 +66,22 @@ def scale_array(*args,**kwargs):
     scaled = (topV - bottomV) * ((data - minVal)) /(maxVal - minVal) + bottomV
     return scaled
 
-def sigmoid_stretch(data,alpha):
-    return 1/(1+np.exp((-data/alpha)/(np.nanmax(data)-np.nanmin(data))))
+
 
 def histeq(im,nbr_bins=256):
     """
-    This function performs histogram equalization on a ndarray
+    This function performs histogram equalization on a ndarray.
+    
     Parameters
     ----------
     data : ndarray
-        The image to be equalized
+        The image to be equalized.
     nbr_bins : int
-        The number of histogram bins
+        The number of histogram bins.
     Returns
     -------
     ndarray
-        The equalized image
+        The equalized image.
     """
     #get image histogram
     imhist,bins = np.histogram(im.flatten(),nbr_bins,normed=True)
@@ -91,20 +92,6 @@ def histeq(im,nbr_bins=256):
     return im2.reshape(im.shape)
     
 def bilinear_interpolate(im, x, y):
-    
-    def generate_indices(x,y,im):
-        """
-        This function generate the indices to
-        access all the desired point in a stack of images
-        """
-        nd = im.ndim
-        if nd is 2:
-            idx_vec = (x,y)
-        elif nd > 2:
-            remaining_dim = im.ndim - 2
-            remaining_axes = (Ellipsis,) * remaining_dim
-            idx_vec = (x,y) + remaining_axes
-        return idx_vec
     
         
     x = np.asarray(x)
@@ -120,27 +107,23 @@ def bilinear_interpolate(im, x, y):
     y0 = np.clip(y0, 0, im.shape[0]-1);
     y1 = np.clip(y1, 0, im.shape[0]-1);
 
-    Ia = im[ generate_indices(y0, x0,im) ]
-    Ib = im[ generate_indices(y1, x0,im) ]
-    Ic = im[ generate_indices(y0, x1,im) ]
-    Id = im[ generate_indices(y1, x1,im) ]
+    Ia = im[y0, x0]
+    Ib = im[y1, x0]
+    Ic = im[y0, x1]
+    Id = im[y1, x1]
 
     wa = (x1-x) * (y1-y)
     wb = (x1-x) * (y-y0)
     wc = (x-x0) * (y1-y)
     wd = (x-x0) * (y-y0)
     
-    if im.ndim > 2:
-        indices = 2 * (Ellipsis,) + (im.ndim - 2) * (None,)
-        wa = wa[indices]
-        wb = wb[indices]
-        wc = wc[indices]
-        wd = wd[indices]
+
     return wa*Ia + wb*Ib + wc*Ic + wd*Id
 
 def geocode_image(image,pixel_size,*args):
     """
-    This function converst a GPRI image in polar coordinates into cartesian coordinates
+    This function converst a GPRI image in polar coordinates into cartesian coordinates.
+    
     Parameters
     ----------
     image : ndarray
@@ -196,19 +179,20 @@ def geocode_image(image,pixel_size,*args):
 #    x = np.arange(np.prod(image.shape[0:2]))
 #    y = image.flatten()
 #    desired_coordinates = az_idx.flatten() * image.shape[1] + r_idx.flatten()
-#    interp = scipy.interpolate.interp1d(x,y)
-    gc = bilinear_interpolate(image,r_idx,az_idx)
-#    if image.ndim is 2:
+#    gc = bilinear_interpolate(image,r_idx,az_idx)
+    if image.ndim is 2:
 #        gc = np.interp(desired_coordinates,x,y,left = np.nan,right = np.nan).reshape(r_idx.shape)
-#    if image.ndim is 3:
-#        chans = np.dsplit(image,image.shape[2])
-#        new_chans = []
-#        for chan in chans:
-#            print len(chan)
-#            print len(x)
+            gc = bilinear_interpolate(image,r_idx,az_idx)
+    if image.ndim is 3:
+        chans = np.dsplit(image,image.shape[2])
+        new_chans = []
+        for chan in chans:
+            print len(chan)
+            print len(x)
 #            gc_chan = np.interp(desired_coordinates,x,chan.squeeze().flatten(),left = np.nan,right = np.nan).reshape(r_idx.shape)
-#            new_chans = new_chans + [gc_chan,]
-#        gc = np.dstack(new_chans)
+            gc_chan = bilinear_interpolate(chan,r_idx,az_idx)
+            new_chans = new_chans + [gc_chan,]
+        gc = np.dstack(new_chans)
             
 #    nd = image.ndim
 #    if nd is 2:
@@ -219,23 +203,24 @@ def geocode_image(image,pixel_size,*args):
 #        idx_vec = (az_idx,r_idx) + remaining_axes
 #    #Take care of points outside of the image
 #    gc = image[idx_vec]
-    gc[az_idx == image.shape[0] -1] = np.nan
-    gc[r_idx == image.shape[1] - 1] = np.nan
-    gc[az_idx == 0] = np.nan
-    gc[r_idx == 0] = np.nan
+    gc[az_idx.astype(np.long) == image.shape[0] -1] = np.nan
+    gc[r_idx.astype(np.long) == image.shape[1] - 1] = np.nan
+    gc[az_idx.astype(np.long) == 0] = np.nan
+    gc[r_idx.astype(np.long) == 0] = np.nan
     return gc, x_vec, y_vec
     
 def pauli_rgb(scattering_vector, normalized= False, log=False):
         """
-        This function produces a rgb image from a scattering vector
+        This function produces a rgb image from a scattering vector.
+        
         Parameters
         ----------
         scattering_vector : ndarray 
-            the scattering vector to be represented
+            the scattering vector to be represented.
         normalized : bool
-            set to true for the relative rgb image, where each channel is normalized by the sum
+            set to true for the relative rgb image, where each channel is normalized by the sum.
         log : bool
-            set to True to display the channels in logarithmic form
+            set to True to display the channels in logarithmic form.
         """
         data_diagonal = np.abs(scattering_vector) 
         if not normalized:
@@ -259,10 +244,10 @@ def pauli_rgb(scattering_vector, normalized= False, log=False):
 def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
         """
         This function is a wrapper to call imshow with a 
-        list produced by the geocode_image function
+        list produced by the geocode_image function.
         ----------
         geocoded_image_list : list 
-            list containing the geocoded image and the x and y vectors of the new grid
+            list containing the geocoded image and the x and y vectors of the new grid.
         """
         ax = plt.gca()
         a = geocoded_image_list[0]

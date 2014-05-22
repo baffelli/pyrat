@@ -9,16 +9,16 @@ import scipy
 from scipy import ndimage, fftpack
 def outer_product(data):
     """
-    Computes the outer product of multimensional data along the last dimension
+    Computes the outer product of multimensional data along the last dimension.
     
     Parameters
     ----------
     data : ndarray
-        The data to process
+        The data to process.
     Returns
     -------
     ndarray  
-        The outer product array
+        The outer product array.
     """
     if data.ndim > 1:
         T = np.einsum("...i,...j->...ij",data,data.conjugate())
@@ -28,17 +28,18 @@ def outer_product(data):
     
 def smooth(T, window):
     """
-    Smoothes data using a multidmensional boxcar filter 
+    Smoothes data using a multidmensional boxcar filter .
+    
     Parameters
     ----------
     T : ndarray
-        The data to process
+        The data to process.
     window : iterable
-        The size of the smoothing window
+        The size of the smoothing window.
     Returns
     -------
     ndarray
-        the smoothed array
+        the smoothed array.
     """
     T_out_real = ndimage.filters.uniform_filter(T.real,window)
     T_out_imag = ndimage.filters.uniform_filter(T.imag,window)
@@ -47,13 +48,14 @@ def smooth(T, window):
     
 def shift_array(array,shift):
     """
-    Shift a multidimensional array and pads it with zeros
+    Shift a multidimensional array and pads it with zeros.
+    
     Parameters
     ----------
     array : ndarray
-        the array to shift
+        the array to shift.
     window  : tuple
-        a tuple of shifts
+        a tuple of shifts.
     Returns
     -------
     ndarray : 
@@ -82,15 +84,16 @@ def shift_array(array,shift):
 def is_hermitian(T):
     """
     Checks if a multidimensional array is composed of subarray that are hermitian matrices along the last
-    two dimensions
+    two dimensions.
+    
     Parameters
     ----------
     T : ndarray
-        the array to test
+        the array to test.
     Returns
     -------
     bool :
-        A flag indicating the result
+        A flag indicating the result.
     """
     try:
         shp = T.shape
@@ -109,16 +112,16 @@ def is_hermitian(T):
     
 def transform(A,B,C):
     """
-    This function transforms the matrix B by the matrices A and B
+    This function transforms the matrix B by the matrices A and B.
     
     Parameters
     ----------
     A : ndarray
-        the premultiplication matrix
+        the premultiplication matrix.
     B : ndarray
-        the matrix to be transformed
+        the matrix to be transformed.
     C : ndarray
-        the postmultiplication matrix
+        the postmultiplication matrix.
     Returns
     -------
     out : ndarray
@@ -126,5 +129,31 @@ def transform(A,B,C):
     """
     out = np.einsum("...ik,...kl,...lj->...ij",A,B,C)
     return out
+
+def range_variant_filter(data,area):
+    """
+    This function implements a moving average 
+    filter with variable size, in order to obtain
+    a filtered pixel with uniform size.
+    
+    Parameters
+    ----------
+    data : ndarray
+        the data to process.
+    area : double
+        the desired pixel area in meters.
+    """
+    filtered = data * 1
+    filter_size = np.zeros(data.shape[0:2])
+    az_step = data.az_vec[1] - data.az_vec[0]
+    r_step = data.r_vec[1] - data.r_vec[0]
+    for idx_r in np.arange(data.shape[1]):
+        n_r = idx_r + 1
+        pixel_area = az_step * ((n_r*r_step)**2 - ((n_r -1) * r_step)**2)
+        n_pix = np.ceil(area  / pixel_area)
+        current_pixels = data[:,idx_r,:,:]
+        filtered[:,idx_r,:,:] = smooth(current_pixels,[n_pix,1,1])
+        filter_size[:,idx_r] = n_pix
+    return filtered, filter_size
 
 
