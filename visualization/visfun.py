@@ -6,6 +6,8 @@ Created on Thu May 15 16:32:36 2014
 """
 import numpy as np
 import matplotlib
+import scipy
+from scipy import interpolate
 import matplotlib.pyplot as plt
 
 def compute_dim(WIDTH,FACTOR):
@@ -87,6 +89,54 @@ def histeq(im,nbr_bins=256):
     #use linear interpolation of cdf to find new pixel values
     im2 = np.interp(im.flatten(),bins[:-1],cdf)
     return im2.reshape(im.shape)
+    
+def bilinear_interpolate(im, x, y):
+    
+    def generate_indices(x,y,im):
+        """
+        This function generate the indices to
+        access all the desired point in a stack of images
+        """
+        nd = im.ndim
+        if nd is 2:
+            idx_vec = (x,y)
+        elif nd > 2:
+            remaining_dim = im.ndim - 2
+            remaining_axes = (Ellipsis,) * remaining_dim
+            idx_vec = (x,y) + remaining_axes
+        return idx_vec
+    
+        
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    x0 = np.floor(x).astype(int)
+    x1 = x0 + 1
+    y0 = np.floor(y).astype(int)
+    y1 = y0 + 1
+
+    x0 = np.clip(x0, 0, im.shape[1]-1);
+    x1 = np.clip(x1, 0, im.shape[1]-1);
+    y0 = np.clip(y0, 0, im.shape[0]-1);
+    y1 = np.clip(y1, 0, im.shape[0]-1);
+
+    Ia = im[ generate_indices(y0, x0,im) ]
+    Ib = im[ generate_indices(y1, x0,im) ]
+    Ic = im[ generate_indices(y0, x1,im) ]
+    Id = im[ generate_indices(y1, x1,im) ]
+
+    wa = (x1-x) * (y1-y)
+    wb = (x1-x) * (y-y0)
+    wc = (x-x0) * (y1-y)
+    wd = (x-x0) * (y-y0)
+    
+    if im.ndim > 2:
+        indices = 2 * (Ellipsis,) + (im.ndim - 2) * (None,)
+        wa = wa[indices]
+        wb = wb[indices]
+        wc = wc[indices]
+        wd = wd[indices]
+    return wa*Ia + wb*Ib + wc*Ic + wd*Id
 
 def geocode_image(image,pixel_size,*args):
     """
@@ -122,36 +172,53 @@ def geocode_image(image,pixel_size,*args):
     az_step = np.abs(az_vec[1] - az_vec[0])
     r_step = np.abs(r_vec[1] - r_vec[0])
     #Compute desired grid
-    bound_grid = np.meshgrid(az_vec,r_vec)
+    az_vec_1 = np.linspace(az_min,az_max,10)
+    r_vec_1 = np.linspace(r_min,r_max,10)
+    bound_grid = np.meshgrid(az_vec_1,r_vec_1)
     x = bound_grid[1] * np.cos(bound_grid[0])
     y = bound_grid[1] * np.sin(bound_grid[0])
-    x_min = np.min(x)
-    x_max = np.max(x)
-    y_min = np.min(y)
-    y_max = np.max(y)
-    y_vec = np.sort((y_min,y_max))
-    x_vec = np.sort((x_min,x_max))
+    y_vec = (y.min(),y.max())
+    x_vec = (x.min(),x.max())
     y_vec = np.arange(y_vec[0],y_vec[1],pixel_size)
     x_vec = np.arange(x_vec[0],x_vec[1],pixel_size)
     desired_grid = np.meshgrid(x_vec,y_vec,indexing ='xy')
     desired_r = np.sqrt(desired_grid[0]**2 + desired_grid[1]**2)
     desired_az = np.arctan2(desired_grid[1],desired_grid[0])
     #Convert desired grid to indices
-    az_idx = np.floor((desired_az - az_min) / np.double(az_step))
-    r_idx = np.ceil((desired_r - r_min) / r_step)
+    az_idx = ((desired_az - az_min) / np.double(az_step))
+    r_idx = ((desired_r - r_min) / np.double(r_step))
     r_idx = np.clip(r_idx,0,image.shape[1]-1)
     az_idx = np.clip(az_idx,0,image.shape[0]-1)
-    az_idx = az_idx.astype(np.long)
-    r_idx = r_idx.astype(np.int)
-    nd = image.ndim
-    if nd is 2:
-        idx_vec = (az_idx,r_idx)
-    elif nd > 2:
-        remaining_dim = image.ndim - 2
-        remaining_axes = (Ellipsis,) * remaining_dim
-        idx_vec = (az_idx,r_idx) + remaining_axes
-    #Take care of points outside of the image
-    gc = image[idx_vec]
+    az_idx = az_idx.astype(np.float)
+    r_idx = r_idx.astype(np.float)
+
+    #%Try 1d interpolation
+#    x = np.arange(np.prod(image.shape[0:2]))
+#    y = image.flatten()
+#    desired_coordinates = az_idx.flatten() * image.shape[1] + r_idx.flatten()
+#    interp = scipy.interpolate.interp1d(x,y)
+    gc = bilinear_interpolate(image,r_idx,az_idx)
+#    if image.ndim is 2:
+#        gc = np.interp(desired_coordinates,x,y,left = np.nan,right = np.nan).reshape(r_idx.shape)
+#    if image.ndim is 3:
+#        chans = np.dsplit(image,image.shape[2])
+#        new_chans = []
+#        for chan in chans:
+#            print len(chan)
+#            print len(x)
+#            gc_chan = np.interp(desired_coordinates,x,chan.squeeze().flatten(),left = np.nan,right = np.nan).reshape(r_idx.shape)
+#            new_chans = new_chans + [gc_chan,]
+#        gc = np.dstack(new_chans)
+            
+#    nd = image.ndim
+#    if nd is 2:
+#        idx_vec = (az_idx,r_idx)
+#    elif nd > 2:
+#        remaining_dim = image.ndim - 2
+#        remaining_axes = (Ellipsis,) * remaining_dim
+#        idx_vec = (az_idx,r_idx) + remaining_axes
+#    #Take care of points outside of the image
+#    gc = image[idx_vec]
     gc[az_idx == image.shape[0] -1] = np.nan
     gc[r_idx == image.shape[1] - 1] = np.nan
     gc[az_idx == 0] = np.nan
