@@ -117,7 +117,14 @@ def bilinear_interpolate(im, x, y):
     wc = (x-x0) * (y1-y)
     wd = (x-x0) * (y-y0)
     
-
+    if im.ndim > 2:
+        trailing_dim = im.ndim - 2
+        access_vector = (Ellipsis,Ellipsis) + trailing_dim * (None,)
+        wa = wa[access_vector]
+        wb = wb[access_vector]
+        wc = wc[access_vector]
+        wd = wd[access_vector]
+    
     return wa*Ia + wb*Ib + wc*Ic + wd*Id
 
 def geocode_image(image,pixel_size,*args):
@@ -179,20 +186,20 @@ def geocode_image(image,pixel_size,*args):
 #    x = np.arange(np.prod(image.shape[0:2]))
 #    y = image.flatten()
 #    desired_coordinates = az_idx.flatten() * image.shape[1] + r_idx.flatten()
-#    gc = bilinear_interpolate(image,r_idx,az_idx)
-    if image.ndim is 2:
-#        gc = np.interp(desired_coordinates,x,y,left = np.nan,right = np.nan).reshape(r_idx.shape)
-            gc = bilinear_interpolate(image,r_idx,az_idx)
-    if image.ndim is 3:
-        chans = np.dsplit(image,image.shape[2])
-        new_chans = []
-        for chan in chans:
-            print len(chan)
-            print len(x)
-#            gc_chan = np.interp(desired_coordinates,x,chan.squeeze().flatten(),left = np.nan,right = np.nan).reshape(r_idx.shape)
-            gc_chan = bilinear_interpolate(chan,r_idx,az_idx)
-            new_chans = new_chans + [gc_chan,]
-        gc = np.dstack(new_chans)
+    gc = bilinear_interpolate(image,r_idx,az_idx)
+#    if image.ndim is 2:
+##        gc = np.interp(desired_coordinates,x,y,left = np.nan,right = np.nan).reshape(r_idx.shape)
+#            gc = bilinear_interpolate(image,r_idx,az_idx)
+#    if image.ndim is 3:
+#        chans = np.dsplit(image,image.shape[2])
+#        new_chans = []
+#        for chan in chans:
+#            print len(chan)
+#            print len(x)
+##            gc_chan = np.interp(desired_coordinates,x,chan.squeeze().flatten(),left = np.nan,right = np.nan).reshape(r_idx.shape)
+#            gc_chan = bilinear_interpolate(chan,r_idx,az_idx)
+#            new_chans = new_chans + [gc_chan,]
+#        gc = np.dstack(new_chans)
             
 #    nd = image.ndim
 #    if nd is 2:
