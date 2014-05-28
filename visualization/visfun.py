@@ -9,6 +9,8 @@ import matplotlib
 import scipy
 from scipy import interpolate
 import matplotlib.pyplot as plt
+import pyrat
+import pyrat.core.polfun
 
 def compute_dim(WIDTH,FACTOR):
     """
@@ -267,3 +269,64 @@ def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
         plt.xticks(xv_idx,np.ceil(xv[xv_idx]))
         plt.yticks(yv_idx,np.ceil(yv[yv_idx]))
         ax.set_aspect('equal')
+        
+class ROI:
+    """
+    Class to represent ROIS
+    """
+    def __init__(*args):
+        self = args[0]
+        if type(args[1]) is list:
+            self.polygon_list = args[1]
+        else:
+            self.polygon_list = [args[1]]
+        self.shape = args[2]
+        self.mask = np.zeros(self.shape,dtype=np.bool)
+        self.fill_mask()
+
+        
+    def fill_mask(self):
+        def dstack_product(x, y):
+            return np.dstack(np.meshgrid(x, y)).reshape(-1, 2)
+        x_grid = np.arange(self.shape[0])
+        y_grid = np.arange(self.shape[1])
+        points = dstack_product(y_grid, x_grid)
+        for pt in self.polygon_list:
+            path = matplotlib.path.Path(pt)
+            self.mask = self.mask + path.contains_points(points, radius = 0.5).reshape(self.shape)
+            
+    def draw_mask(self,ax,**kwargs):
+        display_to_ax = ax.transAxes.inverted().transform
+        data_to_display = ax.transData.transform
+        for dta_pts in self.polygon_list:
+            ax_pts = display_to_ax(data_to_display(dta_pts))
+            p = plt.Polygon(ax_pts, True, transform=ax.transAxes,**kwargs)
+            ax.add_patch(p)
+
+
+def ROC(cases,scores,n_positive, n_negative):
+    sort_indices = np.argsort(scores)
+    sort_cases = cases[sort_indices[::-1]]
+    pd = np.cumsum(sort_cases == 1) / np.double(n_positive)
+    pf = np.cumsum(sort_cases == 0) / np.double(n_negative)
+    return pf, pd
+
+
+def confusionMatrix(image,masks,training_areas,function, threshold):
+    #Compute classes taking the mean of the class pixels
+    classes = ()
+    for mask_idx, mask in enumerate(training_areas):
+        classes = classes + (np.mean(image[mask],axis = 0),)
+    classified, distance = pyrat.classifier(image,classes, function, threshold)
+    cm_1 = np.zeros((len(masks),len(masks)))
+    for idx_1,mask in enumerate(masks):
+        for idx_2,mask1 in enumerate(masks):
+            cm_1[idx_1,idx_2] = np.sum(classified[mask1] == idx_1 + 1) / np.double(np.sum(mask1 == True))
+    return cm_1, classified, distance
+    
+def rectangle_vertices(v1,v2):
+    x1 = v1[1]
+    y1 = v1[0]
+    x2 = v2[1]
+    y2 = v2[0]
+    return np.array([[x1,y1],[x1,y2],[x2,y2],[x2,y1]])
