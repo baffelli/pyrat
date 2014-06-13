@@ -361,6 +361,8 @@ class coherencyMatrix(np.ndarray):
                 access_vector = [0,4,8,1,2,5,3,6,7]
         elif dim[-1] is 4:
                 access_vector = [0,5,10,15,1,2,3,6,7,11,4,8,9,12,13,14]
+        else:
+                access_vector = range(dim[-1])
         if self.ndim is 4:
             new_self = self.reshape(self.shape[0:2] + (self.shape[-1]**2,))[:,:,access_vector]
         else:
