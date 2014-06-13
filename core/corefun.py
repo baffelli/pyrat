@@ -127,7 +127,7 @@ def transform(A,B,C):
     out : ndarray
         the transformed matrix
     """
-    out = np.einsum("...ik,...kl,...lj->...ij",A,B,C)
+    out = B.__array_wrap__(np.einsum("...ik,...kl,...lj->...ij",A,B,C))
     return out
 
 def range_variant_filter(data,area):
@@ -156,4 +156,21 @@ def range_variant_filter(data,area):
         filter_size[:,idx_r] = n_pix
     return filtered, filter_size
 
-
+def split_bandwdith(data,n_splits,axis = 0):
+    pad_size = n_splits - data.shape[axis] % n_splits
+    print pad_size
+    data_hat = scipy.fftpack.fftshift(scipy.fftpack.fft(data,axis = axis),axes = (axis,))
+    pad_arr = [[0,0]] * data.ndim
+    pad_arr[axis] = [pad_size,0]
+    data_hat = np.pad(data_hat,pad_arr,mode=  'constant')
+    print data_hat.shape
+    data_split = np.split(data_hat,n_splits,axis = axis)
+    data_cube = []
+    broadcast_slice = [None,] * data.ndim
+    broadcast_slice[axis] = Ellipsis
+    for data_slice in data_split:
+        data_win = np.hamming(data_slice.shape[axis])[broadcast_slice] * data_slice
+        data_cube = data_cube + [ scipy.fftpack.ifft(scipy.fftpack.ifftshift(data_win, axes = (axis,)),axis = axis),]
+    return data_cube
+        
+    

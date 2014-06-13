@@ -223,13 +223,17 @@ class scatteringMatrix(np.ndarray):
     def scattering_vector(self,basis = 'pauli',bistatic = True):
         """ 
         This function returns the scattering vector in the pauli or lexicographics basis
-        -----
+    
         Parameters
-        basis: The basis of interest. Can be either 'pauli' or 'lexicographic'
-        bistatic: Set to True if the bistatic scattering vector is needed
-        -----
+        ----------
+        basis : string
+            The basis of interest. Can be either 'pauli' or 'lexicographic'
+        bistatic :  bool
+            Set to True if the bistatic scattering vector is needed
         Returns
-        sv: The resulting scattering vector
+        -------
+        sv : ndarray 
+            The resulting scattering vector
         """
         #Generate necessary transformation matrices
         if bistatic is True:
@@ -273,12 +277,13 @@ class scatteringMatrix(np.ndarray):
     def span(self):
         """ 
         This function computes the polarimetric span of the scattering matrix
-        -----
         Parameters
+        ----------
         None
-        -----
         Returns
-        sp: The resulting span
+        -------
+        sp: ndarray
+            The resulting span
         """
         v = self.scattering_vector(basis='lexicographic', bistatic = True)
         if self.ndim is 4:
