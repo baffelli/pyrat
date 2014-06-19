@@ -221,14 +221,21 @@ def gct(exact_targets,measured_targets):
     P2 = exact_targets[1]
     P3 = exact_targets[2]
     #similarity transformations
+    
+    #for transmit distortion
     P_T = np.dot(np.linalg.inv(P1),P2)
     P_T_bar = np.dot(np.linalg.inv(P1),P3)
+    
     N_T = np.dot(np.linalg.inv(N1),N2)
     N_T_bar = np.dot(np.linalg.inv(N1),N3)
+    
+    #for receive distortion
     P_R = np.dot(P2,np.linalg.inv(P1))
     P_R_bar = np.dot(P3,np.linalg.inv(P1))
+    
     N_R = np.dot(N2,np.linalg.inv(N1))
     N_R_bar = np.dot(N3,np.linalg.inv(N1))
+    
     #eigenvalue decompositions
     lambda_t_dot,x_t,lambda_t,y_t = sorted_ev(P_T,N_T)
     lambda_t_bar_dot,x_t_bar,lambda_t_bar,y_t_bar = sorted_ev(P_T_bar,N_T_bar)
