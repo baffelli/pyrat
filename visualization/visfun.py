@@ -11,6 +11,7 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 import pyrat
 import pyrat.core.polfun
+from osgeo import gdal
 
 def compute_dim(WIDTH,FACTOR):
     """
@@ -239,9 +240,9 @@ def pauli_rgb(scattering_vector, normalized= False, log=False):
             else:
                 span = np.sum(data_diagonal,axis = 2)
                 pass
-            R = scale_array(data_diagonal[:,:,0],max_value =  data_diagonal[:,:,2].max(), min_value =data_diagonal[:,:,2].min() )
-            G = scale_array(data_diagonal[:,:,1], max_value =  data_diagonal[:,:,2].max(), min_value =data_diagonal[:,:,2].min() )
-            B = scale_array(data_diagonal[:,:,2], max_value =  data_diagonal[:,:,2].max(), min_value =data_diagonal[:,:,2].min() )
+            R = scale_array(data_diagonal[:,:,0])
+            G = scale_array(data_diagonal[:,:,1])
+            B = scale_array(data_diagonal[:,:,2])
             out = np.zeros(R.shape+(3,))
             out[:,:,0] = R
             out[:,:,1] = G

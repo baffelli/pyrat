@@ -237,10 +237,14 @@ def gct(exact_targets,measured_targets):
     N_R_bar = np.dot(N3,np.linalg.inv(N1))
     
     #eigenvalue decompositions
+    
+    #for reiceved
     lambda_t_dot,x_t,lambda_t,y_t = sorted_ev(P_T,N_T)
     lambda_t_bar_dot,x_t_bar,lambda_t_bar,y_t_bar = sorted_ev(P_T_bar,N_T_bar)
+    #for transmit
     lambda_r_dot,x_r,lambda_r,y_r = sorted_ev(P_R,N_R)
     lambda_r_bar_dot,x_r_bar,lambda_r_bar,y_r_bar = sorted_ev(P_R_bar,N_R_bar)
+    
     #Determine T
     #ratio of c1 and c2
     c2_c1 =  ((x_t[0,0]*x_t_bar[1,0] - x_t[1,0]*x_t_bar[0,0]) * (y_t[1,1]*y_t_bar[0,0] - y_t[0,1]*y_t_bar[1,0]))/ \
@@ -251,13 +255,16 @@ def gct(exact_targets,measured_targets):
              ((x_r[1,1]*x_r_bar[0,0] - x_r[0,1]*x_r_bar[1,0]) * (y_r[0,0]*y_r_bar[1,0] - y_r[1,0]*y_r_bar[0,0]))
   
 
-    #C and D     
+    #C
     c1 = np.linalg.det(y_t) * 1/(x_t[0,0]*y_t[1,1]-c2_c1*x_t[0,1]*y_t[1,0]) 
     c2 = np.linalg.det(y_t) * 1/(1/c2_c1*x_t[0,0]*y_t[1,1]-x_t[0,1]*y_t[1,0])
+    #And D
     d1 = np.linalg.det(y_r) * 1/(x_r[0,0]*y_r[1,1]-d2_d1*x_r[0,1]*y_r[1,0]) 
     d2 = np.linalg.det(y_r) * 1/(1/d2_d1*x_r[0,0]*y_r[1,1]-x_r[0,1]*y_r[1,0]) 
+    #Determine T and R
     C = np.diag([c1,c2])
     D = np.diag([d1,d2])
+    
     T = np.dot(np.dot(x_t,C),np.linalg.inv(y_t))
     R = np.dot(np.dot(x_r,D),np.linalg.inv(y_r))
     return T,R
