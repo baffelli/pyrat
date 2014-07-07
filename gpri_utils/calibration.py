@@ -12,6 +12,23 @@ import numpy as np
 from ..core import corefun
 #from ..core import scatteringMatrix
 
+def calibrate_from_parameters(S,parameter_name):
+    """
+    This function performs polarimetric calibration from a text file containing the m-matrix distortion parameters
+    Parameters
+    ----------
+    S : scatteringMatrix
+        the matrix to calibrate
+    parameter_name : string
+        Path to the parameters file, it must in the forma of np.save
+    """
+    m_inv = np.linalg.pinv(np.load(parameter_name))
+    #Imbalance correction
+    S_cal = np.einsum('...ij,...j->...i',m_inv,S.scattering_vector(bistatic = True, basis = 'lexicographic'))
+    S_cal = S.__array_wrap__(np.reshape(S_cal,S.shape[0:2] + (2,2)))
+    return S_cal
+    
+
 def coregister_channels(S):
     """
     This function coregisters the GPRI channels by shifting each channel by the corresponding number of samples in azimuth
