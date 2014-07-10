@@ -101,6 +101,8 @@ def correct_phase_ramp(S,if_phase, conversion_factor = 1):
     S_corr = S * 1
     conversion_factor = 1
     S_corr['VV'] = S['VV'] * np.exp(-1j*conversion_factor*if_phase)
+    S_corr['HV'] = S['HV'] * np.exp(-1j*conversion_factor*if_phase)
+    S_corr['VH'] = S['VH'] * np.exp(-1j*conversion_factor*if_phase)
     return S_corr
     
 def correct_phase_ramp_GPRI(S,S_other):
