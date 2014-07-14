@@ -7,7 +7,7 @@ Created on Thu May 15 14:34:25 2014
 import numpy as np
 import scipy
 from scipy import ndimage, fftpack
-def outer_product(data):
+def outer_product(data,data1):
     """
     Computes the outer product of multimensional data along the last dimension.
     
@@ -21,9 +21,9 @@ def outer_product(data):
         The outer product array.
     """
     if data.ndim > 1:
-        T = np.einsum("...i,...j->...ij",data,data.conjugate())
+        T = np.einsum("...i,...j->...ij",data,data1.conjugate())
     else:
-        T = np.outer(data,data)
+        T = np.outer(data,data1.conjugate())
     return T
     
 def smooth(T, window):

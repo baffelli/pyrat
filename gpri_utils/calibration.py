@@ -10,6 +10,8 @@ Utilities for GPRI calibration
 """
 import numpy as np
 from ..core import corefun
+import scipy
+from scipy import fftpack
 #from ..core import scatteringMatrix
 
 def calibrate_from_parameters(S,parameter_name):
@@ -79,7 +81,7 @@ def coregister_channels_FFT(S,shift_patch, oversampling = 1):
     return S_cor
 
 
-def correct_phase_ramp(S,if_phase, conversion_factor = 1):
+def correct_phase_ramp(S,if_phase, conversion_factor = 1, conversion_factor_1 = 1):
     """ 
     This function corrects the interferometric phase ramp between the copolarized channels due to the spatial separation
     of the H and the V antenna. In order to do so, it requires a interferogram and the conversion factor between the polarimetric baseline 
@@ -99,13 +101,13 @@ def correct_phase_ramp(S,if_phase, conversion_factor = 1):
         `S_corr` is the scattering matrix with the removed interferometric phase
     """
     S_corr = S * 1
-    conversion_factor = 1
+    print conversion_factor, conversion_factor_1
     S_corr['VV'] = S['VV'] * np.exp(-1j*conversion_factor*if_phase)
-    S_corr['HV'] = S['HV'] * np.exp(-1j*conversion_factor*if_phase)
-    S_corr['VH'] = S['VH'] * np.exp(-1j*conversion_factor*if_phase)
+    S_corr['HV'] = S['HV'] * np.exp(-1j*conversion_factor_1*if_phase)
+    S_corr['VH'] = S['VH'] * np.exp(-1j*conversion_factor_1*if_phase)
     return S_corr
     
-def correct_phase_ramp_GPRI(S,S_other):
+def correct_phase_ramp_GPRI(S,S_other, conversion_factor = 1, conversion_factor_1 = 1):
     """ 
     This function corrects the interferometric phase ramp between the copolarized channels due to the spatial separation
     of the H and the V antenna. To do so, it uses the interferometric baseline of the GPRI.
@@ -121,7 +123,7 @@ def correct_phase_ramp_GPRI(S,S_other):
         the scattering matrix with the removed interferometric phase
     """
     HH_VV_if = np.angle(S['HH']*S_other['HH'].conj())
-    S_corr = correct_phase_ramp(S,HH_VV_if)
+    S_corr = correct_phase_ramp(S,HH_VV_if, conversion_factor = conversion_factor, conversion_factor_1 = conversion_factor_1)
     return S_corr
 
 def correct_absolute_phase(S,ref_phase):

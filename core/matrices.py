@@ -321,7 +321,7 @@ class scatteringMatrix(np.ndarray):
             the resulting coherency matrix
         """
         k= self.scattering_vector(bistatic=bistatic,basis=basis)
-        T = corefun.outer_product(k)
+        T = corefun.outer_product(k, k)
         T = T.view(coherencyMatrix)
         T.basis = basis
         T.par = getattr(self, 'par',None)
@@ -462,14 +462,14 @@ class coherencyMatrix(np.ndarray):
             if agrisar:
                 s_matrix = scatteringMatrix(path,fmt='esar')
                 pauli = s_matrix.scattering_vector(bistatic = bistatic, basis = basis)
-                T = corefun.outer_product(pauli)
+                T = corefun.outer_product(pauli,pauli)
             elif coherency:
                 T = other_files.load_coherency(path,dim)
             elif polsarpro:
                 s_matrix = scatteringMatrix(path,dim,fmt='polsarpro')
                 #Pauli representation is defaulto
                 pauli = s_matrix.scattering_vector(bistatic = bistatic, basis = basis)
-                T = corefun.outer_product(pauli)
+                T = corefun.outer_product(pauli,pauli)
             elif gpri:
                 if 'chan' in kwargs:
                     chan = kwargs.get('chan')
@@ -477,7 +477,7 @@ class coherencyMatrix(np.ndarray):
                     chan = 'l'
                 s_matrix = scatteringMatrix(path,gpri = True, chan = chan)
                 pauli = s_matrix.scattering_vector(bistatic = bistatic, basis = basis)
-                T = corefun.outer_product(pauli)
+                T = corefun.outer_product(pauli, pauli)
                 obj = T.view(cls)
                 obj.window = [1,1]
                 obj.r_vec = s_matrix.r_vec
@@ -488,7 +488,7 @@ class coherencyMatrix(np.ndarray):
                 return obj
         elif type(args[1]) is gpriImage:    
             stack = args[1]
-            T = corefun.outer_product(stack)
+            T = corefun.outer_product(stack, stack)
         # Finally, we must return the newly created object:
         obj = T.view(cls)
         obj.window = [1,1]
