@@ -107,7 +107,7 @@ def correct_phase_ramp(S,if_phase, conversion_factor = 1, conversion_factor_1 = 
     S_corr['VH'] = S['VH'] * np.exp(-1j*conversion_factor_1*if_phase)
     return S_corr
     
-def correct_phase_ramp_GPRI(S,S_other, conversion_factor = 1, conversion_factor_1 = 1):
+def correct_phase_ramp_GPRI(S,S_ref_l,S_ref_u, conversion_factor = 1, conversion_factor_1 = 1):
     """ 
     This function corrects the interferometric phase ramp between the copolarized channels due to the spatial separation
     of the H and the V antenna. To do so, it uses the interferometric baseline of the GPRI.
@@ -122,7 +122,7 @@ def correct_phase_ramp_GPRI(S,S_other, conversion_factor = 1, conversion_factor_
     scatteringMatrix
         the scattering matrix with the removed interferometric phase
     """
-    HH_VV_if = np.angle(S['HH']*S_other['HH'].conj())
+    HH_VV_if = np.angle(S_ref_l['HH']*S_ref_u['HH'].conj())
     S_corr = correct_phase_ramp(S,HH_VV_if, conversion_factor = conversion_factor, conversion_factor_1 = conversion_factor_1)
     return S_corr
 
