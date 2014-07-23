@@ -331,3 +331,27 @@ def rectangle_vertices(v1,v2):
     x2 = v2[1]
     y2 = v2[0]
     return np.array([[x1,y1],[x1,y2],[x2,y2],[x2,y1]])
+    
+def if_hsv(ifgram):
+     H = scale_array(np.angle(ifgram))
+     S = np.ones_like(H)
+     V = np.abs(ifgram)
+     RGB = matplotlib.colors.hsv_to_rgb(np.dstack((H, S, V)))
+     return RGB
+
+def show_if(S1, S2, win):
+    name_list = ['HH', 'HV', 'VH', 'VV']
+    k1 = S1.scattering_vector(basis='lexicographic')
+    k2 = S2.scattering_vector(basis='lexicographic')
+    for i in range(4):
+        for j in range(4):
+            c_if = pyrat.coherence(k1[:, :, i], k2[:, :, j], win)
+            RGB = if_hsv(c_if)
+            if i == 0 and j == 0:
+                ax =  plt.subplot2grid((4, 4), (i, j))
+                plt.imshow(RGB,  cmap = 'gist_rainbow')
+                ax = plt.gca()
+            else:
+                 plt.subplot2grid((4, 4), (i, j), sharex = ax, sharey = ax)
+                 plt.imshow(RGB , cmap = 'gist_rainbow')
+            plt.title(name_list[i] + name_list[j])

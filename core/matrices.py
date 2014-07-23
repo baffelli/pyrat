@@ -99,14 +99,6 @@ class scatteringMatrix(np.ndarray):
         else:
             chan = 'l'
         if gpri is True:
-#            if 'H_ant' in kwargs:
-#                H_ant = kwargs.get('H_ant')
-#            else:
-#                H_ant = 'A'
-#            if H_ant is 'A':
-#                V_ant = 'B'
-#            else:
-#                V_ant = 'A'
             H_ant = 'A'
             V_ant = 'B'
             base_path = args[1]
