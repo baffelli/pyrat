@@ -307,8 +307,8 @@ def get_shift(image1,image2, oversampling = 1, axes = (0,1)):
     corr_image = norm_xcorr(image1_pad,image2_pad, axes = axes)
     shift = np.argmax(np.abs(corr_image))
     shift_idx = np.unravel_index(shift,corr_image.shape)
-    shift_idx = np.array(shift_idx) - oversampling*np.array(image1.shape)
-    #    shift_idx = tuple(np.divide(np.subtract(shift_idx , np.divide(corr_image.shape,2.0)),oversampling))
+#    shift_idx = np.array(shift_idx) - corr_image.shape / 2
+    shift_idx = tuple(np.divide(np.subtract(shift_idx , np.divide(corr_image.shape,2.0)),oversampling))
     return shift_idx, corr_image
 
 def norm_xcorr(image1,image2, axes = (0,1)):
