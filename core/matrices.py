@@ -120,11 +120,11 @@ class scatteringMatrix(np.ndarray):
             obj.az_vec = HH.az_vec
             ant_vec = []
             obj.geometry = 'polar'
-            for polarimetric_channel in [HH,VV,HV]:
+            for polarimetric_channel in [HH,VV]:
                 if chan is 'l':
-                    ant_vec = ant_vec + polarimetric_channel.ant_2_coord
+                    ant_vec = ant_vec + [polarimetric_channel.ant_2_coord[-1]]
                 else:
-                    ant_vec = ant_vec + polarimetric_channel.ant_1_coord
+                    ant_vec = ant_vec + [polarimetric_channel.ant_1_coord[-1]]
             obj.ant_vec = ant_vec
         else:
             if type(args[1]) is np.ndarray:

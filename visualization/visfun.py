@@ -93,6 +93,24 @@ def histeq(im,nbr_bins=256):
     #use linear interpolation of cdf to find new pixel values
     im2 = np.interp(im.flatten(),bins[:-1],cdf)
     return im2.reshape(im.shape)
+
+def exp_im(im, k):
+    """
+    Converts an image to the 0-1 range using a negative
+    exponential scaling
+    
+    Parameters
+    ----------
+    im : array_like
+        The image to convert
+    k  : double
+        The scaling exponent
+    Returns
+    -------
+    ndarray
+        The scaled image.
+    """
+    return 1 - np.exp(- k * np.abs(im))
     
 def bilinear_interpolate(im, x, y):
     
@@ -219,7 +237,7 @@ def geocode_image(image,pixel_size,*args):
     gc[r_idx.astype(np.long) == 0] = np.nan
     return gc, x_vec, y_vec
     
-def pauli_rgb(scattering_vector, normalized= False, log=False):
+def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1]):
         """
         This function produces a rgb image from a scattering vector.
         
@@ -239,7 +257,8 @@ def pauli_rgb(scattering_vector, normalized= False, log=False):
                 data_diagonal = np.log10(data_diagonal)
             else:
                 span = np.sum(data_diagonal,axis = 2)
-                pass
+                out = 1 - np.exp(- data_diagonal * np.array(k)[None,None, :])
+                return out
             R = scale_array(data_diagonal[:,:,0])
             G = scale_array(data_diagonal[:,:,1])
             B = scale_array(data_diagonal[:,:,2])
