@@ -11,7 +11,6 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 import pyrat
 import pyrat.core.polfun
-from osgeo import gdal
 
 def compute_dim(WIDTH,FACTOR):
     """
@@ -350,11 +349,16 @@ def rectangle_vertices(v1,v2):
     x2 = v2[1]
     y2 = v2[0]
     return np.array([[x1,y1],[x1,y2],[x2,y2],[x2,y1]])
+
+def scale_coherence(c):
     
+        return (np.sin(c * np.pi  - np.pi / 2) + 1)/2 * (c > 0.3)
+
+  
 def if_hsv(ifgram):
      H = scale_array(np.angle(ifgram))
      S = np.ones_like(H)
-     V = np.abs(ifgram)
+     V = scale_coherence(np.abs(ifgram))
      RGB = matplotlib.colors.hsv_to_rgb(np.dstack((H, S, V)))
      return RGB
 
@@ -368,9 +372,9 @@ def show_if(S1, S2, win):
             RGB = if_hsv(c_if)
             if i == 0 and j == 0:
                 ax =  plt.subplot2grid((4, 4), (i, j))
-                plt.imshow(RGB,  cmap = 'gist_rainbow')
+                plt.imshow(RGB,  cmap = 'gist_rainbow', interpolation = 'none')
                 ax = plt.gca()
             else:
-                 plt.subplot2grid((4, 4), (i, j), sharex = ax, sharey = ax)
-                 plt.imshow(RGB , cmap = 'gist_rainbow')
+                 plt.subplot2grid((4, 4), (i, j))
+                 plt.imshow(RGB , cmap = 'gist_rainbow', interpolation = 'none')
             plt.title(name_list[i] + name_list[j])
