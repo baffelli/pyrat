@@ -279,8 +279,13 @@ def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
         """
         ax = plt.gca()
         a = geocoded_image_list[0]
-        masked_array = np.ma.masked_where(np.isnan(a), a)
-        plt.imshow(masked_array,**kwargs)
+        if a.ndim is 3:
+            alpha = np.isnan(a[:,:,0])
+            a = np.dstack((a,~alpha))
+        else:
+            a = np.ma.masked_where(np.isnan(a), a)
+#        a[np.isnan(a)] = 0
+        plt.imshow(a,**kwargs)
 
         xv, yv = geocoded_image_list[1:None]
         xv_idx = np.linspace(0,len(xv)-1,n_ticks).astype(np.int)
@@ -288,7 +293,7 @@ def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
         plt.xticks(xv_idx,np.ceil(xv[xv_idx]))
         plt.yticks(yv_idx,np.ceil(yv[yv_idx]))
         ax.set_aspect('equal')
-        
+        return a
 class ROI:
     """
     Class to represent ROIS

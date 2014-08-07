@@ -96,14 +96,14 @@ class scatteringMatrix(np.ndarray):
         gpri = kwargs.get('gpri')
         if 'chan' in kwargs:
             chan = kwargs.get('chan')
-        else:
-            chan = 'l'
+#        else:
+#            chan = 'l'
         if gpri is True:
             H_ant = 'A'
             V_ant = 'B'
             base_path = args[1]
             slc_path_HH = base_path + "_" + H_ant + H_ant + H_ant + chan + ".slc"
-            slc_path_VV = base_path + "_" + V_ant + V_ant + V_ant + chan  + ".slc"
+            slc_path_VV = base_path + "_" + V_ant + V_ant + V_ant + chan + ".slc"
             slc_path_HV = base_path + "_" + H_ant + V_ant + V_ant + chan + ".slc"
             slc_path_VH = base_path + "_" + V_ant + H_ant + H_ant + chan + ".slc"
             HH = gpriImage(slc_path_HH)

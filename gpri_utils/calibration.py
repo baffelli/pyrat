@@ -29,6 +29,14 @@ def calibrate_from_parameters(S,parameter_name):
     S_cal = np.einsum('...ij,...j->...i',m_inv,S.scattering_vector(bistatic = True, basis = 'lexicographic'))
     S_cal = S.__array_wrap__(np.reshape(S_cal,S.shape[0:2] + (2,2)))
     return S_cal
+
+def swap_channels(S):
+    S1 = S * 1
+    S1['HH'] = np.abs(S['VH'])
+    S1['VH'] = np.abs(S['HH']) 
+    S1['HV'] = np.abs(S['VV'])
+    S1['VV'] = np.abs(S['HV'])
+    return S1
     
 
 def coregister_channels(S):
