@@ -383,3 +383,9 @@ def show_if(S1, S2, win):
                  plt.subplot2grid((4, 4), (i, j))
                  plt.imshow(RGB , cmap = 'gist_rainbow', interpolation = 'none')
             plt.title(name_list[i] + name_list[j])
+            
+def hsv_cp(H,alpha,span):
+    V = scale_array(np.log10(span))    
+    H1 = scale_array(alpha, top = 0, bottom = 240)  / 360
+    S = 1 - H
+    return matplotlib.colors.hsv_to_rgb(np.dstack((H1,S,V)))

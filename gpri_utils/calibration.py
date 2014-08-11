@@ -14,6 +14,12 @@ import scipy
 from scipy import fftpack
 #from ..core import scatteringMatrix
 
+def calibrate_from_r_and_t(S, R,T):
+    T_inv = np.linalg.inv(T)
+    R_inv = np.linalg.inv(R)
+    S_cal = corefun.transform(R_inv,S,T_inv)
+    return S_cal
+
 def calibrate_from_parameters(S,parameter_name):
     """
     This function performs polarimetric calibration from a text file containing the m-matrix distortion parameters
@@ -22,7 +28,7 @@ def calibrate_from_parameters(S,parameter_name):
     S : scatteringMatrix
         the matrix to calibrate
     parameter_name : string
-        Path to the parameters file, it must in the forma of np.save
+        Path to the parameters file, it must in the form of np.save
     """
     m_inv = np.linalg.pinv(np.load(parameter_name))
     #Imbalance correction
