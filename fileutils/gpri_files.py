@@ -25,7 +25,6 @@ def load_par(path):
     for l in lines:
         keys = l.split()
         if len(keys) > 1:
-            print keys[0]
             if keys[0] == "title:":
                 print keys
                 utc = dateutil.parser.parse(string.join(keys[1:3]))
