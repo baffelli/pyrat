@@ -29,39 +29,45 @@ class gpriImage(np.ndarray):
                 par = gpri_files.load_par(path + '.par')
         print data_1.shape
         obj = data_1.view(cls)
-        north = par['GPRI_ref_north']
-        east = par['GPRI_ref_east']
+        north = par['GPRI_ref_north'][0]
+        east = par['GPRI_ref_east'][0]
         r_min = par['near_range_slc'][0] 
         r_max = par['far_range_slc'][0]
         n_range = par['range_samples'][0]
-        r_step = (r_max - r_min)/n_range
         az_step = np.deg2rad(par['GPRI_az_angle_step'][0])
         az_min = np.deg2rad(par['GPRI_az_start_angle'][0])
         n_az = par['azimuth_lines'][0] 
         az_max = az_min + n_az * az_step
         az_vec = np.linspace(az_min,az_max,n_az) 
         r_vec = np.linspace(r_min,r_max,n_range)
+        #Set attributes
+        obj.center = [north, east,par['GPRI_ref_alt'][0]]
         obj.az_vec = az_vec
         obj.r_vec = r_vec
         obj.ant_1_coord = par['GPRI_rx1_coord']
         obj.ant_2_coord = par['GPRI_rx2_coord']
+        obj.utc = par['utc']
         return obj 
     
 
     def __array_wrap__(self, out_arr, context=None):
         temp_arr = np.ndarray.__array_wrap__(self, out_arr, context)
         temp_arr = temp_arr.view(gpriImage)
-        temp_arr.par = getattr(self, 'par',None)
-        temp_arr.r_vec = getattr(self, 'r_vec', None)
-        temp_arr.az_vec = getattr(self, 'az_vec', None)
-        temp_arr.ant_1_coord = getattr(self, 'ant_1_coord', None)
-        temp_arr.ant_2_coord = getattr(self, 'ant_2_coord', None)
+        temp_arr.__dict__.update(self.__dict__)
+#        temp_arr.par = getattr(self, 'par',None)
+#        temp_arr.r_vec = getattr(self, 'r_vec', None)
+#        temp_arr.az_vec = getattr(self, 'az_vec', None)
+#        temp_arr.ant_1_coord = getattr(self, 'ant_1_coord', None)
+#        temp_arr.ant_2_coord = getattr(self, 'ant_2_coord', None)
+#        temp_arr.center = getattr(self, 'center', None)
+#        temp_arr.utc = getattr(self, 'utc', None)
         return temp_arr
         
         
     def __getitem__(self,sl):
         new_obj_1 = np.array(super(gpriImage, self).__getitem__(sl))
         new_obj_1 = new_obj_1.view(gpriImage)
+        new_obj_1.__dict__.update(self.__dict__)
         if type(sl) is slice or type(sl) is tuple:
             r_vec = self.r_vec
             az_vec = self.az_vec
@@ -76,6 +82,8 @@ class gpriImage(np.ndarray):
         if obj is None: return
         self.az_vec = getattr(obj, 'az_vec','none')
         self.r_vec = getattr(obj, 'r_vec','none')
+        self.center = getattr(obj, 'center','none')
+        self.utc = getattr(obj, 'utc','none')
         
 
 
@@ -118,6 +126,8 @@ class scatteringMatrix(np.ndarray):
             obj = np.asarray(s_matrix).view(cls)
             obj.r_vec = HH.r_vec
             obj.az_vec = HH.az_vec
+            obj.utc = HH.utc
+            obj.center = HH.center
             ant_vec = []
             obj.geometry = 'polar'
             for polarimetric_channel in [HH,VV]:
@@ -153,21 +163,19 @@ class scatteringMatrix(np.ndarray):
             sli = sl
         new_obj_1 =  super(scatteringMatrix,self).__getitem__(sli)
         if  hasattr(self,'geometry') and type(sl) is tuple:
+            new_obj_1.__dict__.update(self.__dict__)
             if self.geometry is 'polar':
                 r_vec = self.r_vec[(sli[1])]
                 az_vec = self.az_vec[(sli[0])]
                 new_obj_1.__setattr__('r_vec',r_vec)
                 new_obj_1.__setattr__('az_vec',az_vec)
-                new_obj_1.__setattr__('geometry',self.geometry)
         return new_obj_1
         
         
     def __copy__(self):
         print self.r_vec
         new_obj = scatteringMatrix(np.array(self).__copy__())
-        new_obj.__setattr__('r_vec', self.__getattr__('r_vec',None))
-        new_obj.__setattr__('az_vec', self.__getattr__('az_vec',None))
-        new_obj.__setattr__('geometry' , self.__getattr__('geometry',None))
+        new_obj_1.__dict__.update(self.__dict__)
         return new_obj
         
     def __setitem__(self,sl,item):
@@ -189,23 +197,19 @@ class scatteringMatrix(np.ndarray):
         self1 = self.view(np.ndarray)
         self1.__setitem__(sli,item)
         self1 = self1.view(scatteringMatrix)
+        self1.__dict__.update(self.__dict__)
         if self.geometry is 'polar':
             r_vec = self.r_vec
             az_vec = self.az_vec
             self1.__setattr__('r_vec',r_vec)
             self1.__setattr__('az_vec',az_vec)
-            self1.__setattr__('geometry',self.geometry)
         self = self1 
 
     
     def __array_wrap__(self, out_arr, context=None):
         temp_arr = np.ndarray.__array_wrap__(self, out_arr, context)
         temp_arr = temp_arr.view(scatteringMatrix)
-        temp_arr.par = getattr(self, 'par',None)
-        temp_arr.r_vec = getattr(self, 'r_vec', None)
-        temp_arr.az_vec = getattr(self, 'az_vec', None)
-        temp_arr.ant_vec = getattr(self, 'ant_vec', None)
-        temp_arr.geometry = getattr(self, 'geometry', 'cartesian')
+        temp_arr.__dict__.update(self.__dict__)
         return temp_arr
         
 #    def transform(self,A,B):
@@ -323,6 +327,7 @@ class scatteringMatrix(np.ndarray):
         T.az_vec = getattr(self, 'az_vec', None)
         T.ant_vec = getattr(self, 'ant_vec', None)
         T.geometry = 'polar'
+        T.title = getattr(self, 'title', None)
         return T
 
 
@@ -423,6 +428,7 @@ class coherencyMatrix(np.ndarray):
             new_obj_1.__setattr__('az_vec',az_vec[(sl[0])])
             new_obj_1.__setattr__('basis',self.basis)
             new_obj_1.__setattr__('geometry',self.geometry)
+            new_obj_1.__setattr__('title',self.title)
             return new_obj_1
         return new_obj_1
 
@@ -479,6 +485,7 @@ class coherencyMatrix(np.ndarray):
                 obj.geometry = 'polar'
                 obj.basis = basis
                 obj.ant_coord = s_matrix.ant_coord
+                obj.title = s_matrix.title
                 return obj
         elif type(args[1]) is gpriImage:    
             stack = args[1]
@@ -499,6 +506,7 @@ class coherencyMatrix(np.ndarray):
         temp_arr.r_vec = getattr(self, 'r_vec', None)
         temp_arr.az_vec = getattr(self, 'az_vec', None)
         temp_arr.par = getattr(self, 'par', None)
+        temp_arr.title = getattr(self, 'title', None)
         return temp_arr
         
     def __array_finalize__(self, obj):
@@ -509,6 +517,7 @@ class coherencyMatrix(np.ndarray):
         self.basis = getattr(obj, 'basis','pauli')
         self.r_vec = getattr(obj, 'r_vec', None)
         self.az_vec = getattr(obj, 'az_vec', None)
+        self.title = getattr(obj, 'title', None)
 
     def boxcar_filter(self,window, discard= False):
         """

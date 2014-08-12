@@ -6,6 +6,8 @@ Created on Thu May 15 13:51:30 2014
 """
 import re
 import numpy as np
+import dateutil.parser
+import string
 
 def load_par(path):
     """
@@ -23,14 +25,21 @@ def load_par(path):
     for l in lines:
         keys = l.split()
         if len(keys) > 1:
-            par_name = keys[0]
-            par_name = par_name.replace(":","")
-            par_numbers = re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", l)
-            new_numbers  = []
-            for num in par_numbers:
-                flt = float(num)
-                new_numbers  = new_numbers + [flt]
-            par = par + [(par_name,new_numbers)]
+            print keys[0]
+            if keys[0] == "title:":
+                print keys
+                utc = dateutil.parser.parse(string.join(keys[1:3]))
+                par = par + [('utc',utc)]
+                continue
+            else:
+                par_name = keys[0]
+                par_name = par_name.replace(":","")
+                par_numbers = re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", l)
+                new_numbers  = []
+                for num in par_numbers:
+                    flt = float(num)
+                    new_numbers  = new_numbers + [flt]
+                par = par + [(par_name,new_numbers)]
     return dict(par)
 
 def load_slc(path):
