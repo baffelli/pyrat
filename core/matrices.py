@@ -44,6 +44,7 @@ class gpriImage(np.ndarray):
         obj.center = [north, east,par['GPRI_ref_alt'][0]]
         obj.az_vec = az_vec
         obj.r_vec = r_vec
+        obj.tx_coord = par['GPRI_tx_coord']
         obj.ant_1_coord = par['GPRI_rx1_coord']
         obj.ant_2_coord = par['GPRI_rx2_coord']
         obj.utc = par['utc']
@@ -102,11 +103,9 @@ class scatteringMatrix(np.ndarray):
     def __new__(*args,**kwargs):      
         cls = args[0]
         gpri = kwargs.get('gpri')
-        if 'chan' in kwargs:
-            chan = kwargs.get('chan')
-#        else:
-#            chan = 'l'
         if gpri is True:
+            if 'chan' in kwargs:
+                chan = kwargs.get('chan')
             H_ant = 'A'
             V_ant = 'B'
             base_path = args[1]
@@ -128,22 +127,28 @@ class scatteringMatrix(np.ndarray):
             obj.az_vec = HH.az_vec
             obj.utc = HH.utc
             obj.center = HH.center
-            ant_vec = []
+            phase_center = []
             obj.geometry = 'polar'
-            for polarimetric_channel in [HH,VV]:
+            for polarimetric_channel in [HH,HV,VH,VV]:
+                tx_vec = polarimetric_channel.tx_coord
                 if chan is 'l':
-                    ant_vec = ant_vec + [polarimetric_channel.ant_2_coord[-1]]
+                    rx_vec = polarimetric_channel.ant_1_coord
                 else:
-                    ant_vec = ant_vec + [polarimetric_channel.ant_1_coord[-1]]
-            obj.ant_vec = ant_vec
+                    rx_vec = polarimetric_channel.ant_2_coord
+                phase_center.append((rx_vec[-1] + tx_vec[-1])/2)
+            obj.ant_vec = np.reshape(phase_center,[2,2])
         else:
             if type(args[1]) is np.ndarray:
                 s_matrix = args[1]            
             elif type(args[1]) is str:
                 args = args[1:None]
                 s_matrix = other_files.load_scattering(*args,**kwargs)
-            obj = np.asarray(s_matrix).view(cls)
+            obj = s_matrix.view(scatteringMatrix)
+            obj.geometry = 'cartesian'
         return obj
+    def __array_finalize__(self, obj):
+        if obj is None: return
+        self.geometry = getattr(obj, 'geometry', None)
         
     def __getitem__(self,sl):
         if type(sl) is str:
@@ -212,10 +217,6 @@ class scatteringMatrix(np.ndarray):
         temp_arr.__dict__.update(self.__dict__)
         return temp_arr
         
-#    def transform(self,A,B):
-#        This function transforms 
-#        out = np.einsum("...ik,...kl,...lj->...ij",A,self,B)
-#        return out
         
     
     def scattering_vector(self,basis = 'pauli',bistatic = True):
@@ -237,16 +238,16 @@ class scatteringMatrix(np.ndarray):
         if bistatic is True:
             sv = np.zeros(self.shape[0:2] +(4,),dtype = self.dtype)
             if basis is 'pauli':
-                sv1 = self['HH'] + self['VV']
-                sv2 = self['HH'] - self['VV']
-                sv3 = self['HV'] + self['VH']
-                sv4 = 1j*(self['HV'] - self['VH'])
+                sv1 = np.array(self['HH'] + self['VV'])
+                sv2 = np.array(self['HH'] - self['VV'])
+                sv3 = np.array(self['HV'] + self['VH'])
+                sv4 = np.array(1j*(self['HV'] - self['VH']))
                 factor =  1/np.sqrt(2)
             elif basis is 'lexicographic':
-                sv1 = self['HH']
-                sv2 = self['HV']
-                sv3 = self['VH']
-                sv4 = self['VV']
+                sv1 = np.array(self['HH'])
+                sv2 = np.array(self['HV'])
+                sv3 = np.array(self['VH'])
+                sv4 = np.array(self['VV'])
                 factor = 1
             if self.ndim is 2:
                 sv = factor * np.hstack((sv1,sv2,sv3,sv4))
@@ -255,14 +256,14 @@ class scatteringMatrix(np.ndarray):
         elif bistatic is False:
             sv = np.zeros(self.shape[0:2] + (3,),dtype = self.dtype)
             if basis is 'pauli':
-                sv1 = self['HH'] + self['VV']
-                sv2 = self['HH'] - self['VV']
-                sv3 = (self['HV']) * 2
+                sv1 = np.array(self['HH'] + self['VV'])
+                sv2 = np.array(self['HH'] - self['VV'])
+                sv3 = np.array((self['HV']) * 2)
                 factor =  1/np.sqrt(2)
             elif basis is 'lexicographic':
-                sv1 = self['HH']
-                sv2 = np.sqrt(2) * self['HV']    
-                sv3 = self['VV']
+                sv1 = np.array(self['HH'])
+                sv2 = np.array(np.sqrt(2) * self['HV'])    
+                sv3 = np.array(self['VV'])
                 factor = 1
             if self.ndim is 2:
                 sv = factor * np.hstack((sv1,sv2,sv3))
@@ -326,7 +327,7 @@ class scatteringMatrix(np.ndarray):
         T.r_vec = getattr(self, 'r_vec', None)
         T.az_vec = getattr(self, 'az_vec', None)
         T.ant_vec = getattr(self, 'ant_vec', None)
-        T.geometry = 'polar'
+        T.geometry = getattr(self, 'geometry', None)
         T.title = getattr(self, 'title', None)
         return T
 
@@ -496,6 +497,10 @@ class coherencyMatrix(np.ndarray):
         obj.basis = basis
         obj.geometry = 'cartesian'
         return obj
+        
+    def __array_finalize__(self, obj):
+        if obj is None: return
+        self.geometry = getattr(obj, 'geometry', None)
         
     def __array_wrap__(self, out_arr, context=None):
         temp_arr = np.ndarray.__array_wrap__(self, out_arr, context)

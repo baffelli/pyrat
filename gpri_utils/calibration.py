@@ -36,13 +36,14 @@ def calibrate_from_parameters(S,parameter_name):
     S_cal = S.__array_wrap__(np.reshape(S_cal,S.shape[0:2] + (2,2)))
     return S_cal
 
-def swap_channels(S):
-    S1 = S * 1
-    S1['HH'] = np.abs(S['VH'])
-    S1['VH'] = np.abs(S['HH']) 
-    S1['HV'] = np.abs(S['VV'])
-    S1['VV'] = np.abs(S['HV'])
-    return S1
+def swap_channels(S_u,S_l):
+    S_u_n = S_u * 1
+    S_l_n = S_l * 1
+    S_u_n['VV'] = S_l['VV']
+    S_l_n['VV'] = S_u['VV']
+#    S_u_n['HH'] = S_l['HH']
+#    S_l_n['HH'] = S_u['HH']
+    return S_u_n, S_l_n
     
 
 def coregister_channels(S):

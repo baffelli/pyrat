@@ -109,7 +109,7 @@ def exp_im(im, k):
     ndarray
         The scaled image.
     """
-    return 1 - np.exp(- k * np.abs(im))
+    return scale_array(1 - np.exp(- k * np.abs(im)))
     
 def bilinear_interpolate(im, x, y):
     
@@ -374,9 +374,11 @@ def show_if(S1, S2, win):
     name_list = ['HH', 'HV', 'VH', 'VV']
     k1 = S1.scattering_vector(basis='lexicographic')
     k2 = S2.scattering_vector(basis='lexicographic')
+    if_mat = np.zeros(S1.shape[0:2] + (4,4), dtype = np.complex64)
     for i in range(4):
         for j in range(4):
             c_if = pyrat.coherence(k1[:, :, i], k2[:, :, j], win)
+            if_mat[:,:,i,j] = c_if
             RGB = if_hsv(c_if)
             if i == 0 and j == 0:
                 ax =  plt.subplot2grid((4, 4), (i, j))
@@ -386,6 +388,7 @@ def show_if(S1, S2, win):
                  plt.subplot2grid((4, 4), (i, j))
                  plt.imshow(RGB , cmap = 'gist_rainbow', interpolation = 'none')
             plt.title(name_list[i] + name_list[j])
+    return if_mat
             
 def hsv_cp(H,alpha,span):
     V = scale_array(np.log10(span))    
