@@ -249,12 +249,12 @@ def gct(exact_targets,measured_targets):
         return lam_dot,x,lam,y
             
         
-    N1 = measured_targets[0]
-    N2 = measured_targets[1]
-    N3 = measured_targets[2]
-    P1 = exact_targets[0]
-    P2 = exact_targets[1]
-    P3 = exact_targets[2]
+    N1 = np.array(measured_targets[0])
+    N2 = np.array(measured_targets[1])
+    N3 = np.array(measured_targets[2])
+    P1 = np.array(exact_targets[0])
+    P2 = np.array(exact_targets[1])
+    P3 = np.array(exact_targets[2])
     #similarity transformations
     
     #for transmit distortion
