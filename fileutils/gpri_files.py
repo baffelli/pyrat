@@ -26,10 +26,12 @@ def load_par(path):
         keys = l.split()
         if len(keys) > 1:
             if keys[0] == "title:":
-                print keys
-                utc = dateutil.parser.parse(string.join(keys[1:3]))
-                par = par + [('utc',utc)]
-                continue
+                try:
+                    utc = dateutil.parser.parse(string.join(keys[1:3]))
+                    par = par + [('utc',utc)]
+                    continue
+                except:
+                    continue
             else:
                 par_name = keys[0]
                 par_name = par_name.replace(":","")
@@ -40,6 +42,14 @@ def load_par(path):
                     new_numbers  = new_numbers + [flt]
                 par = par + [(par_name,new_numbers)]
     return dict(par)
+
+def load_complex(path):
+    d = np.fromfile(file=path, dtype=np.float32)
+    d = d.byteswap()
+    d_real = d[0::2]
+    d_imag = d[1::2]
+    d_comp = d_real + 1j * d_imag
+    return d_comp
 
 def load_slc(path):
     """
@@ -52,10 +62,31 @@ def load_slc(path):
     par: the file as a numpy array. The shape is (n_azimuth, n_range)
     """
     par = load_par(path +'.par')
-    d = np.fromfile(file=path, dtype=np.float32)
-    d = d.byteswap()
-    d_real = d[0::2]
-    d_imag = d[1::2]
-    d_comp = d_real + 1j * d_imag
+    d_comp = load_complex(path)
     d_image = np.reshape(d_comp,(par['azimuth_lines'][0],par['range_samples'][0]))
     return d_image
+    
+def load_int(path):
+    split_string = path.split('.')
+    print split_string
+    par_path = split_string[0] + '.off'
+    print par_path
+    par = load_par(par_path)
+    d_comp = load_complex(path)
+    d_image = np.reshape(d_comp,(par['interferogram_azimuth_lines'][0],par['interferogram_width'][0]))
+    return d_image
+
+
+
+def load_dem(path):
+    split_string = path.split('.')
+    print split_string
+    par_path = split_string[0] + '.off'
+    print par_path
+    par = load_par(par_path)
+    d = np.fromfile(file=path, dtype=np.float32).byteswap()
+    d_image = np.reshape(d,(par['interferogram_azimuth_lines'][0],par['interferogram_width'][0]))
+    return d_image
+    
+
+

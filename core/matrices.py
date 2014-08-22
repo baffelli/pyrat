@@ -45,8 +45,8 @@ class gpriImage(np.ndarray):
         obj.az_vec = az_vec
         obj.r_vec = r_vec
         obj.tx_coord = par['GPRI_tx_coord']
-        obj.ant_1_coord = par['GPRI_rx1_coord']
-        obj.ant_2_coord = par['GPRI_rx2_coord']
+#        obj.ant_1_coord = par['GPRI_rx1_coord']
+#        obj.ant_2_coord = par['GPRI_rx2_coord']
         obj.utc = par['utc']
         return obj 
     
@@ -55,13 +55,7 @@ class gpriImage(np.ndarray):
         temp_arr = np.ndarray.__array_wrap__(self, out_arr, context)
         temp_arr = temp_arr.view(gpriImage)
         temp_arr.__dict__.update(self.__dict__)
-#        temp_arr.par = getattr(self, 'par',None)
-#        temp_arr.r_vec = getattr(self, 'r_vec', None)
-#        temp_arr.az_vec = getattr(self, 'az_vec', None)
-#        temp_arr.ant_1_coord = getattr(self, 'ant_1_coord', None)
-#        temp_arr.ant_2_coord = getattr(self, 'ant_2_coord', None)
-#        temp_arr.center = getattr(self, 'center', None)
-#        temp_arr.utc = getattr(self, 'utc', None)
+
         return temp_arr
         
         
@@ -129,13 +123,16 @@ class scatteringMatrix(np.ndarray):
             obj.center = HH.center
             phase_center = []
             obj.geometry = 'polar'
-            for polarimetric_channel in [HH,HV,VH,VV]:
-                tx_vec = polarimetric_channel.tx_coord
+            TX_VEC = [0,0.125]
+            RX_VEC_U = [0.475,0.6]
+            RX_VEC_L = [0.725,0.85]
+            phase_center = []
+            for polarimetric_channel, idx_tx,idx_rx in zip([HH,HV,VH,VV],[0,0,1,1],[0,1,0,1]):
                 if chan is 'l':
-                    rx_vec = polarimetric_channel.ant_1_coord
+                    rx_vec = RX_VEC_U
                 else:
-                    rx_vec = polarimetric_channel.ant_2_coord
-                phase_center.append((rx_vec[-1] + tx_vec[-1])/2)
+                    rx_vec = RX_VEC_L
+                phase_center.append((rx_vec[idx_rx] + TX_VEC[idx_tx])/2)#Compute effective phase center
             obj.ant_vec = np.reshape(phase_center,[2,2])
         else:
             if type(args[1]) is np.ndarray:
@@ -164,16 +161,24 @@ class scatteringMatrix(np.ndarray):
                 sli = (Ellipsis,Ellipsis) + base_idx
             else:
                 sli = base_idx
+                new_obj_1 =  (super(scatteringMatrix,self).__getitem__(sli))
+                return new_obj_1
         elif type(sl) is slice or type(sl) is tuple or type(sl) is int:
             sli = sl
-        new_obj_1 =  super(scatteringMatrix,self).__getitem__(sli)
-        if  hasattr(self,'geometry') and type(sl) is tuple:
-            new_obj_1.__dict__.update(self.__dict__)
+        #apply slicing
+        new_obj_1 =  (super(scatteringMatrix,self).__getitem__(sli))
+        
+        if  hasattr(self,'geometry') and type(sli) is tuple:
+            if hasattr(new_obj_1, '__dict__'):
+                new_obj_1.__dict__.update(self.__dict__)
             if self.geometry is 'polar':
                 r_vec = self.r_vec[(sli[1])]
                 az_vec = self.az_vec[(sli[0])]
                 new_obj_1.__setattr__('r_vec',r_vec)
                 new_obj_1.__setattr__('az_vec',az_vec)
+                if type(sl) is str:
+                    chan_phase_center = self.ant_vec[base_idx]
+                    new_obj_1.__setattr__('ant_vec',chan_phase_center)
         return new_obj_1
         
         
@@ -337,7 +342,7 @@ class scatteringMatrix(np.ndarray):
             basis = kwargs.pop('basis')
         else:
             basis = 'pauli'
-        k = self.scattering_vector(bistatic= False, basis = basis)
+        k = self.scattering_vector(bistatic = False, basis = basis)
         if basis is 'pauli':
             k = k[:,:,[0,2,1]]
         else:

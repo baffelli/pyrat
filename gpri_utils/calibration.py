@@ -30,10 +30,17 @@ def calibrate_from_parameters(S,parameter_name):
     parameter_name : string
         Path to the parameters file, it must in the form of np.save
     """
-    m_inv = np.linalg.pinv(np.load(parameter_name))
-    #Imbalance correction
-    S_cal = np.einsum('...ij,...j->...i',m_inv,S.scattering_vector(bistatic = True, basis = 'lexicographic'))
-    S_cal = S.__array_wrap__(np.reshape(S_cal,S.shape[0:2] + (2,2)))
+#    m_inv = np.linalg.pinv(np.load(parameter_name))
+#    #Imbalance correction
+#    S_cal = np.einsum('...ij,...j->...i',m_inv,S.scattering_vector(bistatic = True, basis = 'lexicographic'))
+#    S_cal = S.__array_wrap__(np.reshape(S_cal,S.shape[0:2] + (2,2)))
+    m = np.load(parameter_name)
+    f = m[0]
+    g = m[1]
+    S_cal = S * 1
+    S_cal['VV'] = S_cal['VV'] * 1/f**2
+    S_cal['HV'] = S_cal['HV'] * 1/f 
+    S_cal['VH'] = S_cal['VH'] * 1/f * 1/g
     return S_cal
 
 def swap_channels(S_u,S_l):
@@ -96,7 +103,7 @@ def coregister_channels_FFT(S,shift_patch, oversampling = 1):
     return S_cor
 
 
-def correct_phase_ramp(S,if_phase, conversion_factor = 1, conversion_factor_1 = 1):
+def correct_phase_ramp(S,if_phase, cv_vec = [1,0,0]):
     """ 
     This function corrects the interferometric phase ramp between the copolarized channels due to the spatial separation
     of the H and the V antenna. In order to do so, it requires a interferogram and the conversion factor between the polarimetric baseline 
@@ -115,13 +122,14 @@ def correct_phase_ramp(S,if_phase, conversion_factor = 1, conversion_factor_1 = 
     S_corr : scatteringMatrix
         `S_corr` is the scattering matrix with the removed interferometric phase
     """
+
     S_corr = S * 1
-    S_corr['VV'] = S['VV'] * np.exp(-1j*conversion_factor*if_phase)
-    S_corr['HV'] = S['HV'] * np.exp(-1j*conversion_factor_1*if_phase)
-    S_corr['VH'] = S['VH'] * np.exp(-1j*conversion_factor_1*if_phase)
+    S_corr['VV'] = S['VV'] * np.exp(-1j*cv_vec[0]*if_phase)
+    S_corr['HV'] = S['HV'] * np.exp(-1j*cv_vec[1]*if_phase)
+    S_corr['VH'] = S['VH'] * np.exp(-1j*cv_vec[2]*if_phase)
     return S_corr
     
-def correct_phase_ramp_GPRI(S,S_ref_l,S_ref_u, conversion_factor = 1, conversion_factor_1 = 1):
+def correct_phase_ramp_GPRI(S,S_ref_2, conversion_factor = 1, conversion_factor_1 = 0):
     """ 
     This function corrects the interferometric phase ramp between the copolarized channels due to the spatial separation
     of the H and the V antenna. To do so, it uses the interferometric baseline of the GPRI.
@@ -136,8 +144,31 @@ def correct_phase_ramp_GPRI(S,S_ref_l,S_ref_u, conversion_factor = 1, conversion
     scatteringMatrix
         the scattering matrix with the removed interferometric phase
     """
-    HH_VV_if = np.angle(S_ref_l['HH']*S_ref_u['HH'].conj())
-    S_corr = correct_phase_ramp(S,HH_VV_if, conversion_factor = conversion_factor, conversion_factor_1 = conversion_factor_1)
+    S_ref_1 = S * 1
+    ref_b = (S_ref_1['HH'].ant_vec - S_ref_2['HH'].ant_vec)
+    #Compute conversion factors
+    cf_co = (S['HH'].ant_vec - S['VV'].ant_vec) / ref_b
+    cf_cr_1 = (S['HH'].ant_vec - S['HV'].ant_vec) / ref_b
+    cf_cr_2 = (S['HH'].ant_vec - S['VH'].ant_vec) / ref_b
+    HH_VV_if = np.angle(S_ref_1['HH']*S_ref_2['HH'].conj())
+    S_corr = correct_phase_ramp(S,HH_VV_if, cv_vec = [cf_co,cf_cr_1,cf_cr_2])
+    return S_corr
+
+def correct_phase_ramp_DEM(S, DEM, B_if):
+    B1 = S.ant_vec[0,0] - S.ant_vec[1,1]
+    B2 = S.ant_vec[0,0] - S.ant_vec[0,1]
+    B3 = S.ant_vec[0,0] - S.ant_vec[1,0]
+
+    
+    ifgram_co = np.exp(-1j * DEM *  B1 / B_if)
+    ifgram_HV = np.exp(-1j * DEM * B2 / B_if)
+    ifgram_VH = np.exp(-1j * DEM * B3 / B_if)
+    
+    S_corr = S * 1
+    
+    S_corr['VV'] = S_corr['VV'] * ifgram_co.conj()
+    S_corr['HV'] = S_corr['HV'] * ifgram_HV.conj()
+    S_corr['VH'] = S_corr['VH'] * ifgram_VH.conj()
     return S_corr
 
 def correct_absolute_phase(S,ref_phase):

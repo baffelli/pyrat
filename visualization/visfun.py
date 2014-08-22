@@ -11,6 +11,8 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 import pyrat
 import pyrat.core.polfun
+import mayavi
+from mayavi import mlab
 
 def compute_dim(WIDTH,FACTOR):
     """
@@ -252,7 +254,7 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1]):
         data_diagonal = np.abs(scattering_vector) 
         if not normalized:
             if log:
-                span = np.log10(np.sum(data_diagonal,axis = 2))
+                span = np.log10(np.sum(data_diagonal * np.array([1,2,1])[None,None,:],axis = 2))
                 data_diagonal = np.log10(data_diagonal)
             else:
                 R = data_diagonal[:,:,0] / np.max(data_diagonal[:,:,0])
@@ -261,9 +263,9 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1]):
                 span = np.sum(data_diagonal,axis = 2)
                 out = 1 - np.exp(- data_diagonal * np.array(k)[None,None, :])
                 return out
-            R = scale_array(data_diagonal[:,:,0])
-            G = scale_array(data_diagonal[:,:,1])
-            B = scale_array(data_diagonal[:,:,2])
+            R = scale_array(data_diagonal[:,:,0], max_val =  0.99 * data_diagonal[:,:,0].max())
+            G = scale_array(data_diagonal[:,:,1], max_val =  0.99 * data_diagonal[:,:,1].max())
+            B = scale_array(data_diagonal[:,:,2], max_val =  0.99 * data_diagonal[:,:,0].max())
             out = np.zeros(R.shape+(3,))
             out[:,:,0] = R
             out[:,:,1] = G
@@ -395,3 +397,16 @@ def hsv_cp(H,alpha,span):
     H1 = scale_array(alpha, top = 0, bottom = 240)  / 360
     S = 1 - H
     return matplotlib.colors.hsv_to_rgb(np.dstack((H1,S,V)))
+
+def show_signature(signature_output):
+    phi = signature_output[2]
+    tau = signature_output[3]
+    sig_co = signature_output[0]
+    sig_cross = signature_output[1]
+    phi_1, tau_1 = np.meshgrid(phi, tau)
+    f_co = mlab.figure()
+    mlab.mesh(phi_1,tau_1,np.abs(sig_co).transpose(), representation = 'wireframe')
+    f_x = mlab.figure()
+    mlab.mesh(phi_1,tau_1,np.abs(sig_cross).transpose(), representation = 'wireframe')
+    return f_co, f_x
+
