@@ -268,7 +268,9 @@ def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
         y_max = np.ceil(yv.max())
         ext = [x_min, x_max, y_min, y_max]
         plt.imshow(a, extent = ext, origin = 'lower'  ,**kwargs)
-
+        plt.xticks(rotation=90)
+        plt.xlabel('distance [m]')
+        plt.ylabel('distance [m]')
 #        xv_idx = np.linspace(0,len(xv)-1,n_ticks).astype(np.int)
 #        yv_idx = np.linspace(0,len(yv)-1,n_ticks).astype(np.int)
 #        plt.xticks(xv_idx,np.ceil(xv[xv_idx]))
@@ -386,12 +388,16 @@ def show_signature(signature_output):
     plt.locator_params(nbins=5)
     plt.xlabel(r'ellipicity $\tau$')
     plt.ylabel(r'orientation $\phi$')
+    plt.xticks(rotation=90)
+
 #    plt.axis('equal')
     f_x = plt.figure()
     plt.imshow(sig_cross, interpolation = 'none', cmap =  'RdBu_r', extent = xt)
     plt.locator_params(nbins=5)
     plt.xlabel(r'ellipicity $\tau$')
     plt.ylabel(r'orientation $\phi$')
+    plt.xticks(rotation=90)
+
 #    plt.axis('equal')
     return f_co, f_x
 
