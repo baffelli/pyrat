@@ -344,7 +344,7 @@ class scatteringMatrix(np.ndarray):
             basis = 'pauli'
         k = self.scattering_vector(bistatic = False, basis = basis)
         if basis is 'pauli':
-            k = k[:,:,[0,2,1]]
+            k = k[:,:,[1,2,0]]
         else:
             pass
         im = visfun.pauli_rgb(np.abs(k)**2,**kwargs)
