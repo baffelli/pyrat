@@ -181,7 +181,7 @@ def geocode_image(image,pixel_size,*args):
     r_min = np.min(r_vec)
     az_max = np.max(az_vec)
     az_min = np.min(az_vec)
-    az_step = np.abs(az_vec[1] - az_vec[0])
+    az_step = (az_vec[1] - az_vec[0])
     r_step = np.abs(r_vec[1] - r_vec[0])
     #Compute desired grid
     az_vec_1 = np.linspace(az_min,az_max,10)
@@ -203,35 +203,7 @@ def geocode_image(image,pixel_size,*args):
     az_idx = np.clip(az_idx,0,image.shape[0]-1)
     az_idx = az_idx.astype(np.float)
     r_idx = r_idx.astype(np.float)
-
-    #%Try 1d interpolation
-#    x = np.arange(np.prod(image.shape[0:2]))
-#    y = image.flatten()
-#    desired_coordinates = az_idx.flatten() * image.shape[1] + r_idx.flatten()
     gc = bilinear_interpolate(image,r_idx,az_idx)
-#    if image.ndim is 2:
-##        gc = np.interp(desired_coordinates,x,y,left = np.nan,right = np.nan).reshape(r_idx.shape)
-#            gc = bilinear_interpolate(image,r_idx,az_idx)
-#    if image.ndim is 3:
-#        chans = np.dsplit(image,image.shape[2])
-#        new_chans = []
-#        for chan in chans:
-#            print len(chan)
-#            print len(x)
-##            gc_chan = np.interp(desired_coordinates,x,chan.squeeze().flatten(),left = np.nan,right = np.nan).reshape(r_idx.shape)
-#            gc_chan = bilinear_interpolate(chan,r_idx,az_idx)
-#            new_chans = new_chans + [gc_chan,]
-#        gc = np.dstack(new_chans)
-            
-#    nd = image.ndim
-#    if nd is 2:
-#        idx_vec = (az_idx,r_idx)
-#    elif nd > 2:
-#        remaining_dim = image.ndim - 2
-#        remaining_axes = (Ellipsis,) * remaining_dim
-#        idx_vec = (az_idx,r_idx) + remaining_axes
-#    #Take care of points outside of the image
-#    gc = image[idx_vec]
     gc[az_idx.astype(np.long) == image.shape[0] -1] = np.nan
     gc[r_idx.astype(np.long) == image.shape[1] - 1] = np.nan
     gc[az_idx.astype(np.long) == 0] = np.nan
@@ -289,14 +261,18 @@ def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
             a = np.dstack((a,~alpha))
         else:
             a = np.ma.masked_where(np.isnan(a), a)
-#        a[np.isnan(a)] = 0
-        plt.imshow(a,**kwargs)
-
         xv, yv = geocoded_image_list[1:None]
-        xv_idx = np.linspace(0,len(xv)-1,n_ticks).astype(np.int)
-        yv_idx = np.linspace(0,len(yv)-1,n_ticks).astype(np.int)
-        plt.xticks(xv_idx,np.ceil(xv[xv_idx]))
-        plt.yticks(yv_idx,np.ceil(yv[yv_idx]))
+        x_min = np.floor(xv.min())
+        x_max = np.ceil(xv.max())
+        y_min = np.floor(yv.min())
+        y_max = np.ceil(yv.max())
+        ext = [x_min, x_max, y_min, y_max]
+        plt.imshow(a, extent = ext, origin = 'lower'  ,**kwargs)
+
+#        xv_idx = np.linspace(0,len(xv)-1,n_ticks).astype(np.int)
+#        yv_idx = np.linspace(0,len(yv)-1,n_ticks).astype(np.int)
+#        plt.xticks(xv_idx,np.ceil(xv[xv_idx]))
+#        plt.yticks(yv_idx,np.ceil(yv[yv_idx]))
         ax.set_aspect('equal')
         return a
 class ROI:
@@ -404,9 +380,18 @@ def show_signature(signature_output):
     sig_co = signature_output[0]
     sig_cross = signature_output[1]
     phi_1, tau_1 = np.meshgrid(phi, tau)
-    f_co = mlab.figure()
-    mlab.mesh(phi_1,tau_1,np.abs(sig_co).transpose(), representation = 'wireframe')
-    f_x = mlab.figure()
-    mlab.mesh(phi_1,tau_1,np.abs(sig_cross).transpose(), representation = 'wireframe')
+    xt = [-45,45,-90,90]
+    f_co = plt.figure()
+    plt.imshow(sig_co, interpolation = 'none', cmap =  'RdBu_r', extent = xt)
+    plt.locator_params(nbins=4)
+    plt.xlabel(r'ellipicity $\tau$')
+    plt.ylabel(r'orientation $\phi$')
+#    plt.axis('equal')
+    f_x = plt.figure()
+    plt.imshow(sig_cross, interpolation = 'none', cmap =  'RdBu_r', extent = xt)
+    plt.locator_params(nbins=4)
+    plt.xlabel(r'ellipicity $\tau$')
+    plt.ylabel(r'orientation $\phi$')
+#    plt.axis('equal')
     return f_co, f_x
 
