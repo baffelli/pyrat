@@ -458,10 +458,10 @@ class coherencyMatrix(np.ndarray):
             basis = kwargs.get('basis')
         if type(args[1]) is np.ndarray:
             T = args[1]
-            if corefun.is_hermitian(T):
-                obj = np.asarray(T).view(cls)
-            else:
-                raise np.linalg.LinAlgError("T is not Hermitian")
+#            if corefun.is_hermitian(T):
+#                obj = np.asarray(T).view(cls)
+#            else:
+#                raise np.linalg.LinAlgError("T is not Hermitian")
             obj = np.asarray(T).view(cls)
             obj.basis = 'pauli'
         elif type(args[1]) is str:

@@ -7,7 +7,7 @@ Created on Thu May 15 14:34:25 2014
 import numpy as np
 import scipy
 from scipy import ndimage, fftpack
-def outer_product(data,data1):
+def outer_product(data,data1, large = False):
     """
     Computes the outer product of multimensional data along the last dimension.
     
@@ -20,12 +20,27 @@ def outer_product(data,data1):
     ndarray  
         The outer product array.
     """
-    if data.ndim > 1:
-        T = np.einsum("...i,...j->...ij",data,data1.conjugate())
+    if ~large:
+        if data.ndim > 1:
+            T = np.einsum("...i,...j->...ij",data,data1.conjugate())
+        else:
+            T = np.outer(data,data1.conjugate())
+        return T
     else:
-        T = np.outer(data,data1.conjugate())
-    return T
+        mulop = np.multiply
+        it = np.nditer([x, y, out], ['external_loop'],
+                [['readonly'], ['readonly'], ['writeonly', 'allocate']],
+                op_axes=[range(x.ndim)+[-1]*y.ndim,
+                         [-1]*x.ndim+range(y.ndim),
+                         None])
     
+        for (a, b, c) in it:
+            mulop(a, b, out=c)
+
+    return it.operands[2]
+    
+
+
 def smooth(T, window):
     """
     Smoothes data using a multidmensional boxcar filter .
@@ -130,6 +145,19 @@ def transform(A,B,C):
     out = B.__array_wrap__(np.einsum("...ik,...kl,...lj->...ij",A,B,C))
     return out
 
+
+def matrix_root(A):
+    l,w = (np.linalg.eig(np.array(A)))
+    l_sq = (np.sqrt(l))
+    if A.ndim > 2:
+        L_sq = np.zeros_like(w)
+        for idx_diag in range(w.shape[2]):
+            L_sq[:,:,idx_diag,idx_diag] = l_sq[:,:,idx_diag]
+    else:
+        L_sq = np.diag(l_sq)
+    A_sq = transform(w, L_sq, np.linalg.inv(w))
+    return A_sq
+    
 def range_variant_filter(data,area):
     """
     This function implements a moving average 
@@ -174,3 +202,27 @@ def split_bandwdith(data,n_splits,axis = 0):
     return data_cube
         
     
+from numpy.lib.stride_tricks import as_strided as ast
+def block_view(A, block= (3, 3)):
+    """Provide a 2D block view to 2D array. No error checking made.
+    Therefore meaningful (as implemented) only for blocks strictly
+    compatible with the shape of A."""
+    # simple shape and strides computations may seem at first strange
+    # unless one is able to recognize the 'tuple additions' involved ;-)
+    #Compute padding for block
+    pad = [block_dim - dim % block_dim for dim, block_dim in zip(A.shape,block)]
+    pad = pad + (len(A.shape) - len(block)) * [0]
+    total_pad = [(p,0) for p in pad]
+    print total_pad
+    A = np.pad(A,total_pad,mode = 'constant')
+    print A.shape
+    shape= (A.shape[0]/ block[0], A.shape[1]/ block[1])+ block  + A.shape[len(block)::] 
+    strides= (block[0]* A.strides[0], block[1]* A.strides[1])+ A.strides
+    return ast(A, shape= shape, strides= strides)
+    
+    
+def block_to_array(A, block = (3,3)):
+    new_shape = (A.shape[0] * block[0], A.shape[1] * block[1]) + A.shape[len(block) + 2::]
+    strides = A.strides[len(block)::]
+    print (new_shape), (strides)
+    return ast(A, shape= new_shape, strides= strides)

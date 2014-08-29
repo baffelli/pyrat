@@ -246,7 +246,7 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1]):
             span = np.sum(scattering_vector,axis=2)
             out = np.abs(data_diagonal /span[:,:,None])
         return out
-def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
+def show_geocoded(geocoded_image_list, n_ticks = 4, orientation = 'landscape',**kwargs):
         """
         This function is a wrapper to call imshow with a 
         list produced by the geocode_image function.
@@ -266,8 +266,16 @@ def show_geocoded(geocoded_image_list, n_ticks = 4,**kwargs):
         x_max = np.ceil(xv.max())
         y_min = np.floor(yv.min())
         y_max = np.ceil(yv.max())
-        ext = [x_min, x_max, y_min, y_max]
-        plt.imshow(a, extent = ext, origin = 'lower'  ,**kwargs)
+        if orientation is 'portrait':
+            ext = [x_min, x_max, y_min, y_max]
+            a1 = a
+        else:
+            ext = [y_min, y_max, x_min, x_max]
+            if a.ndim is 2:
+                a1 = a.T
+            else:
+                a1 = a.transpose([1,0,2])
+        plt.imshow(a1, extent = ext, origin = 'lower'  ,**kwargs)
         plt.xticks(rotation=90)
         plt.xlabel('distance [m]')
         plt.ylabel('distance [m]')
