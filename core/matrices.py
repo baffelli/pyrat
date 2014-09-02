@@ -185,7 +185,7 @@ class scatteringMatrix(np.ndarray):
     def __copy__(self):
         print self.r_vec
         new_obj = scatteringMatrix(np.array(self).__copy__())
-        new_obj_1.__dict__.update(self.__dict__)
+        new_obj.__dict__.update(self.__dict__)
         return new_obj
         
     def __setitem__(self,sl,item):
@@ -599,3 +599,87 @@ class coherencyMatrix(np.ndarray):
         C.basis = 'pauli'
         print 'success'
         return C
+    
+class block_array:
+    
+    def __init__(*args):
+        
+       obj = args[0]
+       #The array to be split
+       A = args[1]
+       #Size of desired blocks
+       block_size = args[2]
+       #Size of the processing window
+       window_size = args[3]
+       #2D shape of array
+       shape_2d = A.shape[0:2]
+       #Create object
+       obj.bs = block_size
+       obj.A = A
+       #iterate over block sizes to compute indices for each dim
+       obj.rsa = []
+       obj.rea = []
+       obj.wsa = []
+       obj.wea = []
+       #Current index for the iterator
+       obj.current = 0
+       obj.nblocks = []
+       for bs, wins, ars in zip(block_size, window_size, shape_2d):
+           #Compute number of block
+           N_block = np.ceil( (ars - wins + 1) / (bs - wins + 1))
+           block_idx = np.arange(N_block) + 1
+           rs = (block_idx - 1) * (bs - wins + 1)
+           re = rs + bs  - 1
+           ws = np.zeros(N_block) + (wins -1) / 2
+           we = np.zeros(N_block) + bs -(wins +1) / 2
+           ws[0] = 0
+           re[-1] = ars - 1
+           we[-1] = ars -1 - rs[-1]
+           obj.rsa.append(rs)
+           obj.rea.append(re)
+           obj.wsa.append(ws)
+           obj.wea.append(we)
+           obj.nblocks.append(N_block)
+       obj.maxiter = np.prod(obj.nblocks)
+ 
+    def __getitem__(self,sl):
+        if len(sl) is 1:
+            return self.take_block(sl)
+            
+    def __setitem__(self,sl,item):
+            self.put_block(sl,item)
+            
+    def __iter__(self):
+        return self
+        
+    def next(self):
+        if self.current > self.maxiter:
+            raise StopIteration
+        else:
+            return self.take_block(self.current)
+            self.current += 1
+            
+    def put_current(self, item):
+        self.put_block(self.current, item)
+
+        
+    
+    def take_block(self,idx):
+        if idx < np.prod(self.nblocks):
+            i,j = np.unravel_index(idx,self.nblocks)
+            block = self.A[self.rsa[0][i]:self.rea[0][i], self.rsa[1][j]:self.rea[1][j]]
+        return block
+    
+    def put_block(self,idx,block):
+        put_sl = []
+        clip_sl = []
+        if idx < np.prod(self.nblocks):
+            for j in range(len(self.nblocks)):
+                temp_sl = slice(self.rsa[j][idx] + self.wsa[j][idx] , self.rsa[j][idx] + self.wsa[j][idx] + self.wea[j][idx] - 1)
+                put_sl.append(temp_sl)
+            self.A[put_sl] = block[self.wsa[0][idx]:self.wea[0][idx],self.wsa[1][idx]:self.wea[1][idx]]
+            
+
+        
+        
+    

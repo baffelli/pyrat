@@ -60,6 +60,12 @@ def smooth(T, window):
     T_out_imag = ndimage.filters.uniform_filter(T.imag,window)
     T_out = T_out_real  + 1j * T_out_imag
     return T_out
+
+def smooth_1(T,window):
+    T_sm = T * 1
+    for ax, roll_size in enumerate(window):
+        T_sm = T_sm + np.roll(T, roll_size, axis = ax)
+    return T_sm / np.prod(window)
     
 def shift_array(array,shift):
     """
@@ -203,6 +209,8 @@ def split_bandwdith(data,n_splits,axis = 0):
         
     
 from numpy.lib.stride_tricks import as_strided as ast
+
+
 def block_view(A, block= (3, 3)):
     """Provide a 2D block view to 2D array. No error checking made.
     Therefore meaningful (as implemented) only for blocks strictly
@@ -216,7 +224,7 @@ def block_view(A, block= (3, 3)):
     print total_pad
     A = np.pad(A,total_pad,mode = 'constant')
     print A.shape
-    shape= (A.shape[0]/ block[0], A.shape[1]/ block[1])+ block  + A.shape[len(block)::] 
+    shape= (A.shape[0]/ block[0], A.shape[1]/ block[1])+ block + A.shape[len(block)::] 
     strides= (block[0]* A.strides[0], block[1]* A.strides[1])+ A.strides
     return ast(A, shape= shape, strides= strides)
     
