@@ -671,14 +671,14 @@ class block_array:
         return block
     
     def put_block(self,idx,block):
-        put_sl = []
-        clip_sl = []
+
         if idx < np.prod(self.nblocks):
-            for j in range(len(self.nblocks)):
-                temp_sl = slice(self.rsa[j][idx] + self.wsa[j][idx] , self.rsa[j][idx] + self.wsa[j][idx] + self.wea[j][idx] - 1)
-                put_sl.append(temp_sl)
-            self.A[put_sl] = block[self.wsa[0][idx]:self.wea[0][idx],self.wsa[1][idx]:self.wea[1][idx]]
-            
+            i,j = np.unravel_index(idx,self.nblocks)
+            clipped_block = block[self.wsa[0][i]:self.wsa[0][i] + self.wea[0][i],self.wsa[1][j]:self.wea[1][j] + self.wsa[1][j]]
+            print clipped_block.shape
+#            self.A[self.rsa[0][i] + self.wsa[0][i]:self.rsa[0][i] + self.wsa[0][i] +self.wea[0][i],
+#                self.rsa[1][j] + self.wsa[1][j]:self.rsa[1][j] + self.wsa[1][j] +self.wea[1][j]   ] = clipped_block
+#            
 
         
         
