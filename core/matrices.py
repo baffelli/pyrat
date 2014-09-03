@@ -630,6 +630,7 @@ class block_array:
            block_idx = np.arange(N_block) + 1
            rs = (block_idx - 1) * (bs - wins + 1)
            re = rs + bs  - 1
+           re[-1] = ars  - 1
            ws = np.zeros(N_block) + (wins -1) / 2
            we = np.zeros(N_block) + bs -(wins +1) / 2
            ws[0] = 0
@@ -667,18 +668,20 @@ class block_array:
     def take_block(self,idx):
         if idx < np.prod(self.nblocks):
             i,j = np.unravel_index(idx,self.nblocks)
-            block = self.A[self.rsa[0][i]:self.rea[0][i], self.rsa[1][j]:self.rea[1][j]]
+            block = self.A[self.rsa[0][i]:self.rsa[0][i] + self.rea[0][i], self.rsa[1][j]:self.rsa[1][j] + self.rea[1][j]]
         return block
     
     def put_block(self,idx,block):
 
         if idx < np.prod(self.nblocks):
             i,j = np.unravel_index(idx,self.nblocks)
-            clipped_block = block[self.wsa[0][i]:self.wsa[0][i] + self.wea[0][i],self.wsa[1][j]:self.wea[1][j] + self.wsa[1][j]]
+            clipped_block = block[self.wsa[0][i]:self.wsa[0][i] + self.wea[0][i] ,self.wsa[1][j]:self.wea[1][j] + self.wsa[1][j]]
             print clipped_block.shape
-#            self.A[self.rsa[0][i] + self.wsa[0][i]:self.rsa[0][i] + self.wsa[0][i] +self.wea[0][i],
-#                self.rsa[1][j] + self.wsa[1][j]:self.rsa[1][j] + self.wsa[1][j] +self.wea[1][j]   ] = clipped_block
-#            
+            start_i = self.rsa[0][i] + self.wsa[0][i]
+            start_j = self.rsa[1][j] + self.wsa[1][j]
+            self.A[start_i:start_i + clipped_block.shape[0],
+                 start_j:start_j + clipped_block.shape[1]] = clipped_block
+            
 
         
         
