@@ -28,6 +28,8 @@ def compute_dim(WIDTH,FACTOR):
     fig_height_in = fig_width_in * golden_ratio   # figure height in inches
     fig_dims      = [fig_width_in, fig_height_in] # fig dims as a list
     return fig_dims
+    
+
 
 def scale_array(*args,**kwargs):
     """
@@ -71,7 +73,95 @@ def scale_array(*args,**kwargs):
     return scaled
 
 
+def copy_and_modify_gt(RAS,gt):
+    from osgeo import gdal
+    mem_drv = gdal.GetDriverByName( 'MEM' )
+    output_dataset = mem_drv.Create('', RAS.shape[1], RAS.shape[0], RAS.shape[2], gdal.GDT_Float32)  
+    output_dataset.SetProjection(gt.GetProjection())  
+    output_dataset.SetGeoTransform(gt.GetGeoTransform())  
+    for n_band in range(RAS.shape[-1] - 1):
+        output_dataset.GetRasterBand(n_band + 1).WriteArray( RAS[:,:,n_band] )
+    return output_dataset
 
+def upgrade_CH1903_gt(ds):
+    """
+    This function corrects the geotransform
+    form the CH1903+ data which do not have the coordinate 
+    in the new system (using 6 instead of 5 digits)
+    CAUTION: no check is made that the previous geotransform is in
+    the old system
+    """
+    from osgeo import gdal
+    GT = ds.GetGeoTransform()
+    GT_new = list(GT)
+    GT_new[0] = GT[0] + 2e6
+    GT_new[3] = GT[3] + 1e6
+    mem_drv = gdal.GetDriverByName( 'MEM' )
+    ds_copy = mem_drv.CreateCopy('',ds)
+    ds_copy.SetGeoTransform(GT_new)
+    return ds_copy
+
+    
+    
+def reproject_gt(gt_to_project, gt_reference):
+    """
+    This function reporjects a gtiff
+    to the projection specified by the other gtiff
+    Parameters
+    ----------
+    gt_to_project : osgeo.gdal.Dataset
+        The geotiff to project
+    gt_reference : osgeo.gdal.Dataset
+        The geotiff taken as a reference
+    """
+    from osgeo import gdal, osr
+    tx = osr.CoordinateTransformation(osr.SpatialReference(gt_to_project.GetProjection()),\
+    osr.SpatialReference(gt_reference.GetProjection()))
+    geo_t = gt_to_project.GetGeoTransform()
+    geo_t_ref = gt_reference.GetGeoTransform()
+    x_size = gt_to_project.RasterXSize # Raster xsize
+    y_size = gt_to_project.RasterYSize # Raster ysize
+    (ulx, uly, ulz ) = tx.TransformPoint( geo_t[0], geo_t[3])
+    (lrx, lry, lrz ) = tx.TransformPoint( geo_t[0] + geo_t[1]*x_size, \
+                                          geo_t[3] + geo_t[5]*y_size )
+     #Compute new geotransform
+    new_geo = ( ulx, geo_t_ref[1], geo_t[2], \
+                uly, geo_t[4], geo_t_ref[5] )
+    mem_drv = gdal.GetDriverByName( 'MEM' )
+    pixel_spacing_x = geo_t_ref[1]
+    pixel_spacing_y = geo_t_ref[5]
+    dest = mem_drv.Create('', int((lrx - ulx)/pixel_spacing_x), \
+            int((uly - lry)/np.abs(pixel_spacing_y)), gt_to_project.RasterCount, gdal.GDT_Float32)
+    print type(dest)
+    dest.SetGeoTransform( new_geo )
+    dest.SetProjection(gt_reference.GetProjection())
+    res = gdal.ReprojectImage( gt_to_project, dest, \
+                gt_to_project.GetProjection(), gt_reference.GetProjection(), \
+                gdal.GRA_Bilinear )
+    return dest
+def paletted_to_rgb(gt):
+    """
+    This function converts a paletted
+    geotiff to a RGB geotiff
+    """
+    from osgeo import gdal
+    ct = gt.GetRasterBand(1).GetColorTable()
+    ct.GetColorEntry(3)
+    #Get raster
+    RAS = gt.ReadAsArray()
+    RGBA_ras = np.zeros(RAS.shape + (4,0))
+    #Create vector of values:
+    palette_list = np.unique(RAS)
+    rgba = np.zeros((RAS.max() + 1 , 4))
+    print rgba.shape
+    for idx in palette_list:
+        color = np.array(ct.GetColorEntry(int(idx))) / 255.0
+        rgba[idx,:] = color
+    RGBA_ras = rgba[RAS]
+    mem_drv = gdal.GetDriverByName( 'MEM' )
+    output_dataset = mem_drv.Create('', RAS.shape[1], RAS.shape[0], 4, gdal.GDT_Float32)  
+    output_dataset = copy_and_modify_gt(RGBA_ras,gt)
+    return output_dataset
 def histeq(im,nbr_bins=256):
     """
     This function performs histogram equalization on a ndarray.
@@ -148,6 +238,58 @@ def bilinear_interpolate(im, x, y):
         wd = wd[access_vector]
     
     return wa*Ia + wb*Ib + wc*Ic + wd*Id
+    
+
+def cart_to_pol(image,center, r_vec, az_vec, heading, x_vec, y_vec):
+    r, th = np.meshgrid(r_vec,az_vec - heading)
+    x_post =  x_vec[1] - x_vec[0]
+    y_post = y_vec[1] - y_vec[0]
+    x = r * np.cos(th)
+    y = r * np.sin(th)
+    x_idx = x / x_post + center[0] / x_post
+    y_idx = y / y_post + center[1] / y_post
+    image_1 = bilinear_interpolate(image, x_idx, y_idx)
+    return image_1, x_idx, y_idx
+    
+def pol_to_cart(image,center,r_vec,az_vec,x_vec,y_vec):
+    x, y = np.meshgrid(x_vec - center[0],y_vec - center[1])
+    r_post =  r_vec[1] - r_vec[0]
+    az_post = az_vec[1] - az_vec[0]
+    r = np.sqrt(x**2 + y**2)
+    th = np.arctan2(y,x)
+    r_idx = r / r_post
+    th_idx = th / az_post
+    image_1 = bilinear_interpolate(image, r_idx, th_idx)
+    return image_1, r_idx, th_idx
+    
+def layover_and_shadow(image,az_center):
+    r = np.arange(image.shape[1])
+    z = image
+    d = np.sqrt((z[az_center,0] - z)**2 + r[None,:]**2)
+    l_map = np.zeros_like(image)
+    sh_map = np.zeros_like(image)
+    #For each range line
+    max_r = d[:,0]
+    max_r_1 = max_r * 1
+    for idx_r in range(d.shape[1]):   
+        next_r = d[:,idx_r]
+        #Compute layover map
+        select_arr = max_r > next_r
+        max_r[select_arr] = next_r[select_arr]
+        l_map[:,idx_r] = select_arr
+        #Compute shadow map
+        #if the next distance is smaller than the current
+        #then we have shadow
+        shadow = next_r < max_r_1
+        max_r_1 = next_r
+        sh_map[:,idx_r] = ~shadow
+        
+    return d, l_map, sh_map
+
+
+#def dem_to_gpri(dem,dem_dict,gpri_dict):
+    
+    
 
 def geocode_image(image,pixel_size,*args):
     """

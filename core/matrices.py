@@ -599,7 +599,8 @@ class coherencyMatrix(np.ndarray):
         C.basis = 'pauli'
         print 'success'
         return C
-    
+ 
+#TODO fix block processing   
 class block_array:
     
     def __init__(*args):
@@ -627,8 +628,8 @@ class block_array:
        for bs, wins, ars in zip(block_size, window_size, shape_2d):
            #Compute number of block
            N_block = np.ceil( (ars - wins + 1) / (bs - wins + 1))
-           block_idx = np.arange(N_block) + 1
-           rs = (block_idx - 1) * (bs - wins + 1)
+           block_idx = np.arange(N_block)
+           rs = (block_idx) * (bs - wins + 1)
            re = rs + bs  - 1
            re[-1] = ars  - 1
            ws = np.zeros(N_block) + (wins -1) / 2

@@ -8,6 +8,7 @@ import re
 import numpy as np
 import dateutil.parser
 import string
+import other_files
 
 def load_par(path):
     """
@@ -42,6 +43,37 @@ def load_par(path):
                     new_numbers  = new_numbers + [flt]
                 par = par + [(par_name,new_numbers)]
     return dict(par)
+
+def dict_to_par(par_dict):
+    """
+    This function converts a dict in  the gamma format parameter list
+    Parameters
+    ----------
+    par_dict : dict
+        A dictionary
+    Returns
+    -------
+    str
+    """
+    a = ""
+    for key, value in par_dict.iteritems():
+        temp_str = str(key) + ':\t' + str(value) + '\n'
+        a = a + temp_str
+    return a
+    
+def geotif_to_dem(gt, path):
+    """
+    """
+    SA = gt
+    d = other_files.gdal_to_dict(gt)
+    DEM_par = dict_to_par(d)
+    DEM = SA.ReadAsArray()
+    DEM = DEM.flatten()
+    DEM.tofile(path + '.dem')
+    fi = open(path + 'dem.par', "w")
+    fi.write(DEM_par)
+    fi.close()
+    
 
 def load_complex(path):
     d = np.fromfile(file=path, dtype=np.float32)

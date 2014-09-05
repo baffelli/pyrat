@@ -36,6 +36,83 @@ def load_dat(path):
     data = data.reshape([n_az,n_range])
     return data
     
+def load_geotiff(path):
+    from osgeo import gdal
+    ds = gdal.Open(path)
+    return ds
+    
+def gdal_to_dict(ds):
+    wkt = ds.GetProjection()
+    d = wkt_to_dict(wkt)
+    d['width'] = ds.RasterXSize
+    d['nlines'] = ds.RasterYSize
+    gt = ds.GetGeoTransform()
+    d['corner_east'] = gt[0]
+    d['corner_north'] = gt[3]
+    d['post_north'] = gt[5]
+    d['post_east'] = gt[1]
+    return d
+
+def dict_to_gt(dic):
+    from osgeo import gdal, osr
+    
+    
+def save_dem(ds,path):
+    """
+    This function saves a geotiff file in the gamma format
+    Parameters
+    ----------
+    ds : osgeo.gdal.Dataset
+        A gdal dataset containing a DEM
+    path : str
+        The path to save the dem
+    """
+    from osgeo import gdal
+
+
+
+def wkt_to_dict(wkt):
+    """
+    This function convers a WKT coordinate system definition
+    into a dictionary whose keys correspond to gammas
+    convention
+    Parameters
+    ----------
+    wkt : str
+        The wkt to convert
+    Returns
+    -------
+    dict
+    """
+    """
+     * [0]  Spheroid semi major axis
+     * [1]  Spheroid semi minor axis
+     * [2]  Reference Longitude
+     * [3]  Reference Latitude
+     * [4]  First Standard Parallel
+     * [5]  Second Standard Parallel
+     * [6]  False Easting
+     * [7]  False Northing
+     * [8]  Scale Factor
+    """
+    from osgeo import gdal, osr
+    srs = osr.SpatialReference()
+    srs.ImportFromWkt(wkt)
+    proj_arr = srs.ExportToPCI()
+    proj_dict = dict()
+    #TODO fix dem projection to be flexible
+    proj_dict['DEM_projection'] = 'OMCH'
+    ell_arr = proj_arr[2]
+    proj_dict['ellipsoid_ra'] = ell_arr[0]
+    rf = ell_arr[0] / (ell_arr[0] - ell_arr[1])
+    proj_dict['ellipsoid_reciprocal_flattening'] = rf
+    proj_dict['center_latitude'] = ell_arr[2]
+    proj_dict['center_longitude'] = ell_arr[3]
+    proj_dict['projection_k0'] = ell_arr[8]
+    proj_dict['false_easting'] = ell_arr[6]
+    proj_dict['false_northing'] = ell_arr[7]
+    return proj_dict
+
 def load_bin(path,dim):
     """
     Load bin SAR image in the format saved by POLSARPro
