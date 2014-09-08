@@ -202,6 +202,31 @@ def exp_im(im, k):
         The scaled image.
     """
     return scale_array(1 - np.exp(- k * np.abs(im)))
+
+def ground_to_slant(DEM,center,r_vec,az_vec,heading, interp = None):
+    """
+    This function transforms a ground range image
+    into a slant range image
+    """
+    r, th = np.meshgrid(r_vec,az_vec + heading)
+    #Start position
+    x_0 = center[0] 
+    y_0 = center[1]
+    z_0 = read_coordinate_extent(DEM,(x_0,y_0), interp = interp)
+    #Read DEM in pseudo ground coordinates
+    x_1 = x_0 + r * np.cos(th)
+    y_1 = y_0 + r * np.sin(th)
+    z_1 = read_coordinate_extent(DEM,(x_1,y_1), interp = interp)
+    #Incidence angle
+    phi = np.arcsin((z_1 - z_0) / r)
+    #Ground range
+    r_gr = r * np.cos(phi)
+    #Grid positions   
+    x1 = x_0 + r_gr * np.cos(th)
+    y1 = y_0 + r_gr * np.sin(th)
+    D1 =  read_coordinate_extent(DEM,(x1,y1), interp = interp)
+    return D1, x1, y1, phi
+    
     
 def bilinear_interpolate(im, x, y):
     
@@ -240,16 +265,18 @@ def bilinear_interpolate(im, x, y):
     return wa*Ia + wb*Ib + wc*Ic + wd*Id
     
 
-def cart_to_pol(image,center, r_vec, az_vec, heading, x_vec, y_vec):
-    r, th = np.meshgrid(r_vec,az_vec - heading)
-    x_post =  x_vec[1] - x_vec[0]
-    y_post = y_vec[1] - y_vec[0]
+def cart_to_pol(ds,center, r_vec, az_vec, heading, interp = None):
+    """
+    This function converts a DS object into a 
+    polar coordinate scan
+    """
+    r, th = np.meshgrid(r_vec,az_vec + heading)
     x = r * np.cos(th)
     y = r * np.sin(th)
-    x_idx = x / x_post + center[0] / x_post
-    y_idx = y / y_post + center[1] / y_post
-    image_1 = bilinear_interpolate(image, x_idx, y_idx)
-    return image_1, x_idx, y_idx
+    x = center[0] + x
+    y = center[1] + y
+    image_1 = read_coordinate_extent(ds,(x,y), interp = interp)
+    return image_1, x, y
     
 def pol_to_cart(image,center,r_vec,az_vec,x_vec,y_vec):
     x, y = np.meshgrid(x_vec - center[0],y_vec - center[1])
@@ -261,8 +288,91 @@ def pol_to_cart(image,center,r_vec,az_vec,x_vec,y_vec):
     th_idx = th / az_post
     image_1 = bilinear_interpolate(image, r_idx, th_idx)
     return image_1, r_idx, th_idx
+
+def get_extent(ds):
+    gt = ds.GetGeoTransform()
+    gt_x_vec = (gt[0], gt[0] + gt[1] * (ds.RasterXSize ))
+    gt_y_vec = (gt[3], gt[3] + gt[5] * (ds.RasterYSize))
+    return gt_x_vec,gt_y_vec
+
+def read_coordinate_extent(ds,coords, interp = None):
+    """
+    This function reads an extent from
+    a raster using a tuple of map coordinates
+    """
+    gt  = ds.GetGeoTransform()
+    px = ((coords[0] - gt[0]) / gt[1])
+    py = ((coords[1] - gt[3]) / gt[5])
+    RAS = ds.ReadAsArray()
+    if RAS.ndim is 2:
+        RAS = RAS
+    else:
+        RAS = RAS.transpose([1,2,0])
+    if interp is None:
+        if type(px) is float :
+            px = np.int(px)
+            py = np.int(py)
+        else:
+            px = np.clip((px),0,RAS.shape[1] -1).astype(np.int)
+            py = np.clip((py),0,RAS.shape[0] -1).astype(np.int)
+        return RAS[py,px]
+    else:
+        return interp(RAS,px,py)
     
-def layover_and_shadow(image,az_center):
+    
+    
+def simulate_acquisition(DEM,center,r_vec,az_vec, heading):
+    """
+    Parameters
+    ----------
+        DEM : osgeo.gdal.Dataset
+        The dem from which to compute the masks
+    center : tuple
+        The center in map coordinates
+    az_vec  : ndarray
+        The array of angles to scan
+    r_vec : ndarray
+        The array of distances to scan
+    heading : double
+        The heading of the scan
+    """
+    #Acquire DEM in Radar Coordinates
+    DEM_pol,x ,y = cart_to_pol(DEM,center, r_vec, az_vec, heading, interp = bilinear_interpolate)
+    #Compute vector position of each point in scanned DEM
+    positions = np.dstack((x, y, DEM_pol))
+    a = positions - np.roll(positions,1,axis = 0)
+    b = positions - np.roll(positions,1,axis = 1)
+    c = positions + np.roll(positions,-1,axis = 0)
+    d = positions + np.roll(positions,-1,axis =1)
+    normal = np.cross(a,b) + np.cross(c,d) /2 
+    normal = normal / (np.linalg.norm(normal,axis =2))[:,:,None]
+    #Compute vectors
+    x_vec = center[0] - x 
+    y_vec = center[1] - y
+    z_vec = read_coordinate_extent(DEM,center) - DEM_pol
+    r_vec = np.dstack((x_vec,y_vec,z_vec))
+    pos = np.dstack((x,y,DEM_pol))
+    alpha = np.einsum('...i,...i',normal,r_vec) / np.linalg.norm(r_vec,axis =2)
+    return pos, r_vec,normal,alpha
+    
+def layover_and_shadow(DEM,center,az_vec,r_vec):
+    """
+    Parameters
+    ----------
+    DEM : osgeo.gdal.Dataset
+        The dem from which to compute the masks
+    center : tuple
+        The center in map coordinates
+    az_vec  : ndarray
+        The array of angles to scan
+    r_vec : ndarray
+        The array of distances to scan
+    heading : double
+        The heading of the scan
+    """
+    
+    start_coord = (center[0], center[1], DEM[center[0], center[1]])
+    
     r = np.arange(image.shape[1])
     z = image
     d = np.sqrt((z[az_center,0] - z)**2 + r[None,:]**2)
@@ -281,7 +391,7 @@ def layover_and_shadow(image,az_center):
         #if the next distance is smaller than the current
         #then we have shadow
         shadow = next_r < max_r_1
-        max_r_1 = next_r
+        max_r_1[~shadow] = next_r[~shadow]
         sh_map[:,idx_r] = ~shadow
         
     return d, l_map, sh_map

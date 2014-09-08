@@ -45,8 +45,8 @@ class gpriImage(np.ndarray):
         obj.az_vec = az_vec
         obj.r_vec = r_vec
         obj.tx_coord = par['GPRI_tx_coord']
-#        obj.ant_1_coord = par['GPRI_rx1_coord']
-#        obj.ant_2_coord = par['GPRI_rx2_coord']
+        obj.incidence_angle = par['incidence_angle']
+        obj.center_frequency = par['radar_frequency'][0]
         obj.utc = par['utc']
         return obj 
     
@@ -121,8 +121,10 @@ class scatteringMatrix(np.ndarray):
             obj.az_vec = HH.az_vec
             obj.utc = HH.utc
             obj.center = HH.center
+            obj.incidence_angle = HH.incidence_angle
             phase_center = []
             obj.geometry = 'polar'
+            obj.center_frequency = HH.center_frequency
             TX_VEC = [0,0.125]
             RX_VEC_U = [0.475,0.6]
             RX_VEC_L = [0.725,0.85]
@@ -143,6 +145,7 @@ class scatteringMatrix(np.ndarray):
             obj = s_matrix.view(scatteringMatrix)
             obj.geometry = 'cartesian'
         return obj
+        
     def __array_finalize__(self, obj):
         if obj is None: return
         self.geometry = getattr(obj, 'geometry', None)
