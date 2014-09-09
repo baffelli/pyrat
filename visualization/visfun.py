@@ -125,14 +125,13 @@ def reproject_gt(gt_to_project, gt_reference):
     (lrx, lry, lrz ) = tx.TransformPoint( geo_t[0] + geo_t[1]*x_size, \
                                           geo_t[3] + geo_t[5]*y_size )
      #Compute new geotransform
-    new_geo = ( ulx, geo_t_ref[1], geo_t[2], \
-                uly, geo_t[4], geo_t_ref[5] )
+    new_geo = ( geo_t_ref[0], geo_t_ref[1], geo_t[2], \
+                geo_t_ref[3], geo_t_ref[4], geo_t_ref[5] )
     mem_drv = gdal.GetDriverByName( 'MEM' )
     pixel_spacing_x = geo_t_ref[1]
     pixel_spacing_y = geo_t_ref[5]
-    dest = mem_drv.Create('', int((lrx - ulx)/pixel_spacing_x), \
+    dest = mem_drv.Create('', int((lrx - ulx)/np.abs(pixel_spacing_x)), \
             int((uly - lry)/np.abs(pixel_spacing_y)), gt_to_project.RasterCount, gdal.GDT_Float32)
-    print type(dest)
     dest.SetGeoTransform( new_geo )
     dest.SetProjection(gt_reference.GetProjection())
     res = gdal.ReprojectImage( gt_to_project, dest, \
@@ -263,19 +262,20 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     #We need to compute the normals to the surface
     #Positions in radar coordinate system
     positions = np.dstack((x_rad, y_rad, z_rad))
-    a = positions - np.roll(positions,1,axis = 0)
-    b = positions - np.roll(positions,1,axis = 1)
-    c = positions + np.roll(positions,-1,axis = 0)
-    d = positions + np.roll(positions,-1,axis =1)
+    a = np.roll(positions,1,axis = 0) - positions
+    b = np.roll(positions,1,axis = 1) - positions
+    c = positions - np.roll(positions,1,axis = 0)
+    d = positions - np.roll(positions,1,axis =1)
     #Compute and normalize normals
-    normal = np.cross(a,b) 
-    
+    normal = np.cross(a,b)/ 2 + np.cross(c,d)/2
     normal = normal / np.linalg.norm(normal, axis = 2)[:,:,None]
     #Compute incidence angle
-    los_v = positions / np.linalg.norm(positions, axis = 2)[:,:,None]
+    los_v = -positions / np.linalg.norm(positions, axis = 2)[:,:,None]
     dot = los_v[:,:,0] * normal[:,:,0] + los_v[:,:,1] * normal[:,:,1] + los_v[:,:,2] * normal[:,:,2]
     ia = np.arccos(dot)
-    return lut, dot, los_v
+    #TODO : Compute shadow map
+    pixel_area = np.abs(x_rad - np.roll(x_rad,1,axis = 0)) * np.abs(y_rad - np.roll(y_rad,1,axis = 1)) * np.cos(ia)
+    return lut, ia, pixel_area
     
 def reverse_lookup(image,lut):
     idx_az = np.arange(image.shape[0])
