@@ -202,30 +202,93 @@ def exp_im(im, k):
         The scaled image.
     """
     return scale_array(1 - np.exp(- k * np.abs(im)))
+    
 
-def ground_to_slant(DEM,center,r_vec,az_vec,heading, interp = None):
+def gc_map(DEM,center,S_l,heading, interp = None):
     """
-    This function transforms a ground range image
-    into a slant range image
+    This function computes a lookup-table
+    that contains the radar coordinates
+    corresponding to each coordinate in the
+    DEM grid
+    Parameters
+    ----------
+    DEM : osgeo.gdal.Dataset
+        The DEM that will be used to compute the LUT
+    S_l : pyrat.scatteringMatrix
+        A scattering matrix object that contains
+        the necessary data for geocoding (azimuth vector etc)
+    center : tuple
+        the center of the radar in DEM coordinates
+    heading : float
+        The heading of the radar in degrees
+    Returns
+    -------
+    lut : ndarray
+        The real part of the lut contains the first index, the imaginary part the second
+    incidence_angle : ndarray
+        The computed incidence angle map
+    
     """
-    r, th = np.meshgrid(r_vec,az_vec + heading)
-    #Start position
-    x_0 = center[0] 
-    y_0 = center[1]
-    z_0 = read_coordinate_extent(DEM,(x_0,y_0), interp = interp)
-    #Read DEM in pseudo ground coordinates
-    x_1 = x_0 + r * np.cos(th)
-    y_1 = y_0 + r * np.sin(th)
-    z_1 = read_coordinate_extent(DEM,(x_1,y_1), interp = interp)
-    #Incidence angle
-    phi = np.arcsin((z_1 - z_0) / r)
-    #Ground range
-    r_gr = r * np.cos(phi)
-    #Grid positions   
-    x1 = x_0 + r_gr * np.cos(th)
-    y1 = y_0 + r_gr * np.sin(th)
-    D1 =  read_coordinate_extent(DEM,(x1,y1), interp = interp)
-    return D1, x1, y1, phi
+    #get DEM geotransform
+    GT = DEM.GetGeoTransform()
+    #compute grid of positions in DEM coordinates
+    x = GT[0] + np.arange(0,DEM.RasterXSize) * GT[1]
+    y = GT[3] + np.arange(0,DEM.RasterYSize) * GT[5]
+    z = DEM.ReadAsArray()
+    #Convert the positions to Radar Centered Coordinates
+    #shift only
+    x_rad = x - center[0]
+    y_rad = y - center[1]
+    z_rad = z - center[2] 
+    #The coordinates have to be rotated by the heading
+    theta = np.deg2rad(heading)
+    #Compute rotation matrix to transform by heading
+    R_mat = np.array([[np.cos(-theta), - np.sin(-theta)],[np.sin(-theta), np.cos(-theta)]])
+    xx, yy = np.meshgrid(x_rad,y_rad)
+    xy = np.vstack([xx.flatten(),yy.flatten()]).transpose([1,0])
+    xy_rot = np.einsum('...ij,...j',R_mat,xy)
+    x_rad = xy_rot[:,0].reshape(z.shape)
+    y_rad = xy_rot[:,1].reshape(z.shape)
+    #Conver coordinates into range and azimuths
+    r_sl = np.sqrt(x_rad**2 + y_rad**2 + z_rad**2)
+    az = np.arctan2(x_rad, y_rad)
+    #Conver coordinates into indices
+    r_step = S_l.r_vec[1] - S_l.r_vec[0]
+    az_step = S_l.az_vec[1] - S_l.az_vec[0]
+    r_idx = (r_sl - S_l.r_vec[0]) / r_step
+    az_idx = (az - S_l.az_vec[0]) / np.abs(az_step)
+    lut = np.zeros(z.shape)
+    lut = az_idx + 1j*r_idx
+    #At this point, we are ready to compute incidence angles and other parameters
+    #We need to compute the normals to the surface
+    #Positions in radar coordinate system
+    positions = np.dstack((x_rad, y_rad, z_rad))
+    a = positions - np.roll(positions,1,axis = 0)
+    b = positions - np.roll(positions,1,axis = 1)
+    c = positions + np.roll(positions,-1,axis = 0)
+    d = positions + np.roll(positions,-1,axis =1)
+    #Compute and normalize normals
+    normal = np.cross(a,b) 
+    
+    normal = normal / np.linalg.norm(normal, axis = 2)[:,:,None]
+    #Compute incidence angle
+    los_v = positions / np.linalg.norm(positions, axis = 2)[:,:,None]
+    dot = los_v[:,:,0] * normal[:,:,0] + los_v[:,:,1] * normal[:,:,1] + los_v[:,:,2] * normal[:,:,2]
+    ia = np.arccos(dot)
+    return lut, dot, los_v
+    
+def reverse_lookup(image,lut):
+    idx_az = np.arange(image.shape[0])
+    idx_r = np.arange(image.shape[1])
+    idx_az, idx_r = np.meshgrid(idx_az, idx_r)
+    
+
+def coordinate_to_raster_index(gs, coordinate):
+    GT = gs.GetGeoTransform()
+    idx_x = np.ceil((coordinate[0] - GT[0])/ GT[1])
+    idx_y = np.ceil((coordinate[1] - GT[3])/ GT[5])
+    return (idx_x, idx_y)
+
     
     
 def bilinear_interpolate(im, x, y):
@@ -261,33 +324,13 @@ def bilinear_interpolate(im, x, y):
         wb = wb[access_vector]
         wc = wc[access_vector]
         wd = wd[access_vector]
+    interp = wa*Ia + wb*Ib + wc*Ic + wd*Id
+    interp[y.astype(np.long) >= im.shape[0] -1] = np.nan
+    interp[x.astype(np.long) >= im.shape[1] - 1] = np.nan
+    interp[y.astype(np.long) <= 0] = np.nan
+    interp[x.astype(np.long) <= 0] = np.nan
+    return interp
     
-    return wa*Ia + wb*Ib + wc*Ic + wd*Id
-    
-
-def cart_to_pol(ds,center, r_vec, az_vec, heading, interp = None):
-    """
-    This function converts a DS object into a 
-    polar coordinate scan
-    """
-    r, th = np.meshgrid(r_vec,az_vec + heading)
-    x = r * np.cos(th)
-    y = r * np.sin(th)
-    x = center[0] + x
-    y = center[1] + y
-    image_1 = read_coordinate_extent(ds,(x,y), interp = interp)
-    return image_1, x, y
-    
-def pol_to_cart(image,center,r_vec,az_vec,x_vec,y_vec):
-    x, y = np.meshgrid(x_vec - center[0],y_vec - center[1])
-    r_post =  r_vec[1] - r_vec[0]
-    az_post = az_vec[1] - az_vec[0]
-    r = np.sqrt(x**2 + y**2)
-    th = np.arctan2(y,x)
-    r_idx = r / r_post
-    th_idx = th / az_post
-    image_1 = bilinear_interpolate(image, r_idx, th_idx)
-    return image_1, r_idx, th_idx
 
 def get_extent(ds):
     gt = ds.GetGeoTransform()
@@ -337,7 +380,7 @@ def simulate_acquisition(DEM,center,r_vec,az_vec, heading):
         The heading of the scan
     """
     #Acquire DEM in Radar Coordinates
-    DEM_pol,x ,y = cart_to_pol(DEM,center, r_vec, az_vec, heading, interp = bilinear_interpolate)
+    DEM_pol,x ,y, phi = ground_to_slant(DEM,center, r_vec, az_vec, heading, interp = bilinear_interpolate)
     #Compute vector position of each point in scanned DEM
     positions = np.dstack((x, y, DEM_pol))
     a = positions - np.roll(positions,1,axis = 0)
@@ -355,50 +398,7 @@ def simulate_acquisition(DEM,center,r_vec,az_vec, heading):
     alpha = np.einsum('...i,...i',normal,r_vec) / np.linalg.norm(r_vec,axis =2)
     return pos, r_vec,normal,alpha
     
-def layover_and_shadow(DEM,center,az_vec,r_vec):
-    """
-    Parameters
-    ----------
-    DEM : osgeo.gdal.Dataset
-        The dem from which to compute the masks
-    center : tuple
-        The center in map coordinates
-    az_vec  : ndarray
-        The array of angles to scan
-    r_vec : ndarray
-        The array of distances to scan
-    heading : double
-        The heading of the scan
-    """
-    
-    start_coord = (center[0], center[1], DEM[center[0], center[1]])
-    
-    r = np.arange(image.shape[1])
-    z = image
-    d = np.sqrt((z[az_center,0] - z)**2 + r[None,:]**2)
-    l_map = np.zeros_like(image)
-    sh_map = np.zeros_like(image)
-    #For each range line
-    max_r = d[:,0]
-    max_r_1 = max_r * 1
-    for idx_r in range(d.shape[1]):   
-        next_r = d[:,idx_r]
-        #Compute layover map
-        select_arr = max_r > next_r
-        max_r[select_arr] = next_r[select_arr]
-        l_map[:,idx_r] = select_arr
-        #Compute shadow map
-        #if the next distance is smaller than the current
-        #then we have shadow
-        shadow = next_r < max_r_1
-        max_r_1[~shadow] = next_r[~shadow]
-        sh_map[:,idx_r] = ~shadow
-        
-    return d, l_map, sh_map
 
-
-#def dem_to_gpri(dem,dem_dict,gpri_dict):
-    
     
 
 def geocode_image(image,pixel_size,*args):
@@ -433,7 +433,7 @@ def geocode_image(image,pixel_size,*args):
     r_min = np.min(r_vec)
     az_max = np.max(az_vec)
     az_min = np.min(az_vec)
-    az_step = (az_vec[1] - az_vec[0])
+    az_step = np.abs(az_vec[1] - az_vec[0])
     r_step = np.abs(r_vec[1] - r_vec[0])
     #Compute desired grid
     az_vec_1 = np.linspace(az_min,az_max,10)

@@ -40,18 +40,30 @@ def load_geotiff(path):
     from osgeo import gdal
     ds = gdal.Open(path)
     return ds
-    
+  
+
+  
 def gdal_to_dict(ds):
     wkt = ds.GetProjection()
     d = wkt_to_dict(wkt)
     d['width'] = ds.RasterXSize
     d['nlines'] = ds.RasterYSize
-    gt = ds.GetGeoTransform()
+    gt = new_to_old_gt(ds.GetGeoTransform())
     d['corner_east'] = gt[0]
     d['corner_north'] = gt[3]
     d['post_north'] = gt[5]
     d['post_east'] = gt[1]
     return d
+
+def new_to_old_gt(gt):
+    """
+    Convert a new style swiss gt (with sitxh digit coordinate)
+    to the old style gt
+    """
+    gt_new = list(gt)
+    gt_new[0] = gt[0] - 2e6
+    gt_new[3] = gt[3] - 1e6
+    return gt_new
 
 def dict_to_gt(dic):
     from osgeo import gdal, osr

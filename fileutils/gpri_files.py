@@ -63,14 +63,25 @@ def dict_to_par(par_dict):
     
 def geotif_to_dem(gt, path):
     """
+    This function converts a geotiff 
+    DEM into a gamma format pair
+    of binary DEM and parameter file
     """
-    SA = gt
+    DEM = gt.ReadAsArray()
     d = other_files.gdal_to_dict(gt)
+    if np.issubdtype(DEM.dtype, np.int32):
+        DEM = DEM.astype(np.int16)
+        d['data_format'] = 'INTEGER*2'
+    elif np.issubdtype(DEM.dtype, np.int16):
+        d['data_format'] = 'INTEGER*2'
+    elif np.issubdtype(DEM.dtype, np.float32):
+        d['data_format'] = 'REAL*4'
+    d['DEM_scale'] = 1.0
+    d['projection_name'] = 'OMCH'
     DEM_par = dict_to_par(d)
-    DEM = SA.ReadAsArray()
     DEM = DEM.flatten()
-    DEM.tofile(path + '.dem')
-    fi = open(path + 'dem.par', "w")
+    DEM.byteswap().tofile(path + '.dem')
+    fi = open(path + '.dem.par', "w")
     fi.write(DEM_par)
     fi.close()
     
