@@ -171,22 +171,20 @@ def correct_phase_ramp_GPRI_DEM(S, DEM, B_if):
     S_corr['VH'] = S_corr['VH'] * ifgram_VH.conj()
     return S_corr
     
-def correct_phase_ramp_DEM(S,DEM, center):
+def correct_phase_ramp_DEM(S,DEM):
     B1 = S.ant_vec[0,0] - S.ant_vec[1,1]
     B2 = S.ant_vec[0,0] - S.ant_vec[0,1]
     B3 = S.ant_vec[0,0] - S.ant_vec[1,0]
-    print B1
-    if1 = synthetic_interferogram(S,DEM, center, B1)
-    if2 = synthetic_interferogram(S,DEM, center, B2)
-    if3 = synthetic_interferogram(S,DEM, center, B3)
+    if1 = synthetic_interferogram(S,DEM, B1)
+    if2 = synthetic_interferogram(S,DEM, B2)
+    if3 = synthetic_interferogram(S,DEM, B3)
     S_corr = S * 1
-    
     S_corr['VV'] = S_corr['VV'] * if1
     S_corr['HV'] = S_corr['HV'] * if2
     S_corr['VH'] = S_corr['VH'] * if3
     return S_corr
     
-def synthetic_interferogram(S, DEM, center, B):
+def synthetic_interferogram(S, DEM, B):
     """
     Parameters
     ----------
@@ -198,11 +196,11 @@ def synthetic_interferogram(S, DEM, center, B):
     
     #Coordinate System W.R.T antenna
     r, th = np.meshgrid(S.r_vec , S.az_vec)
-    x =  r * np.cos(th) + center[0]
-    y =  r * np.sin(th) + center[1]
+    x =  r * np.cos(th)
+    y =  r * np.sin(th)
     z =  DEM
-    r1 = np.dstack((center[0] - x, center[1] - y, center[2] - z))
-    r2 = np.dstack((center[0] - x, center[1] - y, center[2] - (z + B)))
+    r1 = np.dstack(( x,  y,  z))
+    r2 = np.dstack((x,  y, (z + B)))
     #Convert into 
     delta_d = np.linalg.norm(r1, axis =2) - np.linalg.norm(r2,axis = 2)
     lamb = 3e8/S.center_frequency

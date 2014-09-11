@@ -124,7 +124,7 @@ def load_int(path):
 def load_dem(path):
     split_string = path.split('.')
     print split_string
-    par_path = split_string[0] + '.off'
+    par_path = split_string[0] + '.par'
     print par_path
     par = load_par(par_path)
     d = np.fromfile(file=path, dtype=np.float32).byteswap()

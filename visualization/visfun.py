@@ -240,7 +240,7 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     y_rad = y - center[1]
     z_rad = z - center[2] 
     #The coordinates have to be rotated by the heading
-    theta = np.deg2rad(heading)
+    theta = heading
     #Compute rotation matrix to transform by heading
     R_mat = np.array([[np.cos(-theta), - np.sin(-theta)],[np.sin(-theta), np.cos(-theta)]])
     xx, yy = np.meshgrid(x_rad,y_rad)
@@ -256,8 +256,21 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     az_step = S_l.az_vec[1] - S_l.az_vec[0]
     r_idx = (r_sl - S_l.r_vec[0]) / r_step
     az_idx = (az - S_l.az_vec[0]) / np.abs(az_step)
-    lut = np.zeros(z.shape)
-    lut = az_idx + 1j*r_idx
+    lut = 1j * az_idx + r_idx
+    #Now we can compute the reverse transformation (From DEM to Radar)
+    #To each index (azimuth and range) in the radar geometry, the LUT contains
+    #the corresponding DEM indices
+    rev_lut = np.zeros(S_l.shape)
+    r_vec = S_l.r_vec
+    az_vec =  S_l.az_vec - heading
+    r1,az1  = np.meshgrid(r_vec, az_vec)
+    #Compute the points on the map that correspond to the slant ranges and azimuth on the radar
+    xrad = r1 * np.sin(az1) + center[0]
+    yrad = r1 * np.cos(az1) + center[1]
+    #Convert in map indices by using the geotransform
+    x_idx = (xrad - GT[0]) / GT[1]
+    y_idx = (yrad - GT[3]) / GT[5]
+    rev_lut = x_idx + 1j * y_idx
     #At this point, we are ready to compute incidence angles and other parameters
     #We need to compute the normals to the surface
     #Positions in radar coordinate system
@@ -269,13 +282,44 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     #Compute and normalize normals
     normal = np.cross(a,b)/ 2 + np.cross(c,d)/2
     normal = normal / np.linalg.norm(normal, axis = 2)[:,:,None]
+    #Compute zenith angle
+    u = np.arccos(normal[:,:,2])
     #Compute incidence angle
     los_v = -positions / np.linalg.norm(positions, axis = 2)[:,:,None]
     dot = los_v[:,:,0] * normal[:,:,0] + los_v[:,:,1] * normal[:,:,1] + los_v[:,:,2] * normal[:,:,2]
     ia = np.arccos(dot)
     #TODO : Compute shadow map
     pixel_area = np.abs(x_rad - np.roll(x_rad,1,axis = 0)) * np.abs(y_rad - np.roll(y_rad,1,axis = 1)) * np.cos(ia)
-    return lut, ia, pixel_area
+    return lut, rev_lut, r_sl, ia, u
+    
+def ly_sh_map(r_sl, ia):
+    """
+    This function computes the layover and shadow
+    map from a DEM in the radar coordinatesd
+    """
+    r_current = r_sl[:,0] * 1
+    ia_current = ia[:,0] * 1
+    ly = np.zeros_like(r_sl)
+    sh = np.zeros_like(r_sl)
+    for idx_r in range(r_sl.shape[1] -1):
+        r_next = r_sl[:, idx_r + 1]
+        ia_next = ia[:, idx_r + 1]
+        ia_current = ia[:, idx_r]
+        ly_vec = r_current > r_next
+        sh_vec = ia_next < ia_current
+        r_current[ly_vec] = r_next[ly_vec]
+        #if we dont have shadow, the next current incidence angle
+        #equals the current next
+        ia_current = ia_next * (~sh_vec) + ia_current * (sh_vec)
+        r_current = r_next * (ly_vec) + r_current * (~ly_vec)
+        ly[:, idx_r] = ly_vec
+        sh[:, idx_r] = sh_vec
+#        print ia_current
+#        print ia_next
+#        raw_input("Press enter to continue")
+    return ly, sh
+    
+        
     
 def reverse_lookup(image,lut):
     idx_az = np.arange(image.shape[0])
