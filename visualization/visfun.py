@@ -103,7 +103,37 @@ def upgrade_CH1903_gt(ds):
 
     
     
+def numeric_dt_to_gdal_dt(number):
+    from osgeo import gdal
+    conversion_dict = {\
+    1 : gdal.GDT_Byte,
+    2 : gdal.GDT_UInt16,
+    3 : gdal.GDT_Int16,
+    4 : gdal.GDT_UInt32 ,
+    5 : gdal.GDT_Int32,
+    6 : gdal.GDT_Float32,
+    }
+    return conversion_dict[number]
+
+
+def numpy_dt_to_numeric_dt(numpy_dt):
+  NP2GDAL_CONVERSION = {
+  "uint8": 1,
+  "int8": 1,
+  "uint16": 2,
+  "int16": 3,
+  "uint32": 4,
+  "int32": 5,
+  "float32": 6,
+  "float64": 7,
+  "complex64": 10,
+  "complex128": 11,
+  }
+  return NP2GDAL_CONVERSION[numpy_dt]
+
+    
 def reproject_gt(gt_to_project, gt_reference):
+
     """
     This function reporjects a gtiff
     to the projection specified by the other gtiff
@@ -119,11 +149,11 @@ def reproject_gt(gt_to_project, gt_reference):
     osr.SpatialReference(gt_reference.GetProjection()))
     geo_t = gt_to_project.GetGeoTransform()
     geo_t_ref = gt_reference.GetGeoTransform()
-    x_size = gt_to_project.RasterXSize # Raster xsize
-    y_size = gt_to_project.RasterYSize # Raster ysize
+    x_size = gt_reference.RasterXSize # Raster xsize
+    y_size = gt_reference.RasterYSize # Raster ysize
     (ulx, uly, ulz ) = tx.TransformPoint( geo_t[0], geo_t[3])
-    (lrx, lry, lrz ) = tx.TransformPoint( geo_t[0] + geo_t[1]*x_size, \
-                                          geo_t[3] + geo_t[5]*y_size )
+    (lrx, lry, lrz ) = tx.TransformPoint( geo_t[0] + geo_t_ref[1]*x_size, \
+                                          geo_t[3] + geo_t_ref[5]*y_size )
      #Compute new geotransform
     new_geo = ( geo_t_ref[0], geo_t_ref[1], geo_t[2], \
                 geo_t_ref[3], geo_t_ref[4], geo_t_ref[5] )
@@ -131,13 +161,50 @@ def reproject_gt(gt_to_project, gt_reference):
     pixel_spacing_x = geo_t_ref[1]
     pixel_spacing_y = geo_t_ref[5]
     dest = mem_drv.Create('', int((lrx - ulx)/np.abs(pixel_spacing_x)), \
-            int((uly - lry)/np.abs(pixel_spacing_y)), gt_to_project.RasterCount, gdal.GDT_Float32)
+            int((uly - lry)/np.abs(pixel_spacing_y)), gt_to_project.RasterCount,\
+            numeric_dt_to_gdal_dt(gt_to_project.GetRasterBand(1).DataType))
     dest.SetGeoTransform( new_geo )
     dest.SetProjection(gt_reference.GetProjection())
     res = gdal.ReprojectImage( gt_to_project, dest, \
                 gt_to_project.GetProjection(), gt_reference.GetProjection(), \
                 gdal.GRA_Bilinear )
     return dest
+    
+def write_gt(arr, GT, proj):
+    """
+    This function writes a np array to a
+    gdal geotiff object
+    Parameters
+    ----------
+    arr : ndarray
+        The array to write
+    GT  : iterable
+        The geotransform
+    proj : osr.SpatialReference
+        The projection of the geotiff
+    """
+    from osgeo import gdal, gdal_array, osr
+    x_size = arr.shape[1]
+    y_size = arr.shape[0]
+    #Determine number of bands
+    if arr.ndim > 2:
+        nbands = arr.shape[2]
+    else:
+        nbands = 1
+    #Create a memory driver
+    mem_drv = gdal.GetDriverByName( 'MEM' )
+    dest = mem_drv.Create('', x_size, \
+            y_size, nbands,\
+            numeric_dt_to_gdal_dt(numpy_dt_to_numeric_dt(arr.dtype.name)))
+    #Set geotransform and projection
+    dest.SetGeoTransform(GT)
+    dest.SetProjection(proj)
+    dest.GetRasterBand(1).WriteArray(arr)
+    return dest
+    
+    from osgeo import gdal, osr
+    
+    
 def paletted_to_rgb(gt):
     """
     This function converts a paletted
@@ -161,6 +228,7 @@ def paletted_to_rgb(gt):
     output_dataset = mem_drv.Create('', RAS.shape[1], RAS.shape[0], 4, gdal.GDT_Float32)  
     output_dataset = copy_and_modify_gt(RGBA_ras,gt)
     return output_dataset
+    
 def histeq(im,nbr_bins=256):
     """
     This function performs histogram equalization on a ndarray.
@@ -202,6 +270,42 @@ def exp_im(im, k):
     """
     return scale_array(1 - np.exp(- k * np.abs(im)))
     
+    
+def compute_map_extent(MAP, center, S, heading):
+    """
+    This function computes the extent
+    that a gpri Image occupies
+    on a given geotiff MAP
+    Parameters
+    ----------
+    Map : osgeo.gdal.Dataset
+        The gdal Dataset
+    center  : iterable
+        The center position, where the gpri is placed
+    S   : pyrat.ScatteringMatrix
+        The object of interest
+    heading : float
+        The heading on the map
+    """
+    ext = get_extent(MAP)
+    #Compute the area covered by radar
+    #in DEM coordinates
+    r_vec = (S.r_vec.max(),S.r_vec.min())
+    az_vec = S.az_vec - heading
+    r, az = np.meshgrid(r_vec,az_vec)
+    x = r * np.cos(az) + center[0]
+    y = r * np.sin(az) + center[1]
+    #Compute limits of area covered and clip to the DEM size
+    x_lim = np.clip(np.sort((x.min(),x.max())),np.min(ext[0]),np.max(ext[0]))
+    y_lim = np.clip(np.sort((y.min(),y.max())),np.min(ext[1]),np.max(ext[1]))
+    #get DEM geotransform
+    GT = MAP.GetGeoTransform()
+    #Convert grid limits into DEM indices
+    x_lim_idx = ((((x_lim - GT[0]) / GT[1]))) 
+    y_lim_idx = ((((y_lim - GT[3]) / GT[5])))
+    return x_lim, x_lim_idx, y_lim, y_lim_idx
+
+
 
 def gc_map(DEM,center,S_l,heading, interp = None):
     """
@@ -228,12 +332,28 @@ def gc_map(DEM,center,S_l,heading, interp = None):
         The computed incidence angle map
     
     """
-    #get DEM geotransform
+    from osgeo import osr
+    #%% DEM Segmentation
+    #First of all, we compute the extent of the DEM
+    #that is approx. covered by the radar
+    x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
+    #Now we cut the section of interest
+    x_idx = np.sort(x_lim_idx)
+    y_idx = np.sort(y_lim_idx)
+    z = (DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1]]
+    #Now we save the DEM segment
     GT = DEM.GetGeoTransform()
-    #compute grid of positions in DEM coordinates
-    x = GT[0] + np.arange(0,DEM.RasterXSize) * GT[1]
-    y = GT[3] + np.arange(0,DEM.RasterYSize) * GT[5]
-    z = DEM.ReadAsArray()
+    GT_seg = list(GT)
+    GT_seg[0] = x_lim[0]
+    GT_seg[3] = y_lim[1]
+    proj = osr.SpatialReference()
+    proj.ImportFromWkt(DEM.GetProjection())
+    DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
+    #We compute the gri coordinates for the DEM
+#    x = GT[0] + np.arange(0,DEM.RasterXSize) * GT[1]
+#    y = GT[3] + np.arange(0,DEM.RasterYSize) * GT[5]
+    x = GT_seg[0] + np.arange(0,z.shape[1]) * GT_seg[1]
+    y = GT_seg[3] + np.arange(0,z.shape[0]) * GT_seg[5]
     #Convert the positions to Radar Centered Coordinates
     #shift only
     x_rad = x - center[0]
@@ -268,8 +388,8 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     xrad = r1 * np.sin(az1) + center[0]
     yrad = r1 * np.cos(az1) + center[1]
     #Convert in map indices by using the geotransform
-    x_idx = (xrad - GT[0]) / GT[1]
-    y_idx = (yrad - GT[3]) / GT[5]
+    x_idx = (xrad - GT_seg[0]) / GT_seg[1]
+    y_idx = (yrad - GT_seg[3]) / GT_seg[5]
     rev_lut = x_idx + 1j * y_idx
     #At this point, we are ready to compute incidence angles and other parameters
     #We need to compute the normals to the surface
@@ -290,7 +410,7 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     ia = np.arccos(dot)
     #TODO : Compute shadow map
     pixel_area = np.abs(x_rad - np.roll(x_rad,1,axis = 0)) * np.abs(y_rad - np.roll(y_rad,1,axis = 1)) * np.cos(ia)
-    return lut, rev_lut, r_sl, ia, u
+    return DEM_seg, z, lut, rev_lut, r_sl, ia, u
     
 def ly_sh_map(r_sl, ia):
     """
@@ -378,8 +498,8 @@ def bilinear_interpolate(im, x, y):
 
 def get_extent(ds):
     gt = ds.GetGeoTransform()
-    gt_x_vec = (gt[0], gt[0] + gt[1] * (ds.RasterXSize ))
-    gt_y_vec = (gt[3], gt[3] + gt[5] * (ds.RasterYSize))
+    gt_x_vec = tuple(np.sort((gt[0], gt[0] + gt[1] * (ds.RasterXSize ))))
+    gt_y_vec = tuple(np.sort(((gt[3], gt[3] + gt[5] * (ds.RasterYSize)))))
     return gt_x_vec,gt_y_vec
 
 def read_coordinate_extent(ds,coords, interp = None):
@@ -406,41 +526,7 @@ def read_coordinate_extent(ds,coords, interp = None):
     else:
         return interp(RAS,px,py)
     
-    
-    
-def simulate_acquisition(DEM,center,r_vec,az_vec, heading):
-    """
-    Parameters
-    ----------
-        DEM : osgeo.gdal.Dataset
-        The dem from which to compute the masks
-    center : tuple
-        The center in map coordinates
-    az_vec  : ndarray
-        The array of angles to scan
-    r_vec : ndarray
-        The array of distances to scan
-    heading : double
-        The heading of the scan
-    """
-    #Acquire DEM in Radar Coordinates
-    DEM_pol,x ,y, phi = ground_to_slant(DEM,center, r_vec, az_vec, heading, interp = bilinear_interpolate)
-    #Compute vector position of each point in scanned DEM
-    positions = np.dstack((x, y, DEM_pol))
-    a = positions - np.roll(positions,1,axis = 0)
-    b = positions - np.roll(positions,1,axis = 1)
-    c = positions + np.roll(positions,-1,axis = 0)
-    d = positions + np.roll(positions,-1,axis =1)
-    normal = np.cross(a,b) + np.cross(c,d) /2 
-    normal = normal / (np.linalg.norm(normal,axis =2))[:,:,None]
-    #Compute vectors
-    x_vec = center[0] - x 
-    y_vec = center[1] - y
-    z_vec = read_coordinate_extent(DEM,center) - DEM_pol
-    r_vec = np.dstack((x_vec,y_vec,z_vec))
-    pos = np.dstack((x,y,DEM_pol))
-    alpha = np.einsum('...i,...i',normal,r_vec) / np.linalg.norm(r_vec,axis =2)
-    return pos, r_vec,normal,alpha
+
     
 
     
