@@ -179,9 +179,9 @@ def correct_phase_ramp_DEM(S,DEM):
     if2 = synthetic_interferogram(S,DEM, B2)
     if3 = synthetic_interferogram(S,DEM, B3)
     S_corr = S * 1
-    S_corr['VV'] = S_corr['VV'] * if1
-    S_corr['HV'] = S_corr['HV'] * if2
-    S_corr['VH'] = S_corr['VH'] * if3
+    S_corr['VV'] = S_corr['VV'] * if1.conj()
+    S_corr['HV'] = S_corr['HV'] * if2.conj()
+    S_corr['VH'] = S_corr['VH'] * if3.conj()
     return S_corr
     
 def synthetic_interferogram(S, DEM, B):

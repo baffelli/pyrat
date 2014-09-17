@@ -170,6 +170,37 @@ def reproject_gt(gt_to_project, gt_reference):
                 gdal.GRA_Bilinear )
     return dest
     
+
+def resample_DEM(DEM,new_posting):
+    """
+    This function reporjects a gtiff
+    to a new posting
+    Parameters
+    ----------
+    DEM : osgeo.gdal.Dataset
+        The geotiff to project
+    new_posting : iterable
+        The desired new posting
+    """
+    from osgeo import gdal, osr
+    geo_t = DEM.GetGeoTransform()
+    
+    x_size = DEM.RasterXSize * np.int(np.abs(geo_t[1]/new_posting[0])) # Raster xsize
+    y_size = DEM.RasterYSize * np.int(np.abs(geo_t[5]/new_posting[1]))# Raster ysize
+    print x_size
+     #Compute new geotransform
+    new_geo = ( geo_t[0], new_posting[0], geo_t[2], \
+                geo_t[3], geo_t[4], new_posting[1] )
+    mem_drv = gdal.GetDriverByName( 'MEM' )
+    dest = mem_drv.Create('', x_size, y_size, DEM.RasterCount,\
+            numeric_dt_to_gdal_dt(DEM.GetRasterBand(1).DataType))
+    dest.SetGeoTransform(new_geo)
+    dest.SetProjection(DEM.GetProjection())
+    res = gdal.ReprojectImage( DEM, dest, \
+                DEM.GetProjection(), DEM.GetProjection(), \
+                gdal.GRA_Bilinear )
+    return dest    
+
 def write_gt(arr, GT, proj):
     """
     This function writes a np array to a
@@ -291,10 +322,10 @@ def compute_map_extent(MAP, center, S, heading):
     #Compute the area covered by radar
     #in DEM coordinates
     r_vec = (S.r_vec.max(),S.r_vec.min())
-    az_vec = S.az_vec - heading
+    az_vec = np.mod(S.az_vec - heading, np.pi * 2)
     r, az = np.meshgrid(r_vec,az_vec)
-    x = r * np.cos(az) + center[0]
-    y = r * np.sin(az) + center[1]
+    x = r * np.sin(az) + center[0]
+    y = r * np.cos(az) + center[1]
     #Compute limits of area covered and clip to the DEM size
     x_lim = np.clip(np.sort((x.min(),x.max())),np.min(ext[0]),np.max(ext[0]))
     y_lim = np.clip(np.sort((y.min(),y.max())),np.min(ext[1]),np.max(ext[1]))
@@ -303,7 +334,9 @@ def compute_map_extent(MAP, center, S, heading):
     #Convert grid limits into DEM indices
     x_lim_idx = ((((x_lim - GT[0]) / GT[1]))) 
     y_lim_idx = ((((y_lim - GT[3]) / GT[5])))
-    return x_lim, x_lim_idx, y_lim, y_lim_idx
+    return x_lim, x_lim_idx, y_lim, y_lim_idx, x, y
+
+
 
 
 
@@ -336,11 +369,11 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     #%% DEM Segmentation
     #First of all, we compute the extent of the DEM
     #that is approx. covered by the radar
-    x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
+    x_lim, x_lim_idx, y_lim, y_lim_idx,x,y = compute_map_extent(DEM, center, S_l, heading)
     #Now we cut the section of interest
     x_idx = np.sort(x_lim_idx)
     y_idx = np.sort(y_lim_idx)
-    z = (DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1]]
+    z = (DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1]].astype(np.float32)
     #Now we save the DEM segment
     GT = DEM.GetGeoTransform()
     GT_seg = list(GT)
@@ -391,26 +424,43 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     x_idx = (xrad - GT_seg[0]) / GT_seg[1]
     y_idx = (yrad - GT_seg[3]) / GT_seg[5]
     rev_lut = x_idx + 1j * y_idx
-    #At this point, we are ready to compute incidence angles and other parameters
-    #We need to compute the normals to the surface
-    #Positions in radar coordinate system
+    #Compute the beta nought area given as the area of the
+    #illuminated annulus
+    r_d = r_vec[1] - r_vec[0]
+    area_beta = (az_vec[1] - az_vec[0]) * ((r_vec + r_d)**2 - r_vec**2 )
+    #Using the coordinates and the DEM in the radar centric cartesian system, we can compute the area etc
     positions = np.dstack((x_rad, y_rad, z_rad))
     a = np.roll(positions,1,axis = 0) - positions
     b = np.roll(positions,1,axis = 1) - positions
     c = positions - np.roll(positions,1,axis = 0)
     d = positions - np.roll(positions,1,axis =1)
     #Compute and normalize normals
-    normal = np.cross(a,b)/ 2 + np.cross(c,d)/2
+    c1 = np.cross(a,b)
+    c2 = np.cross(c,d)
+    normal = c1 / 2 + c2 / 2
+    area = np.linalg.norm(c1,axis = 2) /2 + np.linalg.norm(c2,axis = 2)/2
     normal = normal / np.linalg.norm(normal, axis = 2)[:,:,None]
     #Compute zenith angle
     u = np.arccos(normal[:,:,2])
     #Compute incidence angle
-    los_v = -positions / np.linalg.norm(positions, axis = 2)[:,:,None]
+    los_v = positions / np.linalg.norm(positions, axis = 2)[:,:,None]
     dot = los_v[:,:,0] * normal[:,:,0] + los_v[:,:,1] * normal[:,:,1] + los_v[:,:,2] * normal[:,:,2]
     ia = np.arccos(dot)
-    #TODO : Compute shadow map
-    pixel_area = np.abs(x_rad - np.roll(x_rad,1,axis = 0)) * np.abs(y_rad - np.roll(y_rad,1,axis = 1)) * np.cos(ia)
-    return DEM_seg, z, lut, rev_lut, r_sl, ia, u
+    #We compute how many DEM pixels are illuminated by the beam
+    #in x direction and in y direction
+    r_d = r_vec[1] - r_vec[0]
+    area_beta_dem = (az_vec[1] - az_vec[0]) * ((r_sl + r_d)**2 - r_sl**2 )
+    n_pix_x = area_beta_dem / (GT_seg[1])
+    n_pix_y = area_beta_dem / np.abs(GT_seg[5])
+    max_shift_x = np.int(np.max(n_pix_x.flatten()))
+    max_shift_y = np.int(np.max(n_pix_y.flatten()))
+    area_tot = area * 1
+    #At this point we compute the new area
+    for idx_shift_x in range(np.int(max_shift_x)):
+        for idx_shift_y in range(np.int(max_shift_y)):
+            sha = np.roll(np.roll(area,idx_shift_x,axis = 1),idx_shift_y,axis = 0)
+            area_tot = (area_tot + sha * (n_pix_x == idx_shift_x) * (n_pix_y == idx_shift_y))
+    return DEM_seg, lut, rev_lut, area, area_beta, ia, area_tot
     
 def ly_sh_map(r_sl, ia):
     """
@@ -611,15 +661,15 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1]):
                 span = np.log10(np.sum(data_diagonal * np.array([1,2,1])[None,None,:],axis = 2))
                 data_diagonal = np.log10(data_diagonal)
             else:
-                R = data_diagonal[:,:,0] / np.max(data_diagonal[:,:,0])
-                G = data_diagonal[:,:,1] / np.max(data_diagonal[:,:,1])
-                B = data_diagonal[:,:,1] / np.max(data_diagonal[:,:,1])
+                R = data_diagonal[:,:,0] / np.nanmax(data_diagonal[:,:,0])
+                G = data_diagonal[:,:,1] / np.nanmax(data_diagonal[:,:,1])
+                B = data_diagonal[:,:,1] / np.nanmax(data_diagonal[:,:,1])
                 span = np.sum(data_diagonal,axis = 2)
                 out = 1 - np.exp(- data_diagonal * np.array(k)[None,None, :])
                 return out
-            R = scale_array(data_diagonal[:,:,0], max_val =  0.99 * data_diagonal[:,:,0].max())
-            G = scale_array(data_diagonal[:,:,1], max_val =  0.99 * data_diagonal[:,:,1].max())
-            B = scale_array(data_diagonal[:,:,2], max_val =  0.99 * data_diagonal[:,:,0].max())
+            R = scale_array(data_diagonal[:,:,0], max_val =  0.99 * np.nanmax(data_diagonal[:,:,0]))
+            G = scale_array(data_diagonal[:,:,1], max_val =  0.99 * np.nanmax(data_diagonal[:,:,1]))
+            B = scale_array(data_diagonal[:,:,2], max_val =  0.99 * np.nanmax(data_diagonal[:,:,0]))
             out = np.zeros(R.shape+(3,))
             out[:,:,0] = R
             out[:,:,1] = G
