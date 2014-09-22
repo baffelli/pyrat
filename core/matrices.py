@@ -27,7 +27,6 @@ class gpriImage(np.ndarray):
                 path = args[1]
                 data_1= gpri_files.load_slc(path)
                 par = gpri_files.load_par(path + '.par')
-        print data_1.shape
         obj = data_1.view(cls)
         north = par['GPRI_ref_north'][0]
         east = par['GPRI_ref_east'][0]

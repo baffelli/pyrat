@@ -33,6 +33,8 @@ def load_par(path):
                     continue
                 except:
                     continue
+            elif keys[0] == "image_format:":
+                par = par + [('image_format', keys[1::])]
             else:
                 par_name = keys[0]
                 par_name = par_name.replace(":","")
@@ -105,8 +107,12 @@ def load_slc(path):
     par: the file as a numpy array. The shape is (n_azimuth, n_range)
     """
     par = load_par(path +'.par')
-    d_comp = load_complex(path)
-    d_image = np.reshape(d_comp,(par['azimuth_lines'][0],par['range_samples'][0]))
+    shape = (par['azimuth_lines'][0],par['range_samples'][0])
+    if par['image_format'][0] == 'FCOMPLEX':
+        dt = np.dtype('>c8')
+    elif par['image_format'][0] == 'SCOMPLEX':
+        dt = np.dtype('>c4')
+    d_image = np.memmap(path, shape = shape, dtype = dt)
     return d_image
     
 def load_int(path):

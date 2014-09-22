@@ -667,9 +667,9 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1]):
                 span = np.sum(data_diagonal,axis = 2)
                 out = 1 - np.exp(- data_diagonal * np.array(k)[None,None, :])
                 return out
-            R = scale_array(data_diagonal[:,:,0], max_val =  0.99 * np.nanmax(data_diagonal[:,:,0]))
-            G = scale_array(data_diagonal[:,:,1], max_val =  0.99 * np.nanmax(data_diagonal[:,:,1]))
-            B = scale_array(data_diagonal[:,:,2], max_val =  0.99 * np.nanmax(data_diagonal[:,:,0]))
+            R = scale_array(data_diagonal[:,:,0], max_val =  np.nanmax(data_diagonal[:,:,0]))
+            G = scale_array(data_diagonal[:,:,1], max_val =  np.nanmax(data_diagonal[:,:,1]))
+            B = scale_array(data_diagonal[:,:,2], max_val =  np.nanmax(data_diagonal[:,:,0]))
             out = np.zeros(R.shape+(3,))
             out[:,:,0] = R
             out[:,:,1] = G
