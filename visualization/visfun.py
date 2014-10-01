@@ -283,6 +283,25 @@ def histeq(im,nbr_bins=256):
     im2 = np.interp(im.flatten(),bins[:-1],cdf)
     return im2.reshape(im.shape)
 
+def stretch_contrast(im, tv = 5, ma = 95):
+    """
+    This function performs contrast
+    stretching on an image by clipping
+    it at the specified minimum and maximum percentiles
+    Parameters
+    ----------
+    im : array_like
+        The image to stretch
+    mi : float
+        The low percentile
+    ma  : float
+        The upper percentile
+    """
+    bv = np.percentile(im, mi)
+    tv = np.percentile(im, ma)
+    im1 = np.clip(im, bv, tv)
+    return im1
+
 def exp_im(im, k):
     """
     Converts an image to the 0-1 range using a negative
@@ -410,6 +429,7 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     r_idx = (r_sl - S_l.r_vec[0]) / r_step
     az_idx = (az - S_l.az_vec[0]) / np.abs(az_step)
     lut = 1j * az_idx + r_idx
+    #The slant ranges can be used to compute shadow maps
     #Now we can compute the reverse transformation (From DEM to Radar)
     #To each index (azimuth and range) in the radar geometry, the LUT contains
     #the corresponding DEM indices
@@ -429,7 +449,8 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     r_d = r_vec[1] - r_vec[0]
     area_beta = (az_vec[1] - az_vec[0]) * ((r_vec + r_d)**2 - r_vec**2 )
     #Using the coordinates and the DEM in the radar centric cartesian system, we can compute the area etc
-    positions = np.dstack((x_rad, y_rad, z_rad))
+    zrad = bilinear_interpolate(z_rad,x_idx,y_idx)
+    positions = np.dstack((xrad, yrad, zrad))
     a = np.roll(positions,1,axis = 0) - positions
     b = np.roll(positions,1,axis = 1) - positions
     c = positions - np.roll(positions,1,axis = 0)
@@ -446,21 +467,31 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     los_v = positions / np.linalg.norm(positions, axis = 2)[:,:,None]
     dot = los_v[:,:,0] * normal[:,:,0] + los_v[:,:,1] * normal[:,:,1] + los_v[:,:,2] * normal[:,:,2]
     ia = np.arccos(dot)
+    #Compute the shadow map
+    current = ia[:,0]
+    shadow = np.zeros_like(ia)
+    for idx_r in range(ia.shape[1] - 1):
+        nex = ia[:, idx_r + 1]  
+        sh = nex < current
+        shadow[:, idx_r] = sh
+        current = nex * (sh) + current * ~sh
+        
+        
     #We compute how many DEM pixels are illuminated by the beam
     #in x direction and in y direction
-    r_d = r_vec[1] - r_vec[0]
-    area_beta_dem = (az_vec[1] - az_vec[0]) * ((r_sl + r_d)**2 - r_sl**2 )
-    n_pix_x = area_beta_dem / (GT_seg[1])
-    n_pix_y = area_beta_dem / np.abs(GT_seg[5])
-    max_shift_x = np.int(np.max(n_pix_x.flatten()))
-    max_shift_y = np.int(np.max(n_pix_y.flatten()))
-    area_tot = area * 1
-    #At this point we compute the new area
-    for idx_shift_x in range(np.int(max_shift_x)):
-        for idx_shift_y in range(np.int(max_shift_y)):
-            sha = np.roll(np.roll(area,idx_shift_x,axis = 1),idx_shift_y,axis = 0)
-            area_tot = (area_tot + sha * (n_pix_x == idx_shift_x) * (n_pix_y == idx_shift_y))
-    return DEM_seg, lut, rev_lut, area, area_beta, ia, area_tot
+#    r_d = r_vec[1] - r_vec[0]
+#    area_beta_dem = (az_vec[1] - az_vec[0]) * ((r_sl + r_d)**2 - r_sl**2 )
+#    n_pix_x = area_beta_dem / (GT_seg[1])
+#    n_pix_y = area_beta_dem / np.abs(GT_seg[5])
+#    max_shift_x = np.int(np.max(n_pix_x.flatten()))
+#    max_shift_y = np.int(np.max(n_pix_y.flatten()))
+#    area_tot = area * 1
+#    #At this point we compute the new area
+#    for idx_shift_x in range(np.int(max_shift_x)):
+#        for idx_shift_y in range(np.int(max_shift_y)):
+#            sha = np.roll(np.roll(area,idx_shift_x,axis = 1),idx_shift_y,axis = 0)
+#            area_tot = (area_tot + sha * (n_pix_x == idx_shift_x) * (n_pix_y == idx_shift_y))
+    return DEM_seg, lut, rev_lut, xrad, yrad, ia
     
 def ly_sh_map(r_sl, ia):
     """
@@ -577,8 +608,15 @@ def read_coordinate_extent(ds,coords, interp = None):
         return interp(RAS,px,py)
     
 
-    
 
+def WGS84_to_LV95(center):
+    from osgeo import osr
+    WG = osr.SpatialReference(osr.GetWellKnownGeogCSAsWKT('WGS84'))
+    CH = osr.SpatialReference()
+    CH.ImportFromEPSG(2056)
+    Tx = osr.CoordinateTransformation(WG,CH)
+    center_1 = Tx.TransformPoint(center[1],center[0],center[2])
+    return center_1
     
 
 def geocode_image(image,pixel_size,*args):
@@ -642,7 +680,7 @@ def geocode_image(image,pixel_size,*args):
     gc[r_idx.astype(np.long) == 0] = np.nan
     return gc, x_vec, y_vec
     
-def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1]):
+def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1], min_perc = 10, max_perc = 99):
         """
         This function produces a rgb image from a scattering vector.
         
@@ -656,20 +694,30 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1]):
             set to True to display the channels in logarithmic form.
         """
         data_diagonal = np.abs(scattering_vector) 
+        span = np.sum(data_diagonal * np.array([1,2,1])[None,None,:],axis = 2)
+        bv = np.percentile(span / 2.0,min_perc)
+        tv = np.percentile(span / 2.0,max_perc)
         if not normalized:
+            #Clip at the given percentiles
+            data_diagonal[:,:,0] = np.clip(data_diagonal[:,:,0], bv, tv)
+            data_diagonal[:,:,1] = np.clip(data_diagonal[:,:,1], bv, tv)
+            data_diagonal[:,:,2] = np.clip(data_diagonal[:,:,2], bv, tv)
+            #Clip data
             if log:
-                span = np.log10(np.sum(data_diagonal * np.array([1,2,1])[None,None,:],axis = 2))
+                span = np.log10(span)
                 data_diagonal = np.log10(data_diagonal)
             else:
                 R = data_diagonal[:,:,0] / np.nanmax(data_diagonal[:,:,0])
                 G = data_diagonal[:,:,1] / np.nanmax(data_diagonal[:,:,1])
                 B = data_diagonal[:,:,1] / np.nanmax(data_diagonal[:,:,1])
-                span = np.sum(data_diagonal,axis = 2)
                 out = 1 - np.exp(- data_diagonal * np.array(k)[None,None, :])
                 return out
-            R = scale_array(data_diagonal[:,:,0], max_val =  np.nanmax(data_diagonal[:,:,0]))
-            G = scale_array(data_diagonal[:,:,1], max_val =  np.nanmax(data_diagonal[:,:,1]))
-            B = scale_array(data_diagonal[:,:,2], max_val =  np.nanmax(data_diagonal[:,:,0]))
+            R = data_diagonal[:,:,0]
+            G = data_diagonal[:,:,1]
+            B = data_diagonal[:,:,2]
+            R = scale_array(R)
+            G = scale_array(G)
+            B = scale_array(B)
             out = np.zeros(R.shape+(3,))
             out[:,:,0] = R
             out[:,:,1] = G
@@ -678,7 +726,7 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1]):
             span = np.sum(scattering_vector,axis=2)
             out = np.abs(data_diagonal /span[:,:,None])
         return out
-def show_geocoded(geocoded_image_list, n_ticks = 4, orientation = 'landscape',**kwargs):
+def show_geocoded(geocoded_image,**kwargs):
         """
         This function is a wrapper to call imshow with a 
         list produced by the geocode_image function.
@@ -687,35 +735,13 @@ def show_geocoded(geocoded_image_list, n_ticks = 4, orientation = 'landscape',**
             list containing the geocoded image and the x and y vectors of the new grid.
         """
         ax = plt.gca()
-        a = geocoded_image_list[0]
+        a = geocoded_image
         if a.ndim is 3:
             alpha = np.isnan(a[:,:,0])
             a = np.dstack((a,~alpha))
         else:
             a = np.ma.masked_where(np.isnan(a), a)
-        xv, yv = geocoded_image_list[1:None]
-        x_min = np.floor(xv.min())
-        x_max = np.ceil(xv.max())
-        y_min = np.floor(yv.min())
-        y_max = np.ceil(yv.max())
-        if orientation is 'portrait':
-            ext = [x_min, x_max, y_min, y_max]
-            a1 = a
-        else:
-            ext = [y_min, y_max, x_min, x_max]
-            if a.ndim is 2:
-                a1 = a.T
-            else:
-                a1 = a.transpose([1,0,2])
-        plt.imshow(a1, extent = ext, origin = 'lower'  ,**kwargs)
-        plt.xticks(rotation=90)
-        plt.xlabel('distance [m]')
-        plt.ylabel('distance [m]')
-#        xv_idx = np.linspace(0,len(xv)-1,n_ticks).astype(np.int)
-#        yv_idx = np.linspace(0,len(yv)-1,n_ticks).astype(np.int)
-#        plt.xticks(xv_idx,np.ceil(xv[xv_idx]))
-#        plt.yticks(yv_idx,np.ceil(yv[yv_idx]))
-        ax.set_aspect('equal')
+        plt.imshow(a ,**kwargs)
         return a
 class ROI:
     """

@@ -20,21 +20,23 @@ def calibrate_from_r_and_t(S, R,T):
     S_cal = corefun.transform(R_inv,S,T_inv)
     return S_cal
 
-def calibrate_from_parameters(S,parameter_name):
+def calibrate_from_parameters(S,par):
     """
     This function performs polarimetric calibration from a text file containing the m-matrix distortion parameters
     Parameters
     ----------
     S : scatteringMatrix
         the matrix to calibrate
-    parameter_name : string
+    par : string, array_like
         Path to the parameters file, it must in the form of np.save
     """
-#    m_inv = np.linalg.pinv(np.load(parameter_name))
-#    #Imbalance correction
-#    S_cal = np.einsum('...ij,...j->...i',m_inv,S.scattering_vector(bistatic = True, basis = 'lexicographic'))
-#    S_cal = S.__array_wrap__(np.reshape(S_cal,S.shape[0:2] + (2,2)))
-    m = np.load(parameter_name)
+    if  isinstance(par,str):
+        m = np.load(parameter_name)
+    elif isinstance(par,(np.ndarray,list,tuple)):
+        m = par
+    else:
+        raise TypeError("The parameters must be passed\
+        as a list or array or tuple or either as a path to a text file")
     f = m[0]
     g = m[1]
     S_cal = S * 1
@@ -301,7 +303,35 @@ def natural_targets_calibration(S,area,estimation_window):
     s_cal = S.__array_wrap__(s_cal)
     return s_cal, sigma, C
 
-
+def  simple_calibration(S, coord_tri, slice_distributed):
+    """
+    This function determines the paramrters a
+    simple calibration based
+    on TCR for imbalance and
+    distributed targets for the
+    determination of crosspolarized imbalance
+    Parameters
+    ----------
+    S : scatteringMatrix
+        The image to calibrate
+    coord_tri : tuple
+        The coordinates where the TCR is located
+    slice_distributed  : tuple
+        A tuple of slices identifinyg a region of distributed targets
+    """
+    #Determine cochannel imbalance
+    S_tri = S[coord_tri]
+    f_mag = (np.abs(S_tri['VV'])**2 / (np.abs(S_tri['HH'])**2))**0.25
+    f_phase = 1 / 2.0 * np.angle(S_tri['HH'].conj() *  S_tri['VV'])
+    f = f_mag * np.exp(1j * f_phase)
+    S_d = S[slice_distributed]
+    g_mag = (np.mean(np.abs(S_d['VH'])**2) / np.mean((np.abs(S_d['HV'])**2)))**0.5
+    g_phase =  np.mean(np.angle(S_d['HV'].conj() *  S_d['VH'])) 
+    f = f_mag * np.exp(1j * f_phase)
+    g = g_mag * np.exp(1j * g_phase)
+    #Determine imbalance on natural targets
+    return f, g
+    
 
 def gct(exact_targets,measured_targets):
     #Matrices

@@ -161,11 +161,13 @@ class scatteringMatrix(np.ndarray):
                 base_idx = (1,0)
             if self.ndim is 4:
                 sli = (Ellipsis,Ellipsis) + base_idx
+            elif self.ndim is 3:
+                sli = (Ellipsis,) + base_idx
             else:
                 sli = base_idx
                 new_obj_1 =  (super(scatteringMatrix,self).__getitem__(sli))
                 return new_obj_1
-        elif type(sl) is slice or type(sl) is tuple or type(sl) is int:
+        elif type(sl) is slice or type(sl) is tuple or type(sl) is int or type(sl) is list:
             sli = sl
         #apply slicing
         new_obj_1 =  (super(scatteringMatrix,self).__getitem__(sli))
@@ -657,16 +659,24 @@ class block_array:
         return self
         
     def next(self):
-        if self.current > self.maxiter:
+        if self.current >= self.maxiter:
+            self.current = 0
             raise StopIteration
         else:
-            return self.take_block(self.current)
+            c = self.take_block(self.current)
             self.current += 1
+            return c
+            
             
     def put_current(self, item):
         self.put_block(self.current, item)
 
-        
+    
+    def center_index(self,idx):
+        try:
+            return np.unravel_index(idx,self.nblocks)
+        except:
+            return 0,0
     
     def take_block(self,idx):
         if idx < np.prod(self.nblocks):
