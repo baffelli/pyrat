@@ -31,6 +31,7 @@ def compute_dim(WIDTH,FACTOR):
     
 
 
+
 def scale_array(*args,**kwargs):
     """
     This function scales an array between 0 and 1.
@@ -170,6 +171,29 @@ def reproject_gt(gt_to_project, gt_reference):
                 gdal.GRA_Bilinear )
     return dest
     
+
+def reproject_radar(S, S_ref):
+    """
+    This function reprojects
+    a radar image
+    to the sample range and azimuth spacing
+    of a given image
+    """
+    az_sp = np.abs(S.az_vec[1] - S.az_vec[0])
+    az_sp_ref = np.abs(S_ref.az_vec[1] - S_ref.az_vec[0])
+    az_vec_new = np.arange(S_ref.shape[0]) / az_sp * az_sp_ref
+    r_vec = np.arange(S.shape[1])
+    az, r = np.meshgrid(az_vec_new, r_vec, order = 'ij')
+    S_res = S.__array_wrap__(bilinear_interpolate(S, r.T, az.T))
+    S_res.az_vec = np.array(S.az_vec)  / az_sp  * az_sp_ref
+    S_res.r_vec = S.r_vec
+    return S_res
+
+def shift_radar(S, sh):
+    S1 = S * 1
+    S1['HH'] = pyrat.core.corefun.shift_array(S['HH'],(sh,0))
+    S1['HV'] = pyrat.core.corefun.shift_array(S['HV'],(sh,0))
+    S1['HV'] = pyrat.core.corefun.shift_array(S['VH'],(sh,0))
 
 def resample_DEM(DEM,new_posting):
     """
@@ -359,7 +383,7 @@ def compute_map_extent(MAP, center, S, heading):
 
 
 
-def gc_map(DEM,center,S_l,heading, interp = None):
+def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
     """
     This function computes a lookup-table
     that contains the radar coordinates
@@ -389,23 +413,28 @@ def gc_map(DEM,center,S_l,heading, interp = None):
     #First of all, we compute the extent of the DEM
     #that is approx. covered by the radar
     x_lim, x_lim_idx, y_lim, y_lim_idx,x,y = compute_map_extent(DEM, center, S_l, heading)
-    #Now we cut the section of interest
-    x_idx = np.sort(x_lim_idx)
-    y_idx = np.sort(y_lim_idx)
-    z = (DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1]].astype(np.float32)
-    #Now we save the DEM segment
-    GT = DEM.GetGeoTransform()
-    GT_seg = list(GT)
-    GT_seg[0] = x_lim[0]
-    GT_seg[3] = y_lim[1]
-    proj = osr.SpatialReference()
-    proj.ImportFromWkt(DEM.GetProjection())
-    DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
+    if segment_DEM:
+        #Now we cut the section of interest
+        x_idx = np.sort(x_lim_idx)
+        y_idx = np.sort(y_lim_idx)
+        z = (DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1]].astype(np.float32)
+    #Now we save the DEM segment$
+        GT = DEM.GetGeoTransform()
+        GT_seg = list(GT)
+        GT_seg[0] = x_lim[0]
+        GT_seg[3] = y_lim[1]
+        proj = osr.SpatialReference()
+        proj.ImportFromWkt(DEM.GetProjection())
+        DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
     #We compute the gri coordinates for the DEM
-#    x = GT[0] + np.arange(0,DEM.RasterXSize) * GT[1]
-#    y = GT[3] + np.arange(0,DEM.RasterYSize) * GT[5]
-    x = GT_seg[0] + np.arange(0,z.shape[1]) * GT_seg[1]
-    y = GT_seg[3] + np.arange(0,z.shape[0]) * GT_seg[5]
+        x = GT_seg[0] + np.arange(0,z.shape[1]) * GT_seg[1]
+        y = GT_seg[3] + np.arange(0,z.shape[0]) * GT_seg[5]
+    else:
+        z = (DEM.ReadAsArray()).astype(np.float32)
+        GT_seg = DEM.GetGeoTransform()
+        x = GT_seg[0] + np.arange(0,DEM.RasterXSize) * GT_seg[1]
+        y = GT_seg[3] + np.arange(0,DEM.RasterYSize) * GT_seg[5]
+        DEM_seg = DEM
     #Convert the positions to Radar Centered Coordinates
     #shift only
     x_rad = x - center[0]
@@ -709,7 +738,7 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1], min
             else:
                 R = data_diagonal[:,:,0] / np.nanmax(data_diagonal[:,:,0])
                 G = data_diagonal[:,:,1] / np.nanmax(data_diagonal[:,:,1])
-                B = data_diagonal[:,:,1] / np.nanmax(data_diagonal[:,:,1])
+                B = data_diagonal[:,:,2] / np.nanmax(data_diagonal[:,:,2])
                 out = 1 - np.exp(- data_diagonal * np.array(k)[None,None, :])
                 return out
             R = data_diagonal[:,:,0]
@@ -723,8 +752,8 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1], min
             out[:,:,1] = G
             out[:,:,2] = B
         else:
-            span = np.sum(scattering_vector,axis=2)
-            out = np.abs(data_diagonal /span[:,:,None])
+            span = np.sum(scattering_vector * np.array([1,2,1])[None,None,:],axis=2)
+            out = np.abs(data_diagonal  /span[:,:,None])
         return out
 def show_geocoded(geocoded_image,**kwargs):
         """

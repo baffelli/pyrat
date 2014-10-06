@@ -47,7 +47,7 @@ def cloude_pottier_histogram(*args,**kwargs):
 
     
     
-def coherence(im1,im2,win):
+def coherence(im1,im2,win, fun = None):
     """
     This function computes the interferometric
     coherence between two images.

@@ -56,7 +56,8 @@ class gpriImage(np.ndarray):
         temp_arr.__dict__.update(self.__dict__)
 
         return temp_arr
-        
+    
+
         
     def __getitem__(self,sl):
         new_obj_1 = np.array(super(gpriImage, self).__getitem__(sl))
@@ -148,6 +149,12 @@ class scatteringMatrix(np.ndarray):
     def __array_finalize__(self, obj):
         if obj is None: return
         self.geometry = getattr(obj, 'geometry', None)
+        
+    
+    def from_gpri_to_normal(self):
+        self_1 = self[:]
+        self_1.geometry = None
+        return self_1
         
     def __getitem__(self,sl):
         if type(sl) is str:

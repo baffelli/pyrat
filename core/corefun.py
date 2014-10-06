@@ -41,7 +41,7 @@ def outer_product(data,data1, large = False):
     
 
 
-def smooth(T, window):
+def smooth(T, window, fun = ndimage.filters.uniform_filter ):
     """
     Smoothes data using a multidmensional boxcar filter .
     
@@ -51,15 +51,20 @@ def smooth(T, window):
         The data to process.
     window : iterable
         The size of the smoothing window.
+    fun : function
+        The function used for smoothing
     Returns
     -------
     ndarray
         the smoothed array.
     """
-    T_out_real = ndimage.filters.uniform_filter(T.real,window)
-    T_out_imag = ndimage.filters.uniform_filter(T.imag,window)
-    T_out = T_out_real  + 1j * T_out_imag
-    return T_out
+    T1 = T[:]
+    T1[np.isnan(T1)] = 0
+    T1_out_real = fun(T1.real,window)
+    T1_out_imag = fun(T1.imag,window)
+    T1_out = T1_out_real  + 1j * T1_out_imag
+    T1_out[np.isnan(T)] = np.nan
+    return T1_out
 
 def smooth_1(T,window):
     T_sm = T * 1
