@@ -109,10 +109,10 @@ def load_slc(path):
     par = load_par(path +'.par')
     shape = (par['azimuth_lines'][0],par['range_samples'][0])
     if par['image_format'][0] == 'FCOMPLEX':
-        dt = np.dtype('>c8')
+        dt = np.dtype('complex64')
     elif par['image_format'][0] == 'SCOMPLEX':
-        dt = np.dtype('>c4')
-    d_image = np.memmap(path, shape = shape, dtype = dt)
+        dt = np.dtype('complex32')
+    d_image = np.memmap(path, shape = shape, dtype = dt).byteswap()
     return d_image
     
 def load_int(path):

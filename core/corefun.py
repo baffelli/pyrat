@@ -6,7 +6,7 @@ Created on Thu May 15 14:34:25 2014
 """
 import numpy as np
 import scipy
-from scipy import ndimage, fftpack
+from scipy import ndimage
 def outer_product(data,data1, large = False):
     """
     Computes the outer product of multimensional data along the last dimension.
@@ -58,13 +58,13 @@ def smooth(T, window, fun = ndimage.filters.uniform_filter ):
     ndarray
         the smoothed array.
     """
-    T1 = T[:]
+    T1 = np.array(T[:])
     T1[np.isnan(T1)] = 0
     T1_out_real = fun(T1.real,window)
     T1_out_imag = fun(T1.imag,window)
     T1_out = T1_out_real  + 1j * T1_out_imag
     T1_out[np.isnan(T)] = np.nan
-    return T1_out
+    return T.__array_wrap__(T1_out)
 
 def smooth_1(T,window):
     T_sm = T * 1
@@ -87,25 +87,28 @@ def shift_array(array,shift):
     ndarray : 
         the shifted array
     """
-    pre_shifts = tuple()
-    post_shifts = tuple()
-    index_list = tuple()
-    for current_shift in shift:
-        if current_shift > 0:
-            pre_shifts = pre_shifts + (abs(current_shift),)
-            post_shifts = post_shifts + (0,)
-        else:
-            pre_shifts = pre_shifts + (0,)
-            post_shifts = post_shifts + (abs(current_shift),)
-        if current_shift is 0:
-            index_list = index_list + (Ellipsis,)
-        elif current_shift > 0:
-            index_list = index_list + (slice(None,-current_shift),)
-        elif current_shift < 0:
-            index_list = index_list + (slice(abs(current_shift),None),)
-    shifts = zip(pre_shifts,post_shifts)
-    array_1 = np.pad(array,tuple(shifts),mode='constant',constant_values = (1,))[index_list]
-    return array_1
+#    pre_shifts = tuple()
+#    post_shifts = tuple()
+#    index_list = tuple()
+#    for current_shift in shift:
+#        if current_shift > 0:
+#            pre_shifts = pre_shifts + (abs(current_shift),)
+#            post_shifts = post_shifts + (0,)
+#        else:
+#            pre_shifts = pre_shifts + (0,)
+#            post_shifts = post_shifts + (abs(current_shift),)
+#        if current_shift is 0:
+#            index_list = index_list + (Ellipsis,)
+#        elif current_shift > 0:
+#            index_list = index_list + (slice(None,-current_shift),)
+#        elif current_shift < 0:
+#            index_list = index_list + (slice(abs(current_shift),None),)
+#    shifts = zip(pre_shifts,post_shifts)
+#    array_1 = array.__array_wrap__(np.pad(array,tuple(shifts),mode='constant',constant_values = (1,))[index_list])
+    array_1 = array * 1
+    for ax, current_shift in enumerate(shift):
+        array_1 = np.roll(array_1, current_shift, axis = ax)
+    return array.__array_wrap__(array_1)
     
 def is_hermitian(T):
     """
@@ -239,3 +242,4 @@ def block_to_array(A, block = (3,3)):
     strides = A.strides[len(block)::]
     print (new_shape), (strides)
     return ast(A, shape= new_shape, strides= strides)
+    

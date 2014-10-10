@@ -409,23 +409,33 @@ def distortion_matrices_to_m(R,T):
     M = np.array(a)
     return M
     
-def get_shift(image1,image2, oversampling = 1, axes = (0,1)):
+def get_shift(image1,image2, oversampling = (10,1), axes = (0,1)):
     pad_size = zip(np.zeros(image1.ndim),np.zeros(image1.ndim))
-    for ax in axes:
-        pad_size[ax] = (image1.shape[ax] * oversampling/2,image1.shape[ax] * oversampling/2)
+    for ax, ov in zip(axes, oversampling):
+        pad_size[ax] = (image1.shape[ax] * (ov - 1),0)
     pad_size = tuple(pad_size)
     image1_pad = np.pad(image1,pad_size,mode='constant')
     image2_pad = np.pad(image2,pad_size,mode='constant')
-    corr_image = norm_xcorr(image1_pad,image2_pad, axes = axes)
+#    x = np.arange(image1.shape[0] * oversampling[0]) / oversampling[0]
+#    y = np.arange(image1.shape[1] * oversampling[1]) / oversampling[1]
+#    x, y = np.meshgrid(x,y)
+#    import pyrat.visualization.visfun as visfun
+#    image1_pad = visfun.bilinear_interpolate(image1, x.T, y.T)
+#    image2_pad = visfun.bilinear_interpolate(image2, x.T, y.T)
+#    image1_pad = scipy.ndimage.zoom(image1, oversampling, order=1)
+#    image2_pad = scipy.ndimage.zoom(image2, oversampling, order=1)
+    corr_image = norm_xcorr(image1_pad, image2_pad, axes = axes)
     shift = np.argmax(np.abs(corr_image))
     shift_idx = np.unravel_index(shift,corr_image.shape)
-#    shift_idx = np.array(shift_idx) - corr_image.shape / 2
-    shift_idx = tuple(np.divide(np.subtract(shift_idx , np.divide(corr_image.shape,2.0)),oversampling))
+    shift_idx = (np.subtract(np.array(shift_idx) , np.divide(corr_image.shape , 2.0)))
     return shift_idx, corr_image
 
 def norm_xcorr(image1,image2, axes = (0,1)):
-    image_1_hat = scipy.fftpack.fftn(image1, axes = axes)
-    image_2_hat = scipy.fftpack.fftn(image2, axes = axes)
-    phase_corr = scipy.fftpack.fftshift(scipy.fftpack.ifftn(image_1_hat * image_2_hat.conj() / (np.abs( image_1_hat * image_2_hat.conj())),axes = axes),axes= axes)
+    import pyfftw
+    image1[np.isnan(image1)] = 0
+    image2[np.isnan(image2)] = 0
+    image_1_hat = pyfftw.interfaces.scipy_fftpack.fftn(image1, axes = axes)
+    image_2_hat = pyfftw.interfaces.scipy_fftpack.fftn(image2, axes = axes)
+    phase_corr = scipy.fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.ifftn(image_1_hat * image_2_hat.conj() / (np.abs( image_1_hat * image_2_hat.conj())),axes = axes),axes= axes)
     return phase_corr
 

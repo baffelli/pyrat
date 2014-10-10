@@ -37,10 +37,10 @@ class gpriImage(np.ndarray):
         az_min = np.deg2rad(par['GPRI_az_start_angle'][0])
         n_az = par['azimuth_lines'][0] 
         az_max = az_min + n_az * az_step
-        az_vec = np.linspace(az_min,az_max,n_az) 
-        r_vec = np.linspace(r_min,r_max,n_range)
+        az_vec = az_min + np.arange(n_az) * az_step 
+        r_vec = np.arange(n_range) * par['range_pixel_spacing'][0]  + r_min
         #Set attributes
-        obj.center = [north, east,par['GPRI_ref_alt'][0]]
+        obj.center = [north, east,par['GPRI_ref_alt'][0] + par['GPRI_geoid'][0]] 
         obj.az_vec = az_vec
         obj.r_vec = r_vec
         obj.tx_coord = par['GPRI_tx_coord']
@@ -51,10 +51,9 @@ class gpriImage(np.ndarray):
     
 
     def __array_wrap__(self, out_arr, context=None):
-        temp_arr = np.ndarray.__array_wrap__(self, out_arr, context)
-        temp_arr = temp_arr.view(gpriImage)
+#        temp_arr = np.ndarray.__array_wrap__(self, out_arr, context)
+        temp_arr = out_arr.view(gpriImage)
         temp_arr.__dict__.update(self.__dict__)
-
         return temp_arr
     
 
@@ -228,8 +227,8 @@ class scatteringMatrix(np.ndarray):
 
     
     def __array_wrap__(self, out_arr, context=None):
-        temp_arr = np.ndarray.__array_wrap__(self, out_arr, context)
-        temp_arr = temp_arr.view(scatteringMatrix)
+#        temp_arr = np.ndarray.__array_wrap__(self, out_arr, context)
+        temp_arr = out_arr.view(scatteringMatrix)
         temp_arr.__dict__.update(self.__dict__)
         return temp_arr
         

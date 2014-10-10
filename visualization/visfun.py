@@ -84,6 +84,46 @@ def copy_and_modify_gt(RAS,gt):
         output_dataset.GetRasterBand(n_band + 1).WriteArray( RAS[:,:,n_band] )
     return output_dataset
 
+def raster_to_geotiff(raster, ref_gt, path):
+    """
+    This function saves any ndarray
+    as a geotiff with the geotransfrom
+    take fron the reference gdal object specified as
+    Parameters
+    ----------
+    raster : ndarray
+        The object to save
+    ref_gt : osgeo.gdal.Dataset
+        The reference object
+    path : string
+        The path to save the geotiff to
+    """
+    #Remove nans
+    from osgeo import gdal
+    driver = gdal.GetDriverByName('GTiff')
+    if raster.ndim is 3:
+        nchan = raster.shape[2]
+    else:
+        nchan = 1
+    dataset = driver.Create(
+        path,
+        raster.shape[1],
+        raster.shape[0],
+        nchan,
+        numeric_dt_to_gdal_dt(ref_gt.GetRasterBand(1).DataType))
+    dataset.SetGeoTransform(ref_gt.GetGeoTransform())
+    dataset.SetProjection(ref_gt.GetProjection())
+    if nchan > 1:
+        for n_band in range(nchan -  1):
+            band = raster[:,:,n_band]
+            dataset.GetRasterBand(n_band + 1).WriteArray(band )
+            dataset.FlushCache()  # Write to disk.
+    else:
+         dataset.GetRasterBand(1).WriteArray(raster )
+         dataset.FlushCache()  # Write to disk.
+#    dataset.GDALClose()
+    return dataset
+    
 def upgrade_CH1903_gt(ds):
     """
     This function corrects the geotransform
@@ -177,24 +217,54 @@ def reproject_radar(S, S_ref):
     This function reprojects
     a radar image
     to the sample range and azimuth spacing
-    of a given image
+    of a given image and coregisters them
     """
-    az_sp = np.abs(S.az_vec[1] - S.az_vec[0])
-    az_sp_ref = np.abs(S_ref.az_vec[1] - S_ref.az_vec[0])
+    az_sp = (S.az_vec[1] - S.az_vec[0])
+    az_sp_ref = (S_ref.az_vec[1] - S_ref.az_vec[0])
     az_vec_new = np.arange(S_ref.shape[0]) / az_sp * az_sp_ref
     r_vec = np.arange(S.shape[1])
     az, r = np.meshgrid(az_vec_new, r_vec, order = 'ij')
-    S_res = S.__array_wrap__(bilinear_interpolate(S, r.T, az.T))
+    int_arr = bilinear_interpolate(S, r.T, az.T).astype(np.complex64)
+    S_res = S_ref.__array_wrap__(int_arr)
     S_res.az_vec = np.array(S.az_vec)  / az_sp  * az_sp_ref
     S_res.r_vec = S.r_vec
     return S_res
+    
+def correct_shift_radar_coordinates(slave, master, oversampling = (5,2), sl = None):
+    import pyrat.gpri_utils.calibration as calibration
+    if slice is not None:
+        M = np.array(np.abs(master['HH'])).astype(np.float32)
+        S = np.array(np.abs(slave['HH'])).astype(np.float32)
+    else:
+        M = np.array(np.abs(master[sl]['HH'])).astype(np.float32)
+        S = np.array(np.abs(slave[sl]['HH'])).astype(np.float32)
+    #Get shift
+    co_sh, corr = calibration.get_shift(M, S,\
+    axes = (0,1), oversampling = oversampling )
+    print co_sh
+    x = np.arange(slave.shape[0]) - co_sh[0]
+    y = np.arange(slave.shape[1]) - co_sh[1]
+    x,y = np.meshgrid(x, y, order = 'ij')
+    slave_1 = master.__array_wrap__(bilinear_interpolate(slave, y.T, x.T))
+    return slave_1, corr
+    
+
+    
+    
+
 
 def shift_radar(S, sh):
+    """
+    This function shifts
+    a scattering matrix
+    by a given amount of pixels
+    """
     S1 = S * 1
-    S1['HH'] = pyrat.core.corefun.shift_array(S['HH'],(sh,0))
-    S1['HV'] = pyrat.core.corefun.shift_array(S['HV'],(sh,0))
-    S1['HV'] = pyrat.core.corefun.shift_array(S['VH'],(sh,0))
-
+    S1['HH'] = pyrat.core.corefun.shift_array(S['HH'],sh)
+    S1['HV'] = pyrat.core.corefun.shift_array(S['HV'],sh)
+    S1['HV'] = pyrat.core.corefun.shift_array(S['VH'],sh)
+    S1['VV'] = pyrat.core.corefun.shift_array(S['VV'],sh)
+    return S1
 def resample_DEM(DEM,new_posting):
     """
     This function reporjects a gtiff
@@ -576,10 +646,10 @@ def bilinear_interpolate(im, x, y):
     y0 = np.floor(y).astype(int)
     y1 = y0 + 1
 
-    x0 = np.clip(x0, 0, im.shape[1]-1);
-    x1 = np.clip(x1, 0, im.shape[1]-1);
-    y0 = np.clip(y0, 0, im.shape[0]-1);
-    y1 = np.clip(y1, 0, im.shape[0]-1);
+    x0 = np.clip(x0, 0, im.shape[1]-1)
+    x1 = np.clip(x1, 0, im.shape[1]-1)
+    y0 = np.clip(y0, 0, im.shape[0]-1)
+    y1 = np.clip(y1, 0, im.shape[0]-1)
 
     Ia = im[y0, x0]
     Ib = im[y1, x0]
@@ -611,6 +681,9 @@ def get_extent(ds):
     gt_x_vec = tuple(np.sort((gt[0], gt[0] + gt[1] * (ds.RasterXSize ))))
     gt_y_vec = tuple(np.sort(((gt[3], gt[3] + gt[5] * (ds.RasterYSize)))))
     return gt_x_vec,gt_y_vec
+    
+    
+
 
 def read_coordinate_extent(ds,coords, interp = None):
     """
@@ -636,7 +709,10 @@ def read_coordinate_extent(ds,coords, interp = None):
     else:
         return interp(RAS,px,py)
     
-
+def auto_heading(S, pixel_coord,geo_coord):
+    geo_heading = np.rad2deg(np.arctan2(geo_coord[0], geo_coord[1]))
+    pixel_az = S.az_vec[pixel_coord[0]]
+    return pixel_az - geo_heading
 
 def WGS84_to_LV95(center):
     from osgeo import osr
@@ -709,7 +785,7 @@ def geocode_image(image,pixel_size,*args):
     gc[r_idx.astype(np.long) == 0] = np.nan
     return gc, x_vec, y_vec
     
-def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1], min_perc = 10, max_perc = 99):
+def pauli_rgb(scattering_vector, normalized= False, pl=True, c = 0.92, gamma = 0.04, min_perc = 5, max_perc = 99):
         """
         This function produces a rgb image from a scattering vector.
         
@@ -722,19 +798,17 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1], min
         log : bool
             set to True to display the channels in logarithmic form.
         """
-        data_diagonal = np.abs(scattering_vector) 
-        span = np.sum(data_diagonal * np.array([1,2,1])[None,None,:],axis = 2)
-        bv = np.percentile(span / 2.0,min_perc)
-        tv = np.percentile(span / 2.0,max_perc)
+        data_diagonal = np.abs(scattering_vector)
+        span = np.mean((data_diagonal),axis = 2)
+        bv = np.percentile(np.log10(span),min_perc)
+        tv = np.percentile(np.log10(span),max_perc)
+        data_diagonal = np.clip(data_diagonal, bv,tv)**10
         if not normalized:
-            #Clip at the given percentiles
-            data_diagonal[:,:,0] = np.clip(data_diagonal[:,:,0], bv, tv)
-            data_diagonal[:,:,1] = np.clip(data_diagonal[:,:,1], bv, tv)
-            data_diagonal[:,:,2] = np.clip(data_diagonal[:,:,2], bv, tv)
-            #Clip data
-            if log:
-                span = np.log10(span)
-                data_diagonal = np.log10(data_diagonal)
+            if pl:
+                data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0])
+                data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1])
+                data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2])
+                data_diagonal = c * ((data_diagonal / c)**(gamma))
             else:
                 R = data_diagonal[:,:,0] / np.nanmax(data_diagonal[:,:,0])
                 G = data_diagonal[:,:,1] / np.nanmax(data_diagonal[:,:,1])
@@ -747,10 +821,7 @@ def pauli_rgb(scattering_vector, normalized= False, log=False, k = [1, 1,1], min
             R = scale_array(R)
             G = scale_array(G)
             B = scale_array(B)
-            out = np.zeros(R.shape+(3,))
-            out[:,:,0] = R
-            out[:,:,1] = G
-            out[:,:,2] = B
+            out = np.dstack((R,G,B))
         else:
             span = np.sum(scattering_vector * np.array([1,2,1])[None,None,:],axis=2)
             out = np.abs(data_diagonal  /span[:,:,None])
@@ -765,7 +836,7 @@ def show_geocoded(geocoded_image,**kwargs):
         """
         ax = plt.gca()
         a = geocoded_image
-        if a.ndim is 3:
+        if a.ndim is 3 and  a.shape[-1] == 3:
             alpha = np.isnan(a[:,:,0])
             a = np.dstack((a,~alpha))
         else:
