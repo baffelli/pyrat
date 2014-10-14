@@ -8,6 +8,9 @@ import numpy as np
 from ..fileutils import gpri_files, other_files  
 from . import corefun
 from ..visualization import visfun
+#Range correction factor to
+#compensate for the cable delay
+rcf = 5
 
 class gpriImage(np.ndarray):
     def __new__(*args):
@@ -31,14 +34,12 @@ class gpriImage(np.ndarray):
         north = par['GPRI_ref_north'][0]
         east = par['GPRI_ref_east'][0]
         r_min = par['near_range_slc'][0] 
-        r_max = par['far_range_slc'][0]
         n_range = par['range_samples'][0]
         az_step = np.deg2rad(par['GPRI_az_angle_step'][0])
         az_min = np.deg2rad(par['GPRI_az_start_angle'][0])
         n_az = par['azimuth_lines'][0] 
-        az_max = az_min + n_az * az_step
-        az_vec = az_min + np.arange(n_az) * az_step 
-        r_vec = np.arange(n_range) * par['range_pixel_spacing'][0]  + r_min
+        az_vec = az_min + np.arange(n_az) * az_step  
+        r_vec = np.arange(n_range) * par['range_pixel_spacing'][0]  + r_min - rcf
         #Set attributes
         obj.center = [north, east,par['GPRI_ref_alt'][0] + par['GPRI_geoid'][0]] 
         obj.az_vec = az_vec
@@ -47,6 +48,8 @@ class gpriImage(np.ndarray):
         obj.incidence_angle = par['incidence_angle']
         obj.center_frequency = par['radar_frequency'][0]
         obj.utc = par['utc']
+        obj.r_step = par['range_pixel_spacing'][0]
+        obj.az_step = az_step
         return obj 
     
 
@@ -124,6 +127,8 @@ class scatteringMatrix(np.ndarray):
             phase_center = []
             obj.geometry = 'polar'
             obj.center_frequency = HH.center_frequency
+            obj.r_step = HH.r_step
+            obj.az_step = HH.az_step
             TX_VEC = [0,0.125]
             RX_VEC_U = [0.475,0.6]
             RX_VEC_L = [0.725,0.85]

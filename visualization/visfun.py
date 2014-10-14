@@ -447,7 +447,7 @@ def compute_map_extent(MAP, center, S, heading):
     #Convert grid limits into DEM indices
     x_lim_idx = ((((x_lim - GT[0]) / GT[1]))) 
     y_lim_idx = ((((y_lim - GT[3]) / GT[5])))
-    return x_lim, x_lim_idx, y_lim, y_lim_idx, x, y
+    return x_lim, x_lim_idx, y_lim, y_lim_idx
 
 
 
@@ -482,7 +482,7 @@ def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
     #%% DEM Segmentation
     #First of all, we compute the extent of the DEM
     #that is approx. covered by the radar
-    x_lim, x_lim_idx, y_lim, y_lim_idx,x,y = compute_map_extent(DEM, center, S_l, heading)
+    x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
     if segment_DEM:
         #Now we cut the section of interest
         x_idx = np.sort(x_lim_idx)
@@ -522,11 +522,10 @@ def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
     #Conver coordinates into range and azimuths
     r_sl = np.sqrt(x_rad**2 + y_rad**2 + z_rad**2)
     az = np.arctan2(x_rad, y_rad)
-    #Conver coordinates into indices
-    r_step = S_l.r_vec[1] - S_l.r_vec[0]
-    az_step = S_l.az_vec[1] - S_l.az_vec[0]
-    r_idx = (r_sl - S_l.r_vec[0]) / r_step
-    az_idx = (az - S_l.az_vec[0]) / np.abs(az_step)
+#    ia = np.arcsin(z_rad / r_sl)
+    #Convert coordinates into indices
+    r_idx = (r_sl - S_l.r_vec[0]) / S_l.r_step
+    az_idx = (az - S_l.az_vec[0]) / (S_l.az_step)
     lut = 1j * az_idx + r_idx
     #The slant ranges can be used to compute shadow maps
     #Now we can compute the reverse transformation (From DEM to Radar)
@@ -574,23 +573,23 @@ def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
         sh = nex < current
         shadow[:, idx_r] = sh
         current = nex * (sh) + current * ~sh
-        
-        
-    #We compute how many DEM pixels are illuminated by the beam
-    #in x direction and in y direction
-#    r_d = r_vec[1] - r_vec[0]
-#    area_beta_dem = (az_vec[1] - az_vec[0]) * ((r_sl + r_d)**2 - r_sl**2 )
-#    n_pix_x = area_beta_dem / (GT_seg[1])
-#    n_pix_y = area_beta_dem / np.abs(GT_seg[5])
-#    max_shift_x = np.int(np.max(n_pix_x.flatten()))
-#    max_shift_y = np.int(np.max(n_pix_y.flatten()))
-#    area_tot = area * 1
-#    #At this point we compute the new area
-#    for idx_shift_x in range(np.int(max_shift_x)):
-#        for idx_shift_y in range(np.int(max_shift_y)):
-#            sha = np.roll(np.roll(area,idx_shift_x,axis = 1),idx_shift_y,axis = 0)
-#            area_tot = (area_tot + sha * (n_pix_x == idx_shift_x) * (n_pix_y == idx_shift_y))
-    return DEM_seg, lut, rev_lut, xrad, yrad, ia
+#        
+#        
+#    #We compute how many DEM pixels are illuminated by the beam
+#    #in x direction and in y direction
+##    r_d = r_vec[1] - r_vec[0]
+##    area_beta_dem = (az_vec[1] - az_vec[0]) * ((r_sl + r_d)**2 - r_sl**2 )
+##    n_pix_x = area_beta_dem / (GT_seg[1])
+##    n_pix_y = area_beta_dem / np.abs(GT_seg[5])
+##    max_shift_x = np.int(np.max(n_pix_x.flatten()))
+##    max_shift_y = np.int(np.max(n_pix_y.flatten()))
+##    area_tot = area * 1
+##    #At this point we compute the new area
+##    for idx_shift_x in range(np.int(max_shift_x)):
+##        for idx_shift_y in range(np.int(max_shift_y)):
+##            sha = np.roll(np.roll(area,idx_shift_x,axis = 1),idx_shift_y,axis = 0)
+##            area_tot = (area_tot + sha * (n_pix_x == idx_shift_x) * (n_pix_y == idx_shift_y))
+    return DEM_seg, lut, rev_lut, xrad, yrad, ia, area, area_beta
     
 def ly_sh_map(r_sl, ia):
     """
