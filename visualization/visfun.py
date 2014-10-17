@@ -70,7 +70,9 @@ def scale_array(*args,**kwargs):
         bottomV = kwargs.get('bottom')
     else:
         bottomV = 0
-    scaled = (topV - bottomV) * ((data - minVal)) /(maxVal - minVal) + bottomV
+    scaled = np.clip(data,minVal,maxVal) / np.abs(maxVal - minVal)
+#    scaled = (topV + bottomV) * ((data - minVal)) /(maxVal - minVal) + bottomV
+#    scaled = (topV + 0.9999)*(data - minVal)/(maxVal - minVal)
     return scaled
 
 
@@ -241,11 +243,11 @@ def correct_shift_radar_coordinates(slave, master, oversampling = (5,2), sl = No
     #Get shift
     co_sh, corr = calibration.get_shift(M, S,\
     axes = (0,1), oversampling = oversampling )
-    print co_sh
     x = np.arange(slave.shape[0]) - co_sh[0]
     y = np.arange(slave.shape[1]) - co_sh[1]
-    x,y = np.meshgrid(x, y, order = 'ij')
-    slave_1 = master.__array_wrap__(bilinear_interpolate(slave, y.T, x.T))
+    x,y = np.meshgrid(x, y, order = 'xy')
+    slave_1 = master.__array_wrap__(bilinear_interpolate(np.array(slave), y.T, x.T))
+    slave_1.utc = slave.utc
     return slave_1, corr
     
 
@@ -784,7 +786,7 @@ def geocode_image(image,pixel_size,*args):
     gc[r_idx.astype(np.long) == 0] = np.nan
     return gc, x_vec, y_vec
     
-def pauli_rgb(scattering_vector, normalized= False, pl=True, c = 0.92, gamma = 0.04, min_perc = 5, max_perc = 99):
+def pauli_rgb(scattering_vector, normalized= False, pl=True, c = 0.92, gamma = 0.04, min_perc = 5, max_perc = 99, sf = 2.5):
         """
         This function produces a rgb image from a scattering vector.
         
@@ -797,17 +799,17 @@ def pauli_rgb(scattering_vector, normalized= False, pl=True, c = 0.92, gamma = 0
         log : bool
             set to True to display the channels in logarithmic form.
         """
-        data_diagonal = np.abs(scattering_vector)
-        span = np.mean((data_diagonal),axis = 2)
-        bv = np.percentile(np.log10(span),min_perc)
-        tv = np.percentile(np.log10(span),max_perc)
-        data_diagonal = np.clip(data_diagonal, bv,tv)**10
         if not normalized:
             if pl:
+                data_diagonal = np.abs(scattering_vector)
+                m = np.nanmean(data_diagonal, axis = (0,1)) * sf
+                data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0], max_val = m[0])
+                data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1], max_val = m[1]/2)
+                data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2],max_val = m[2])
+                data_diagonal = (c * ((data_diagonal / c)**(gamma)))
                 data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0])
                 data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1])
                 data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2])
-                data_diagonal = c * ((data_diagonal / c)**(gamma))
             else:
                 R = data_diagonal[:,:,0] / np.nanmax(data_diagonal[:,:,0])
                 G = data_diagonal[:,:,1] / np.nanmax(data_diagonal[:,:,1])
@@ -817,9 +819,6 @@ def pauli_rgb(scattering_vector, normalized= False, pl=True, c = 0.92, gamma = 0
             R = data_diagonal[:,:,0]
             G = data_diagonal[:,:,1]
             B = data_diagonal[:,:,2]
-            R = scale_array(R)
-            G = scale_array(G)
-            B = scale_array(B)
             out = np.dstack((R,G,B))
         else:
             span = np.sum(scattering_vector * np.array([1,2,1])[None,None,:],axis=2)

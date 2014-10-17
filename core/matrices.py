@@ -362,7 +362,7 @@ class scatteringMatrix(np.ndarray):
             k = k[:,:,[1,2,0]]
         else:
             pass
-        im = visfun.pauli_rgb(np.abs(k)**2,**kwargs)
+        im = visfun.pauli_rgb(np.abs(k),**kwargs)
         return im
         
    
