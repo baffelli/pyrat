@@ -44,10 +44,6 @@ def scale_array(*args,**kwargs):
         The minimum value at which to cut the data.
     max_val : double
         The maximum value at which to clip the data.
-    top : double
-        The maximum value of the scaled array.
-    bottom : dobule
-        The minium value of the scaled array.
     Returns
     -------
     ndarray
@@ -62,17 +58,7 @@ def scale_array(*args,**kwargs):
         maxVal = kwargs.get('max_val')
     else:
         maxVal = np.nanmax(data)
-    if 'top' in kwargs:
-        topV = kwargs.get('top')
-    else:
-        topV = 1
-    if 'bottom' in kwargs:
-        bottomV = kwargs.get('bottom')
-    else:
-        bottomV = 0
-    scaled = np.clip(data,minVal,maxVal) / np.abs(maxVal - minVal)
-#    scaled = (topV + bottomV) * ((data - minVal)) /(maxVal - minVal) + bottomV
-#    scaled = (topV + 0.9999)*(data - minVal)/(maxVal - minVal)
+    scaled = (np.clip(data,minVal,maxVal) - minVal) / (maxVal - minVal)
     return scaled
 
 
@@ -803,13 +789,16 @@ def pauli_rgb(scattering_vector, normalized= False, pl=True, c = 0.92, gamma = 0
             if pl:
                 data_diagonal = np.abs(scattering_vector)
                 m = np.nanmean(data_diagonal, axis = (0,1)) * sf
+                mx = np.nanmax(data_diagonal, axis = (0,1))
+                m = np.minimum(m,mx)
                 data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0], max_val = m[0])
-                data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1], max_val = m[1]/2)
+                data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1], max_val = m[1])
                 data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2],max_val = m[2])
-                data_diagonal = (c * ((data_diagonal / c)**(gamma)))
+                data_diagonal = (c * ((data_diagonal)**(gamma)))
                 data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0])
                 data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1])
                 data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2])
+#                data_diagonal[data_diagonal > 1] = 0
             else:
                 R = data_diagonal[:,:,0] / np.nanmax(data_diagonal[:,:,0])
                 G = data_diagonal[:,:,1] / np.nanmax(data_diagonal[:,:,1])
