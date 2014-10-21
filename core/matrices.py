@@ -372,9 +372,11 @@ class scatteringMatrix(np.ndarray):
 
 class coherencyMatrix(np.ndarray):
     
-    global U3LP, U3PL
+    global U3LP, U3PL, U4PL, U4LP
     U3LP = 1/np.sqrt(2) * np.array([[1, 0, 1],[1, 0, -1],[0, np.sqrt(2), 0]])
     U3PL = 1/np.sqrt(2) * np.array([[1, 1, 0],[0, 0, np.sqrt(2)],[1, -1, 0]])
+    U4LP = 1/np.sqrt(2) * np.array([[1, 0, 0, 1],[1, 0, 0, -1],[0, 1, 1, 0],[0, 1j, -1j, 0]])
+    U4PL =  U4LP.T.conj()
     
     def vectorize(self):
         dim = self.shape
@@ -596,8 +598,11 @@ class coherencyMatrix(np.ndarray):
         This function converst the current matrix to the lexicographic basis
         """
         if self.basis is 'pauli':
-            C = self.transform((U3PL),np.linalg.inv(U3PL))
-            C.basis = 'lexicographic'
+            if self.shape[-1] is 3:
+                C = self.transform((U3PL),np.linalg.inv(U3PL))
+            else:
+                C = self.transform((U4PL),np.linalg.inv(U4PL))
+        C.basis = 'lexicographic'
         C = self.__array_wrap__(C)
         C.basis = 'lexicographic'
         print 'success'
@@ -608,8 +613,11 @@ class coherencyMatrix(np.ndarray):
         This function converst the current matrix to the pauli basis
         """        
         if self.basis is 'lexicographic':
-            C = self.transform(U3LP,np.linalg.inv(U3LP))
-            C.basis = 'pauli'
+            if self.shape[-1] is 3:
+                C = self.transform(U3LP,np.linalg.inv(U3LP))
+            else:
+                C = self.transform(U4LP,np.linalg.inv(U4LP))
+        C.basis = 'pauli'
         C = self.__array_wrap__(C)
         C.basis = 'pauli'
         print 'success'

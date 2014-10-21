@@ -9,7 +9,7 @@ Created on Thu May 15 14:56:18 2014
 Utilities for GPRI calibration
 """
 import numpy as np
-from ..core import corefun
+from ..core import corefun, polfun
 import scipy
 from scipy import fftpack
 #from ..core import scatteringMatrix
@@ -45,15 +45,25 @@ def calibrate_from_parameters(S,par):
     S_cal['VH'] = S_cal['VH'] * 1/f * 1/g
     return S_cal
 
-def swap_channels(S_u,S_l):
-    S_u_n = S_u * 1
-    S_l_n = S_l * 1
-    S_u_n['VV'] = S_l['VV']
-    S_l_n['VV'] = S_u['VV']
-#    S_u_n['HH'] = S_l['HH']
-#    S_l_n['HH'] = S_u['HH']
-    return S_u_n, S_l_n
     
+
+def covariance_calibration(S_l,S_u, win = [5,5]):
+    coh = polfun.coherence(S_l['HH'], S_u['HH'], win)
+    B_if = S_l.ant_vec[0,0] - S_u.ant_vec[0,0]
+    T_l = S_l.to_coherency_matrix(basis = 'lexicographic', bistatic=True)
+    T_u = S_u.to_coherency_matrix(basis = 'lexicographic',bistatic=True)
+    name_matrix = np.array([['HH','HV'],['VH','VV']])
+    corr_mat = np.zeros(T_l.shape,dtype = np.complex64)
+    for idx_1 in range(4):
+        for idx_2 in range(4):
+            id1 = np.unravel_index(idx_1,(2,2)) 
+            id2 = np.unravel_index(idx_2,(2,2)) 
+            baseline = S_l.ant_vec[id1[0],id1[1]] - S_l.ant_vec[id2[0],id2[1]]
+            cf = (baseline) / B_if
+            corr = np.exp(1j*np.angle(coh) * cf)
+            corr_mat[:, :,idx_1,idx_2] = corr
+    T_l_cal = T_l * corr_mat
+    return T_l_cal
 
 def coregister_channels(S):
     """
@@ -160,17 +170,20 @@ def correct_phase_ramp_GPRI_DEM(S, DEM, B_if):
     B1 = S.ant_vec[0,0] - S.ant_vec[1,1]
     B2 = S.ant_vec[0,0] - S.ant_vec[0,1]
     B3 = S.ant_vec[0,0] - S.ant_vec[1,0]
-
+    B4 = S.ant_vec[1,1] - S.ant_vec[0,1]
     
     ifgram_co = np.exp(-1j * DEM *  B1 / B_if)
     ifgram_HV = np.exp(-1j * DEM * B2 / B_if)
     ifgram_VH = np.exp(-1j * DEM * B3 / B_if)
+    
+    ifgram_VVVH = np.exp(-1j * DEM * B4 / B_if)
     
     S_corr = S * 1
     
     S_corr['VV'] = S_corr['VV'] * ifgram_co.conj()
     S_corr['HV'] = S_corr['HV'] * ifgram_HV.conj()
     S_corr['VH'] = S_corr['VH'] * ifgram_VH.conj()
+    S_corr['VH'] = S_corr['VH'] * ifgram_VVVH.conj()
     return S_corr
     
 def correct_phase_ramp_DEM(S,DEM):
