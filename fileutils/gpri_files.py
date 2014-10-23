@@ -5,9 +5,9 @@ Created on Thu May 15 13:51:30 2014
 @author: baffelli
 """
 import re
-import numpy as np
+import numpy as _np
 import dateutil.parser
-import string
+import string as _str
 import other_files
 
 def load_par(path):
@@ -28,7 +28,7 @@ def load_par(path):
         if len(keys) > 1:
             if keys[0] == "title:":
                 try:
-                    utc = dateutil.parser.parse(string.join(keys[1:3]))
+                    utc = dateutil.parser.parse(_str.join(keys[1:3]))
                     par = par + [('utc',utc)]
                     continue
                 except:
@@ -71,12 +71,12 @@ def geotif_to_dem(gt, path):
     """
     DEM = gt.ReadAsArray()
     d = other_files.gdal_to_dict(gt)
-    if np.issubdtype(DEM.dtype, np.int32):
-        DEM = DEM.astype(np.int16)
+    if _np.issubdtype(DEM.dtype, _np.int32):
+        DEM = DEM.astype(_np.int16)
         d['data_format'] = 'INTEGER*2'
-    elif np.issubdtype(DEM.dtype, np.int16):
+    elif _np.issubdtype(DEM.dtype, _np.int16):
         d['data_format'] = 'INTEGER*2'
-    elif np.issubdtype(DEM.dtype, np.float32):
+    elif _np.issubdtype(DEM.dtype, _np.float32):
         d['data_format'] = 'REAL*4'
     d['DEM_scale'] = 1.0
     d['projection_name'] = 'OMCH'
@@ -89,7 +89,7 @@ def geotif_to_dem(gt, path):
     
 
 def load_complex(path):
-    d = np.fromfile(file=path, dtype=np.float32)
+    d = _np.fromfile(file=path, dtype=_np.float32)
     d = d.byteswap()
     d_real = d[0::2]
     d_imag = d[1::2]
@@ -109,32 +109,32 @@ def load_slc(path):
     par = load_par(path +'.par')
     shape = (par['azimuth_lines'][0],par['range_samples'][0])
     if par['image_format'][0] == 'FCOMPLEX':
-        dt = np.dtype('complex64')
+        dt = _np.dtype('complex64')
     elif par['image_format'][0] == 'SCOMPLEX':
-        dt = np.dtype('complex32')
-    d_image = np.memmap(path, shape = shape, dtype = dt).byteswap()
+        dt = _np.dtype('complex32')
+    d_image = _np.memmap(path, shape = shape, dtype = dt).byteswap()
     return d_image
     
 def load_int(path):
-    split_string = path.split('.')
-    print split_string
-    par_path = split_string[0] + '.off'
+    split__str = path.split('.')
+    print split__str
+    par_path = split__str[0] + '.off'
     print par_path
     par = load_par(par_path)
     d_comp = load_complex(path)
-    d_image = np.reshape(d_comp,(par['interferogram_azimuth_lines'][0],par['interferogram_width'][0]))
+    d_image = _np.reshape(d_comp,(par['interferogram_azimuth_lines'][0],par['interferogram_width'][0]))
     return d_image
 
 
 
 def load_dem(path):
-    split_string = path.split('.')
-    print split_string
-    par_path = split_string[0] + '.par'
+    split__str = path.split('.')
+    print split__str
+    par_path = split__str[0] + '.par'
     print par_path
     par = load_par(par_path)
-    d = np.fromfile(file=path, dtype=np.float32).byteswap()
-    d_image = np.reshape(d,(par['interferogram_azimuth_lines'][0],par['interferogram_width'][0]))
+    d = _np.fromfile(file=path, dtype=_np.float32).byteswap()
+    d_image = _np.reshape(d,(par['interferogram_azimuth_lines'][0],par['interferogram_width'][0]))
     return d_image
     
 

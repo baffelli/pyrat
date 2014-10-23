@@ -4,7 +4,7 @@ Created on Thu May 15 14:00:59 2014
 
 @author: baffelli
 """
-import numpy as np
+import numpy as _np
 
 def load_dat(path):
     """
@@ -20,19 +20,19 @@ def load_dat(path):
         the data as a numpy array
     """
     # sizes from file
-    dt_head = np.dtype('>i4')
+    dt_head = _np.dtype('>i4')
     temp_path = path
     f = open(temp_path)
-    dim_vec = np.zeros(2,dtype = dt_head)
-    dim_vec = np.fromfile(f,dtype=dt_head,count = 2)
+    dim_vec = _np.zeros(2,dtype = dt_head)
+    dim_vec = _np.fromfile(f,dtype=dt_head,count = 2)
     #Compute sizes
     n_range = dim_vec[0]
     n_az = dim_vec[1]
     #Skip header
     f.seek(8, 0)  # seek
     #Define new data type
-    dt_data = np.dtype('>c8')
-    data =  np.fromfile(f,dtype=dt_data)
+    dt_data = _np.dtype('>c8')
+    data =  _np.fromfile(f,dtype=dt_data)
     data = data.reshape([n_az,n_range])
     return data
     
@@ -141,7 +141,7 @@ def load_bin(path,dim):
     read_data : ndarray
         the data as a numpy array
     """
-    read_data = np.fromfile(file=path, dtype=np.complex64).reshape(dim)
+    read_data = _np.fromfile(file=path, dtype=_np.complex64).reshape(dim)
     return read_data
 
 def load_scattering(paths,fun=load_dat,other_args=[]):
@@ -184,34 +184,34 @@ def load_coherency(path, dim):
     data : ndarray 
         the data as a list of numpy arrays
     """
-    data_type = np.float32
-    data = np.zeros( dim + [3,3], dtype = np.complex64)
+    data_type = _np.float32
+    data = _np.zeros( dim + [3,3], dtype = _np.complex64)
     #Load channel
     path_name = path  + "T11.bin"
-    read_data = np.fromfile(file=path_name, dtype=data_type).reshape(dim)
+    read_data = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
     data[:,:,0,0] = read_data
     path_name = path  + "T22.bin"
-    read_data = np.fromfile(file=path_name, dtype=data_type).reshape(dim)
+    read_data = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
     data[:,:,1,1] = read_data
     path_name = path  + "T33.bin"
-    read_data = np.fromfile(file=path_name, dtype=data_type).reshape(dim)
+    read_data = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
     data[:,:,2,2] = read_data
     path_name = path  + "T12_real.bin"
-    read_data_real = np.fromfile(file=path_name, dtype=data_type).reshape(dim)
+    read_data_real = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
     path_name = path  + "T12_imag.bin"
-    read_data_imag = np.fromfile(file=path_name, dtype=data_type).reshape(dim)
+    read_data_imag = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
     data[:,:,0,1] = read_data_real + 1j* read_data_imag
     data[:,:,1,0] = read_data_real - 1j* read_data_imag
     path_name = path  + "T13_real.bin"
-    read_data_real = np.fromfile(file=path_name, dtype=data_type).reshape(dim)
+    read_data_real = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
     path_name = path  + "T13_imag.bin"
-    read_data_imag = np.fromfile(file=path_name, dtype=data_type).reshape(dim)
+    read_data_imag = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
     data[:,:,0,2] = read_data_real + 1j* read_data_imag
     data[:,:,2,0] = read_data_real - 1j* read_data_imag
     path_name = path  + "T23_real.bin"
-    read_data_real = np.fromfile(file=path_name, dtype=data_type).reshape(dim)
+    read_data_real = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
     path_name = path  + "T23_imag.bin"
-    read_data_imag = np.fromfile(file=path_name, dtype=data_type).reshape(dim)
+    read_data_imag = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
     data[:,:,1,2] = read_data_real + 1j* read_data_imag
     data[:,:,2,1] = read_data_real - 1j* read_data_imag
     return data
