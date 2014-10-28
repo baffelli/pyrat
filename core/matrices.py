@@ -337,7 +337,7 @@ class scatteringMatrix(_np.ndarray):
         T = corefun.outer_product(k, k)
         T = T.view(coherencyMatrix)
         T.__dict__.update(self.__dict__)
-        T.basis = basis
+        T.__dict__['basis'] = basis
         return T
 
 

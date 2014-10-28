@@ -22,6 +22,7 @@ def calibrate_from_r_and_t(S, R,T):
     return S_cal
 
 def calibrate_from_parameters(S,par):
+    #TODO check calibration
     """
     This function performs polarimetric calibration from a text file containing the m-matrix distortion parameters
     Parameters

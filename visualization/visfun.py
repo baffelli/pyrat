@@ -769,7 +769,7 @@ def geocode_image(image,pixel_size,*args):
     gc[r_idx.astype(_np.long) == 0] = _np.nan
     return gc, x_vec, y_vec
     
-def pauli_rgb(scattering_vector, normalized= False, pl=True, c = 0.92, gamma = 0.04, min_perc = 5, max_perc = 99, sf = 2.5):
+def pauli_rgb(scattering_vector, normalized= False, pl=True, gamma = 1, sf = 2.5):
         """
         This function produces a rgb image from a scattering vector.
         
@@ -785,17 +785,17 @@ def pauli_rgb(scattering_vector, normalized= False, pl=True, c = 0.92, gamma = 0
         if not normalized:
             if pl:
                 data_diagonal = _np.abs(scattering_vector)
-                m = _np.nanmean(data_diagonal, axis = (0,1)) * sf
-                mx = _np.nanmax(data_diagonal, axis = (0,1))
-                m = _np.minimum(m,mx)
-                data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0], max_val = m[0])
-                data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1], max_val = m[1])
-                data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2],max_val = m[2])
-                data_diagonal = (c * ((data_diagonal)**(gamma)))
+                sp = _np.sum(data_diagonal,axis = 2)
+                m = _np.nanmean(sp, axis = (0,1)) * sf
+#                mx = _np.nanmax(data_diagonal, axis = (0,1))
+#                m = _np.minimum(m,mx) 
+                data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0], max_val = m )
+                data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1], max_val = m )
+                data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2], max_val = m )
+                data_diagonal = (((data_diagonal)**(gamma)))
                 data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0])
                 data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1])
                 data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2])
-#                data_diagonal[data_diagonal > 1] = 0
             else:
                 R = data_diagonal[:,:,0] / _np.nanmax(data_diagonal[:,:,0])
                 G = data_diagonal[:,:,1] / _np.nanmax(data_diagonal[:,:,1])
@@ -807,8 +807,8 @@ def pauli_rgb(scattering_vector, normalized= False, pl=True, c = 0.92, gamma = 0
             B = data_diagonal[:,:,2]
             out = _np.dstack((R,G,B))
         else:
-            span = _np.sum(scattering_vector * _np.array([1,2,1])[None,None,:],axis=2)
-            out = _np.abs(data_diagonal  /span[:,:,None])
+            span = _np.sum(scattering_vector,axis=2)
+            out = _np.abs(scattering_vector  /span[:,:,None])
         return out
 def show_geocoded(geocoded_image,**kwargs):
         """
