@@ -58,6 +58,8 @@ def scale_array(*args,**kwargs):
     scaled = (_np.clip(data,minVal,maxVal) - minVal) / (maxVal - minVal)
     return scaled
 
+def segment_image(S, thresh):
+    return (S>thresh).astype(_np.bool)
 
 def copy_and_modify_gt(RAS,gt):
     from osgeo import gdal
@@ -210,28 +212,30 @@ def reproject_radar(S, S_ref):
     r_vec = _np.arange(S.shape[1])
     az, r = _np.meshgrid(az_vec_new, r_vec, order = 'ij')
     int_arr = bilinear_interpolate(S, r.T, az.T).astype(_np.complex64)
-    S_res = S_ref.__array_wrap__(int_arr)
-    S_res.az_vec = _np.array(S.az_vec)  / az_sp  * az_sp_ref
+#    S_res = S_ref.__array_wrap__(int_arr)
+    S_res = int_arr
+    S_res.az_vec = az_vec_new
     S_res.r_vec = S.r_vec
     return S_res
     
-def correct_shift_radar_coordinates(slave, master, oversampling = (5,2), sl = None):
+def correct_shift_radar_coordinates(slave, master, thresh = 0.5, axes = (0,1), oversampling = (5,2), sl = None):
     import pyrat.gpri_utils.calibration as calibration
-    if slice is not None:
-        M = _np.array(_np.abs(master['HH'])).astype(_np.float32)
-        S = _np.array(_np.abs(slave['HH'])).astype(_np.float32)
+    if sl is None:
+        M = _np.array(_np.abs(master[:,:,0,0])).astype(_np.float32)
+        S = _np.array(_np.abs(slave[:,:,0,0])).astype(_np.float32)
     else:
-        M = _np.array(_np.abs(master[sl]['HH'])).astype(_np.float32)
-        S = _np.array(_np.abs(slave[sl]['HH'])).astype(_np.float32)
+        M = _np.array(_np.abs(master[sl + (0,0)])).astype(_np.float32)
+        S = _np.array(_np.abs(slave[sl + (0,0)])).astype(_np.float32)
     #Get shift
-    co_sh, corr = calibration.get_shift(M, S,\
-    axes = (0,1), oversampling = oversampling )
-    x = _np.arange(slave.shape[0]) - co_sh[0]
-    y = _np.arange(slave.shape[1]) - co_sh[1]
+    print M.shape
+    co_sh, corr = calibration.get_shift(M,S, oversampling = oversampling, axes=(0,1))
+    co_sh_1, corr = calibration.get_shift(M,S, oversampling = oversampling, axes=(0,1))
+    print co_sh, co_sh_1
+    x = _np.arange(slave.shape[0]) - co_sh[0] 
+    y = _np.arange(slave.shape[1]) - co_sh[1]*0
     x,y = _np.meshgrid(x, y, order = 'xy')
     slave_1 = master.__array_wrap__(bilinear_interpolate(_np.array(slave), y.T, x.T))
-    slave_1.utc = slave.utc
-    return slave_1, corr
+    return bilinear_interpolate(_np.array(slave), y.T, x.T), corr
     
 
     

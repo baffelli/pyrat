@@ -13,6 +13,7 @@ from pyrat import core
 from ..core import corefun, polfun
 import scipy as _sc
 from scipy import fftpack as _fftp
+from scipy import signal as _sg
 #from ..core import scatteringMatrix
 
 def calibrate_from_r_and_t(S, R,T):
@@ -33,7 +34,8 @@ def calibrate_from_parameters(S,par):
         Path to the parameters file, it must in the form of _np.save
     """
     if  isinstance(par,str):
-        m = _np.load(par)
+        m = _np.fromfile(par)
+        m = m[::2] + m[1::2]
     elif isinstance(par,(_np.ndarray,list,tuple)):
         m = par
     else:
@@ -50,18 +52,26 @@ def calibrate_from_parameters(S,par):
 
     
 
-def covariance_calibration(S_l,S_u, win = [5,5]):
+def covariance_calibration(S_l,S_u, win = [5,5], bistatic = False):
+    '''
+    This function converts
+    a pair of scattering matrices
+    acquired on a inteferometric
+    baseline into a corrected
+    lexicographic covariance matrix
+    where all phase ramp are removed
+    '''
     coh = polfun.coherence(S_l['HH'], S_u['HH'], win)
-    B_if = S_l.ant_vec[0,0] - S_u.ant_vec[0,0]
-    T_l = S_l.to_coherency_matrix(basis = 'lexicographic', bistatic=True)
-    T_u = S_u.to_coherency_matrix(basis = 'lexicographic',bistatic=True)
-    name_matrix = _np.array([['HH','HV'],['VH','VV']])
+    B_if = S_l.ant_vec['HH'] - S_u.ant_vec['HH']
+    T_l = S_l.to_coherency_matrix(basis = 'lexicographic', bistatic= bistatic)
+    if bistatic is True:
+        channel_vec = ['HH','HV','VH','VV']
+    else:
+        channel_vec = ['HH','HV','VV']
     corr_mat = _np.zeros(T_l.shape,dtype = _np.complex64)
-    for idx_1 in range(4):
-        for idx_2 in range(4):
-            id1 = _np.unravel_index(idx_1,(2,2)) 
-            id2 = _np.unravel_index(idx_2,(2,2)) 
-            baseline = S_l.ant_vec[id1[0],id1[1]] - S_l.ant_vec[id2[0],id2[1]]
+    for idx_1 in range(T_l.shape[-1]):
+        for idx_2 in range(T_l.shape[-1]):
+            baseline = S_l.ant_vec[channel_vec[idx_1]] - S_l.ant_vec[channel_vec[idx_2]]
             cf = (baseline) / B_if
             corr = _np.exp(1j*_np.angle(coh) * cf)
             corr_mat[:, :,idx_1,idx_2] = corr
@@ -118,89 +128,117 @@ def coregister_channels_FFT(S,shift_patch, oversampling = 1):
     return S_cor
 
 
-def correct_phase_ramp(S,if_phase, cv_vec = [1,0,0]):
-    """ 
-    This function corrects the interferometric phase ramp between the copolarized channels due to the spatial separation
-    of the H and the V antenna. In order to do so, it requires a interferogram and the conversion factor between the polarimetric baseline 
-    and the interferometric baseline
-    
-    Parameters    
-    ----------
-    S : scatteringMatrix
-        `S` is the scattering matrix to be corrected
-    if_phase : ndarray
-        `if_phase` is interferometric phase to be subtracted
-    conversion_factor : double or int, optional
-        `conversion_factor` is the ratio of the normal baselines, used to convert the phase from one baseline to the other
-    Returns
-    -------
-    S_corr : scatteringMatrix
-        `S_corr` is the scattering matrix with the removed interferometric phase
+def correct_HHVV_phase_ramp(S, if_phase, baseline_ratio):
     """
-
-    S_corr = S * 1
-    S_corr['VV'] = S['VV'] * _np.exp(-1j*cv_vec[0]*if_phase)
-    S_corr['HV'] = S['HV'] * _np.exp(-1j*cv_vec[1]*if_phase)
-    S_corr['VH'] = S['VH'] * _np.exp(-1j*cv_vec[2]*if_phase)
-    return S_corr
-    
-def correct_phase_ramp_GPRI(S,S_ref_2, conversion_factor = 1, conversion_factor_1 = 0):
-    """ 
-    This function corrects the interferometric phase ramp between the copolarized channels due to the spatial separation
-    of the H and the V antenna. To do so, it uses the interferometric baseline of the GPRI.
+    This function corrects the phase ramp
+    between the HH-VV channels. It is used
+    as a preliminary correction, useful
+    to determine the correct HH-VV
+    phase
     Parameters
     ----------
-    S : scatteringMatrix 
-        the scattering matrix to be corrected
-    S_other : scatteringMatrix
-        An image taken at the other end of the baseline
-    -----
+    S : scatteringMatrix
+        `S` is the Scattering matrix that is to be corrected
+    if_phase : array_like
+        `if_phase` the unwrapped interferometric phase
+        which is to be removed from S
+    baseline_ratio  : float
+        The ratio of the polarimetric baseline to
+        the interferometric baseline
     Returns
-    scatteringMatrix
-        the scattering matrix with the removed interferometric phase
+    -------
+    S_coor : scatteringMatrix
+        A scattering matrix where the HH-VV phase contains a
+        polarimetric contribution only
     """
-    S_ref_1 = S * 1
-    ref_b = (S_ref_1['HH'].ant_vec - S_ref_2['HH'].ant_vec)
-    #Compute conversion factors
-    cf_co = (S['HH'].ant_vec - S['VV'].ant_vec) / ref_b
-    cf_cr_1 = (S['HH'].ant_vec - S['HV'].ant_vec) / ref_b
-    cf_cr_2 = (S['HH'].ant_vec - S['VH'].ant_vec) / ref_b
-    HH_VV_if = _np.angle(S_ref_1['HH']*S_ref_2['HH'].conj())
-    S_corr = correct_phase_ramp(S,HH_VV_if, cv_vec = [cf_co,cf_cr_1,cf_cr_2])
-    return S_corr
-
-def correct_phase_ramp_GPRI_DEM(S, DEM, B_if):
-    B1 = S.ant_vec[0,0] - S.ant_vec[1,1]
-    B2 = S.ant_vec[0,0] - S.ant_vec[0,1]
-    B3 = S.ant_vec[0,0] - S.ant_vec[1,0]
-    B4 = S.ant_vec[1,1] - S.ant_vec[0,1]
-    
-    ifgram_co = _np.exp(-1j * DEM *  B1 / B_if)
-    ifgram_HV = _np.exp(-1j * DEM * B2 / B_if)
-    ifgram_VH = _np.exp(-1j * DEM * B3 / B_if)
-    
-    ifgram_VVVH = _np.exp(-1j * DEM * B4 / B_if)
-    
     S_corr = S * 1
     
-    S_corr['VV'] = S_corr['VV'] * ifgram_co.conj()
-    S_corr['HV'] = S_corr['HV'] * ifgram_HV.conj()
-    S_corr['VH'] = S_corr['VH'] * ifgram_VH.conj()
-    S_corr['VH'] = S_corr['VH'] * ifgram_VVVH.conj()
+    S_corr['VV'] = S['VV'] *  _np.exp(-1j*baseline_ratio*if_phase)
     return S_corr
-    
-def correct_phase_ramp_DEM(S,DEM):
-    B1 = S.ant_vec[0,0] - S.ant_vec[1,1]
-    B2 = S.ant_vec[0,0] - S.ant_vec[0,1]
-    B3 = S.ant_vec[0,0] - S.ant_vec[1,0]
-    if1 = synthetic_interferogram(S,DEM, B1)
-    if2 = synthetic_interferogram(S,DEM, B2)
-    if3 = synthetic_interferogram(S,DEM, B3)
-    S_corr = S * 1
-    S_corr['VV'] = S_corr['VV'] * if1.conj()
-    S_corr['HV'] = S_corr['HV'] * if2.conj()
-    S_corr['VH'] = S_corr['VH'] * if3.conj()
-    return S_corr
+        
+#def correct_phase_ramp(S,if_phase, cv_vec = [1,0,0]):
+#    """ 
+#    This function corrects the interferometric phase ramp between the copolarized channels due to the spatial separation
+#    of the H and the V antenna. In order to do so, it requires a interferogram and the conversion factor between the polarimetric baseline 
+#    and the interferometric baseline
+#    
+#    Parameters    
+#    ----------
+#    S : scatteringMatrix
+#        `S` is the scattering matrix to be corrected
+#    if_phase : ndarray
+#        `if_phase` is interferometric phase to be subtracted
+#    conversion_factor : double or int, optional
+#        `conversion_factor` is the ratio of the normal baselines, used to convert the phase from one baseline to the other
+#    Returns
+#    -------
+#    S_corr : scatteringMatrix
+#        `S_corr` is the scattering matrix with the removed interferometric phase
+#    """
+#
+#    S_corr = S * 1
+#    S_corr['VV'] = S['VV'] * _np.exp(-1j*cv_vec[0]*if_phase)
+#    S_corr['HV'] = S['HV'] * _np.exp(-1j*cv_vec[1]*if_phase)
+#    S_corr['VH'] = S['VH'] * _np.exp(-1j*cv_vec[2]*if_phase)
+#    return S_corr
+#    
+#def correct_phase_ramp_GPRI(S,S_ref_2, conversion_factor = 1, conversion_factor_1 = 0):
+#    """ 
+#    This function corrects the interferometric phase ramp between the copolarized channels due to the spatial separation
+#    of the H and the V antenna. To do so, it uses the interferometric baseline of the GPRI.
+#    Parameters
+#    ----------
+#    S : scatteringMatrix 
+#        the scattering matrix to be corrected
+#    S_other : scatteringMatrix
+#        An image taken at the other end of the baseline
+#    -----
+#    Returns
+#    scatteringMatrix
+#        the scattering matrix with the removed interferometric phase
+#    """
+#    S_ref_1 = S * 1
+#    ref_b = (S_ref_1['HH'].ant_vec - S_ref_2['HH'].ant_vec)
+#    #Compute conversion factors
+#    cf_co = (S['HH'].ant_vec - S['VV'].ant_vec) / ref_b
+#    cf_cr_1 = (S['HH'].ant_vec - S['HV'].ant_vec) / ref_b
+#    cf_cr_2 = (S['HH'].ant_vec - S['VH'].ant_vec) / ref_b
+#    HH_VV_if = _np.angle(S_ref_1['HH']*S_ref_2['HH'].conj())
+#    S_corr = correct_phase_ramp(S,HH_VV_if, cv_vec = [cf_co,cf_cr_1,cf_cr_2])
+#    return S_corr
+#
+#def correct_phase_ramp_GPRI_DEM(S, DEM, B_if):
+#    B1 = S.ant_vec[0,0] - S.ant_vec[1,1]
+#    B2 = S.ant_vec[0,0] - S.ant_vec[0,1]
+#    B3 = S.ant_vec[0,0] - S.ant_vec[1,0]
+#    B4 = S.ant_vec[1,1] - S.ant_vec[0,1]
+#    
+#    ifgram_co = _np.exp(-1j * DEM *  B1 / B_if)
+#    ifgram_HV = _np.exp(-1j * DEM * B2 / B_if)
+#    ifgram_VH = _np.exp(-1j * DEM * B3 / B_if)
+#    
+#    ifgram_VVVH = _np.exp(-1j * DEM * B4 / B_if)
+#    
+#    S_corr = S * 1
+#    
+#    S_corr['VV'] = S_corr['VV'] * ifgram_co.conj()
+#    S_corr['HV'] = S_corr['HV'] * ifgram_HV.conj()
+#    S_corr['VH'] = S_corr['VH'] * ifgram_VH.conj()
+#    S_corr['VH'] = S_corr['VH'] * ifgram_VVVH.conj()
+#    return S_corr
+#    
+#def correct_phase_ramp_DEM(S,DEM):
+#    B1 = S.ant_vec[0,0] - S.ant_vec[1,1]
+#    B2 = S.ant_vec[0,0] - S.ant_vec[0,1]
+#    B3 = S.ant_vec[0,0] - S.ant_vec[1,0]
+#    if1 = synthetic_interferogram(S,DEM, B1)
+#    if2 = synthetic_interferogram(S,DEM, B2)
+#    if3 = synthetic_interferogram(S,DEM, B3)
+#    S_corr = S * 1
+#    S_corr['VV'] = S_corr['VV'] * if1.conj()
+#    S_corr['HV'] = S_corr['HV'] * if2.conj()
+#    S_corr['VH'] = S_corr['VH'] * if3.conj()
+#    return S_corr
     
 def synthetic_interferogram(S, DEM, B):
     """
@@ -225,24 +263,7 @@ def synthetic_interferogram(S, DEM, B):
     ph = delta_d * 4 / lamb * _np.pi 
     return _np.exp(1j *ph)
 
-def correct_absolute_phase(S,ref_phase):
-    """ 
-    This function corrects the absolute phase offset of the polarimetric phase. To do so, it needs a zero-phase reference in the image,
-    such as the phase of a trihedral reflector.
-    Parameters
-    ----------
-    S : scatteringMatrix 
-        the scattering matrix to be corrected
-    ref_phase : double
-        Reference phase for the zero offset
-    Returns
-    -------
-    scatteringMatrix
-        the scattering matrix with the corrected polarimetric phase
-    """
-    S_cor = S * 1
-    S_cor['VV'] = S['VV'] * _np.exp(1j*ref_phase)
-    return S_cor
+
 
 def HH_HV_correlation(S, window = (5,5)):
     """
@@ -432,15 +453,26 @@ def get_shift(image1,image2, oversampling = (10,1), axes = (0,1)):
     pad_size = tuple(pad_size)
     image1_pad = _np.pad(image1,pad_size,mode='constant')
     image2_pad = _np.pad(image2,pad_size,mode='constant')
-#    x = _np.arange(image1.shape[0] * oversampling[0]) / oversampling[0]
-#    y = _np.arange(image1.shape[1] * oversampling[1]) / oversampling[1]
-#    x, y = _np.meshgrid(x,y)
-#    import pyrat.visualization.visfun as visfun
-#    image1_pad = visfun.bilinear_interpolate(image1, x.T, y.T)
-#    image2_pad = visfun.bilinear_interpolate(image2, x.T, y.T)
-#    image1_pad = scipy.ndimage.zoom(image1, oversampling, order=1)
-#    image2_pad = scipy.ndimage.zoom(image2, oversampling, order=1)
     corr_image = norm_xcorr(image1_pad, image2_pad, axes = axes)
+    shift = _np.argmax(_np.abs(corr_image))
+    shift_idx = _np.unravel_index(shift,corr_image.shape)
+    shift_idx = (_np.subtract(_np.array(shift_idx) , _np.divide(corr_image.shape , 2.0)))
+    return shift_idx, corr_image
+    
+    
+def ocv_gs(image1,image2, oversampling = (2,2), axes = (0,1)):
+    pad_size = zip(_np.zeros(image1.ndim),_np.zeros(image1.ndim))
+    for ax, ov in zip(axes, oversampling):
+        pad_size[ax] = (image1.shape[ax] * (ov - 1),0)
+    pad_size = tuple(pad_size)
+    image1_pad = _np.pad(image1,pad_size,mode='constant')
+    image2_pad = _np.pad(image2,pad_size,mode='constant')
+    import cv2
+    image1_pad[_np.isnan(image1_pad)] = 0
+    image2_pad[_np.isnan(image2_pad)] = 0
+    corr_image = cv2.filter2D(image1_pad,-1,image2_pad)
+    corr_image = corr_image / \
+    _np.sqrt((_np.sum(image1_pad, axis =(0,1))**2) * (_np.sum(image2_pad, axis =(0,1))**2))
     shift = _np.argmax(_np.abs(corr_image))
     shift_idx = _np.unravel_index(shift,corr_image.shape)
     shift_idx = (_np.subtract(_np.array(shift_idx) , _np.divide(corr_image.shape , 2.0)))
