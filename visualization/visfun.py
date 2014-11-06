@@ -513,8 +513,10 @@ def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
     az = _np.arctan2(x_rad, y_rad)
 #    ia = _np.arcsin(z_rad / r_sl)
     #Convert coordinates into indices
-    r_idx = (r_sl - S_l.r_vec[0]) / S_l.r_step
-    az_idx = (az - S_l.az_vec[0]) / (S_l.az_step)
+    r_step = S_l.r_vec[1] - S_l.r_vec[0]
+    az_step = S_l.az_vec[1] - S_l.az_vec[0]
+    r_idx = (r_sl - S_l.r_vec[0]) / r_step
+    az_idx = (az - S_l.az_vec[0]) / (az_step)
     lut = 1j * az_idx + r_idx
     #The slant ranges can be used to compute shadow maps
     #Now we can compute the reverse transformation (From DEM to Radar)

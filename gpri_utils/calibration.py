@@ -44,13 +44,30 @@ def calibrate_from_parameters(S,par):
     if isinstance(S, core.matrices.scatteringMatrix):
         f = m[0]
         g = m[1]
-        S_cal = S * 1
+        S_cal = S.__copy__()
         S_cal['VV'] = S_cal['VV'] * 1/f**2
         S_cal['HV'] = S_cal['HV'] * 1/f 
         S_cal['VH'] = S_cal['VH'] * 1/f * 1/g
+        S_cal = S.__array_wrap__(S_cal)
     return S_cal
 
     
+
+def remove_phase_ramp(S, B_if, ph_if, bistatic = False):
+    C = S.to_coherency_matrix(basis = 'lexicographic', bistatic = bistatic)
+    corr_mat = _np.zeros(C.shape,dtype = _np.complex64)
+    if bistatic is True:
+        channel_vec = ['HH','HV','VH','VV']
+    else:
+        channel_vec = ['HH','HV','VV']
+    for idx_1 in range(C.shape[-1]):
+        for idx_2 in range(C.shape[-1]):
+            pol_baseline = S.ant_vec[channel_vec[idx_1]] - S.ant_vec[channel_vec[idx_2]]
+            cf = (pol_baseline) / B_if
+            corr = _np.exp(1j*ph_if * cf)
+            corr_mat[:, :,idx_1,idx_2] = corr
+    C_cal = C * corr_mat
+    return C_cal
 
 def covariance_calibration(S_l,S_u, win = [5,5], bistatic = False):
     '''

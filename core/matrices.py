@@ -69,11 +69,12 @@ def __general__setitem__(obj, sl_in, item):
            raise IndexError('This channel does not exist')
     else:
         sl = sl_in
-        obj1 = obj.view(_np.ndarray)
-        obj1.__setitem__(sl,item)
-        obj1 = obj1.view(type(obj))
-        obj1.__dict__.update(obj.__dict__)
-        obj = obj1
+    obj1 = obj.view(_np.ndarray)
+    obj1[sl] = item
+    obj1 = obj1.view(type(obj))
+    obj1.__dict__.update(obj.__dict__)
+    obj = obj1
+
     
 
 
@@ -114,7 +115,7 @@ class gpriImage(_np.ndarray):
         az_min = _np.deg2rad(par['GPRI_az_start_angle'][0])
         r_step = par['range_pixel_spacing'][0]
         #Compute grid
-        obj.r_vec = r_min + _np.arange(obj.shape[0]) * r_step
+        obj.r_vec = r_min + _np.arange(obj.shape[0]) * r_step - rcf
         obj.az_vec = az_min + _np.arange(obj.shape[0]) * az_step
         #The center of the image in WGS84
         obj.center = [north, east,par['GPRI_ref_alt'][0] + par['GPRI_geoid'][0]] 
@@ -289,7 +290,7 @@ class scatteringMatrix(_np.ndarray):
 #            self1.__setattr__('r_vec',r_vec)
 #            self1.__setattr__('az_vec',az_vec)
 #        self = self1 
-        return __general__setitem__(self, sl, item)
+         __general__setitem__(self, sl, item)
 
     
     def __array_wrap__(self, out_arr, context=None):
