@@ -11,6 +11,9 @@ import pyrat
 import pyrat.core.polfun
 
 
+#Define colormaps
+
+
 def compute_dim(WIDTH,FACTOR):
     """
     This function computes the figure size
@@ -895,16 +898,18 @@ def rectangle_vertices(v1,v2):
     return _np.array([[x1,y1],[x1,y2],[x2,y2],[x2,y1]])
 
 def scale_coherence(c):
-    
         return (_np.sin(c * _np.pi  - _np.pi / 2) + 1)/2 * (c > 0.3)
 
   
 def if_hsv(ifgram):
      H = scale_array(_np.angle(ifgram))
-     S = _np.ones_like(H)
+     S = _np.zeros_like(H) + 0.8
      V = scale_coherence(_np.abs(ifgram))
      RGB = _mpl.colors.hsv_to_rgb(_np.dstack((H, S, V)))
      return RGB
+     
+     
+     
 
 def show_if(S1, S2, win):
     name_list = ['HH', 'HV', 'VH', 'VV']

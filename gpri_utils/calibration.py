@@ -51,6 +51,9 @@ def calibrate_from_parameters(S,par):
         S_cal = S.__array_wrap__(S_cal)
     return S_cal
 
+
+def cbf(ch1, ch2):
+    
     
 
 def remove_phase_ramp(S, B_if, ph_if, bistatic = False):
