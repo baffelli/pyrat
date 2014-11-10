@@ -52,7 +52,7 @@ def calibrate_from_parameters(S,par):
     return S_cal
 
 
-def cbf(ch1, ch2):
+def cbf(ch1, ch2)
     
     
 
