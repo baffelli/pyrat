@@ -52,8 +52,6 @@ def calibrate_from_parameters(S,par):
     return S_cal
 
 
-def cbf(ch1, ch2)
-    
     
 
 def remove_phase_ramp(S, B_if, ph_if, bistatic = False):
@@ -259,6 +257,15 @@ def correct_HHVV_phase_ramp(S, if_phase, baseline_ratio):
 #    S_corr['HV'] = S_corr['HV'] * if2.conj()
 #    S_corr['VH'] = S_corr['VH'] * if3.conj()
 #    return S_corr
+        
+def remove_window(S):
+    spectrum = _np.mean(_np.abs(_fftp.fftshift(_fftp.fft(S,axis = 1),axes = (1,))),axis = 0)
+    spectrum = core.corefun.smooth(spectrum,5)
+    spectrum[spectrum < 1e-6] = 1
+    S_f = _fftp.fft(S,axis = 1)
+    S_corr = _fftp.ifft(S_f / _fftp.fftshift(spectrum), axis = 1)
+    return S_corr
+
     
 def synthetic_interferogram(S, DEM, B):
     """
@@ -458,52 +465,35 @@ def gct(exact_targets,measured_targets):
     R = _np.dot(_np.dot(x_r,D),_np.linalg.inv(y_r))
     return T,R
 
-def distortion_matrices_to_m(R,T):
-    a = [[R[0,0]*T[0,0], R[0,0]*T[1,0]+R[0,1]*T[0,0], R[0,1]*T[0,1]],\
-        [R[1,0]*T[0,0], R[1,1]*T[0,0], R[1,1]*T[1,0]],\
-        [R[0,0]*T[0,1], R[0,0]*T[1,1], R[0,1]*T[1,1]],\
-        [R[0,1]*T[0,1], R[1,0]*T[1,1]+R[1,1]*T[0,1], R[1,1]*T[1,1]]]
-    M = _np.array(a)
-    return M
+
+
     
 def get_shift(image1,image2, oversampling = (10,1), axes = (0,1)):
-    pad_size = zip(_np.zeros(image1.ndim),_np.zeros(image1.ndim))
-    for ax, ov in zip(axes, oversampling):
-        pad_size[ax] = (image1.shape[ax] * (ov - 1),0)
-    pad_size = tuple(pad_size)
-    image1_pad = _np.pad(image1,pad_size,mode='constant')
-    image2_pad = _np.pad(image2,pad_size,mode='constant')
-    corr_image = norm_xcorr(image1_pad, image2_pad, axes = axes)
+    corr_image = norm_xcorr(image1, image2, axes = axes)
+    corr_image_1 = _fftp.fftshift(corr_image)
     shift = _np.argmax(_np.abs(corr_image))
-    shift_idx = _np.unravel_index(shift,corr_image.shape)
-    shift_idx = (_np.subtract(_np.array(shift_idx) , _np.divide(corr_image.shape , 2.0)))
+    shift_idx = _np.ceil(_np.array(corr_image.shape )/ 2) \
+    - _np.array(_np.unravel_index(shift, corr_image.shape)) 
+#    shift_idx = _np.array(shift_idx) / _np.array(oversampling).astype(_np.float)
     return shift_idx, corr_image
     
     
-def ocv_gs(image1,image2, oversampling = (2,2), axes = (0,1)):
-    pad_size = zip(_np.zeros(image1.ndim),_np.zeros(image1.ndim))
-    for ax, ov in zip(axes, oversampling):
-        pad_size[ax] = (image1.shape[ax] * (ov - 1),0)
-    pad_size = tuple(pad_size)
-    image1_pad = _np.pad(image1,pad_size,mode='constant')
-    image2_pad = _np.pad(image2,pad_size,mode='constant')
-    import cv2
-    image1_pad[_np.isnan(image1_pad)] = 0
-    image2_pad[_np.isnan(image2_pad)] = 0
-    corr_image = cv2.filter2D(image1_pad,-1,image2_pad)
-    corr_image = corr_image / \
-    _np.sqrt((_np.sum(image1_pad, axis =(0,1))**2) * (_np.sum(image2_pad, axis =(0,1))**2))
-    shift = _np.argmax(_np.abs(corr_image))
-    shift_idx = _np.unravel_index(shift,corr_image.shape)
-    shift_idx = (_np.subtract(_np.array(shift_idx) , _np.divide(corr_image.shape , 2.0)))
-    return shift_idx, corr_image
-
-def norm_xcorr(image1,image2, axes = (0,1)):
-    import pyfftw
+def norm_xcorr(image1,image2, axes = (0,1),  oversampling = (2,2)):
+    import pyfftw.interfaces.scipy_fftpack as fftp
     image1[_np.isnan(image1)] = 0
     image2[_np.isnan(image2)] = 0
-    image_1_hat = pyfftw.interfaces.scipy_fftpack.fftn(image1, axes = axes)
-    image_2_hat = pyfftw.interfaces.scipy_fftpack.fftn(image2, axes = axes)
-    phase_corr = _sc.fftpack.fftshift(pyfftw.interfaces.scipy_fftpack.ifftn(image_1_hat * image_2_hat.conj() / (_np.abs( image_1_hat * image_2_hat.conj())),axes = axes),axes= axes)
+    #Take trnasform
+    image_1_hat = fftp.fftn(image1, axes = axes)
+    image_2_hat = fftp.fftn(image2, axes = axes)
+    #Oversample
+    pad_size = zip(_np.zeros(image1.ndim),_np.zeros(image1.ndim))
+    for ax, ov in zip(axes, oversampling):
+        pad_size[ax] = (image1.shape[ax] * (ov - 1), 0)
+    pad_size = tuple(pad_size)
+    ft_corr = image_1_hat * image_2_hat.conj()\
+    / (_np.abs( image_1_hat * image_2_hat.conj()))
+    ft_corr_pad = _np.pad(ft_corr, pad_size, mode='constant')
+    phase_corr = fftp.fftshift(fftp.ifftn(ft_corr_pad,axes = axes)\
+    ,axes = axes)
     return phase_corr
 

@@ -241,22 +241,16 @@ def correct_shift_radar_coordinates(slave, master, thresh = 0.5, axes = (0,1), o
     return bilinear_interpolate(_np.array(slave), y.T, x.T), corr
     
 
+
+def shift_image(image, shift):
+    x = _np.arange(image.shape[0]) - shift[0] 
+    y = _np.arange(image.shape[1]) - shift[1]
+    x,y = _np.meshgrid(x, y, order = 'xy')
+    image_1 = image.__array_wrap__(\
+    bilinear_interpolate(_np.array(image), y.T, x.T))
+    return image_1
     
     
-
-
-def shift_radar(S, sh):
-    """
-    This function shifts
-    a scattering matrix
-    by a given amount of pixels
-    """
-    S1 = S * 1
-    S1['HH'] = pyrat.core.corefun.shift_array(S['HH'],sh)
-    S1['HV'] = pyrat.core.corefun.shift_array(S['HV'],sh)
-    S1['HV'] = pyrat.core.corefun.shift_array(S['VH'],sh)
-    S1['VV'] = pyrat.core.corefun.shift_array(S['VV'],sh)
-    return S1
 def resample_DEM(DEM,new_posting):
     """
     This function reporjects a gtiff
