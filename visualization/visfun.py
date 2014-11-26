@@ -162,6 +162,8 @@ def numpy_dt_to_numeric_dt(numpy_dt):
   }
   return NP2GDAL_CONVERSION[numpy_dt]
 
+
+
     
 def reproject_gt(gt_to_project, gt_reference):
 
@@ -255,6 +257,7 @@ def resample_DEM(DEM,new_posting):
     """
     This function reporjects a gtiff
     to a new posting
+    
     Parameters
     ----------
     DEM : osgeo.gdal.Dataset
@@ -285,6 +288,7 @@ def write_gt(arr, GT, proj):
     """
     This function writes a _np array to a
     gdal geotiff object
+    
     Parameters
     ----------
     arr : ndarray
@@ -313,7 +317,6 @@ def write_gt(arr, GT, proj):
     dest.GetRasterBand(1).WriteArray(arr)
     return dest
     
-    from osgeo import gdal, osr
     
     
 def paletted_to_rgb(gt):
@@ -368,6 +371,7 @@ def stretch_contrast(im, tv = 5, ma = 95):
     This function performs contrast
     stretching on an image by clipping
     it at the specified minimum and maximum percentiles
+    
     Parameters
     ----------
     im : array_like
@@ -406,6 +410,7 @@ def compute_map_extent(MAP, center, S, heading):
     This function computes the extent
     that a gpri Image occupies
     on a given geotiff MAP
+    
     Parameters
     ----------
     Map : osgeo.gdal.Dataset
@@ -436,6 +441,41 @@ def compute_map_extent(MAP, center, S, heading):
     return x_lim, x_lim_idx, y_lim, y_lim_idx
 
 
+def extract_extent(GD, ext):
+    """
+    This function extract a specified extent
+    from a gdal dataset
+    
+    Parameters
+    ----------
+    GT : osgeo.gdal.Dataset
+        The dataset of interest
+    ext : iterable
+        The extent specified in the form
+        ((x_min, x_max), (y_min, y_max))
+        
+    Returns
+    -------
+        osgeo.gdal.Dataset
+    """
+    #Get The Geotransform
+    GT = GD.GetGeoTransform()
+    #Define the new geotransform
+    #the spacing is the same as the original,
+    #the corner is specified by the new transform
+    gt_new = [ext[0][0], GT[1], ext[1][0], GT[5]]
+    #Now we compute the new size
+    n_pix_x = int(_np.abs((ext[0][1] - ext[0][0]) / GT[1]))
+    n_pix_y = int(_np.abs((ext[1][1] - ext[1][0]) / GT[5]))
+    #We generate the indices
+    print(n_pix_x)
+    print(n_pix_y)
+    #As always, we need a grid, obtained with meshgrid
+    x = ext[0][0] + GT[1] * _np.arange(0,n_pix_x)
+    y = ext[1][0] + GT[5] * _np.arange(0,n_pix_y)
+    xx, yy = _np.meshgrid(x, y, indexing = 'xy')
+    RAS = read_coordinate_extent(GD, (xx,yy))
+    return RAS
 
 
 
