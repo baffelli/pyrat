@@ -481,6 +481,22 @@ def extract_extent(GD, ext):
     return dest
 
 
+def segment_DEM(DEM, center, S_l, heading):
+    from osgeo import osr, gdal
+    x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
+    #Now we cut the section of interest
+    x_idx = _np.sort(x_lim_idx)
+    y_idx = _np.sort(y_lim_idx)
+    z = (DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1]].astype(_np.float32)
+    #Now we save the DEM segment$
+    GT = DEM.GetGeoTransform()
+    GT_seg = list(GT)
+    GT_seg[0] = x_lim[0]
+    GT_seg[3] = y_lim[1]
+    proj = osr.SpatialReference()
+    proj.ImportFromWkt(DEM.GetProjection())
+    DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
+    return DEM_seg
 
 def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
     """
@@ -513,27 +529,14 @@ def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
     #that is approx. covered by the radar
     x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
     if segment_DEM:
-        #Now we cut the section of interest
-        x_idx = _np.sort(x_lim_idx)
-        y_idx = _np.sort(y_lim_idx)
-        z = (DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1]].astype(_np.float32)
-    #Now we save the DEM segment$
-        GT = DEM.GetGeoTransform()
-        GT_seg = list(GT)
-        GT_seg[0] = x_lim[0]
-        GT_seg[3] = y_lim[1]
-        proj = osr.SpatialReference()
-        proj.ImportFromWkt(DEM.GetProjection())
-        DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
-    #We compute the gri coordinates for the DEM
-        x = GT_seg[0] + _np.arange(0,z.shape[1]) * GT_seg[1]
-        y = GT_seg[3] + _np.arange(0,z.shape[0]) * GT_seg[5]
+        DEM_seg = segment_DEM(DEM, center, S_l, heading)
     else:
-        z = (DEM.ReadAsArray()).astype(_np.float32)
-        GT_seg = DEM.GetGeoTransform()
-        x = GT_seg[0] + _np.arange(0,DEM.RasterXSize) * GT_seg[1]
-        y = GT_seg[3] + _np.arange(0,DEM.RasterYSize) * GT_seg[5]
         DEM_seg = DEM
+    z = (DEM_seg.ReadAsArray()).astype(_np.float32)
+    GT_seg = DEM_seg.GetGeoTransform()
+    x = GT_seg[0] + _np.arange(0,DEM_seg.RasterXSize) * GT_seg[1]
+    y = GT_seg[3] + _np.arange(0,DEM_seg.RasterYSize) * GT_seg[5]
+
     #Convert the positions to Radar Centered Coordinates
     #shift only
     x_rad = x - center[0]
