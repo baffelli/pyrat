@@ -458,24 +458,19 @@ def extract_extent(GD, ext):
     -------
         osgeo.gdal.Dataset
     """
-    #Get The Geotransform
-    GT = GD.GetGeoTransform()
-    #Define the new geotransform
-    #the spacing is the same as the original,
-    #the corner is specified by the new transform
-    gt_new = [ext[0][0], GT[1], ext[1][0], GT[5]]
-    #Now we compute the new size
-    n_pix_x = int(_np.abs((ext[0][1] - ext[0][0]) / GT[1]))
-    n_pix_y = int(_np.abs((ext[1][1] - ext[1][0]) / GT[5]))
-    #We generate the indices
-    print(n_pix_x)
-    print(n_pix_y)
-    #As always, we need a grid, obtained with meshgrid
-    x = ext[0][0] + GT[1] * _np.arange(0,n_pix_x)
-    y = ext[1][0] + GT[5] * _np.arange(0,n_pix_y)
-    xx, yy = _np.meshgrid(x, y, indexing = 'xy')
-    RAS = read_coordinate_extent(GD, (xx,yy))
-    return RAS
+    new_geo = ( geo_t_ref[0], geo_t_ref[1], geo_t[2], \
+                geo_t_ref[3], geo_t_ref[4], geo_t_ref[5] )
+    mem_drv = gdal.GetDriverByName( 'MEM' )
+    pixel_spacing_x = geo_t_ref[1]
+    pixel_spacing_y = geo_t_ref[5]
+    dest = mem_drv.Create('', int((lrx - ulx)/_np.abs(pixel_spacing_x)), \
+            int((uly - lry)/_np.abs(pixel_spacing_y)), gt_to_project.RasterCount,\
+            numeric_dt_to_gdal_dt(gt_to_project.GetRasterBand(1).DataType))
+    dest.SetGeoTransform( new_geo )
+    dest.SetProjection(gt_reference.GetProjection())
+    res = gdal.ReprojectImage( gt_to_project, dest, \
+                gt_to_project.GetProjection(), gt_reference.GetProjection(), \
+                gdal.GRA_Bilinear )
 
 
 
