@@ -9,7 +9,7 @@ Created on Thu May 15 14:56:18 2014
 Utilities for GPRI calibration
 """
 import numpy as _np
-from pyrat import core 
+from pyrat import core, matrices
 from ..core import corefun, polfun
 import scipy as _sc
 from scipy import fftpack as _fftp
@@ -70,31 +70,7 @@ def remove_phase_ramp(S, B_if, ph_if, bistatic = False):
     C_cal = C * corr_mat
     return C_cal
 
-def covariance_calibration(S_l,S_u, win = [5,5], bistatic = False):
-    '''
-    This function converts
-    a pair of scattering matrices
-    acquired on a inteferometric
-    baseline into a corrected
-    lexicographic covariance matrix
-    where all phase ramp are removed
-    '''
-    coh = polfun.coherence(S_l['HH'], S_u['HH'], win)
-    B_if = S_l.ant_vec['HH'] - S_u.ant_vec['HH']
-    T_l = S_l.to_coherency_matrix(basis = 'lexicographic', bistatic= bistatic)
-    if bistatic is True:
-        channel_vec = ['HH','HV','VH','VV']
-    else:
-        channel_vec = ['HH','HV','VV']
-    corr_mat = _np.zeros(T_l.shape,dtype = _np.complex64)
-    for idx_1 in range(T_l.shape[-1]):
-        for idx_2 in range(T_l.shape[-1]):
-            baseline = S_l.ant_vec[channel_vec[idx_1]] - S_l.ant_vec[channel_vec[idx_2]]
-            cf = (baseline) / B_if
-            corr = _np.exp(1j*_np.angle(coh) * cf)
-            corr_mat[:, :,idx_1,idx_2] = corr
-    T_l_cal = T_l * corr_mat
-    return T_l_cal
+
 
 def coregister_channels(S):
     """
@@ -367,7 +343,7 @@ def natural_targets_calibration(S,area,estimation_window):
     s_cal = S.__array_wrap__(s_cal)
     return s_cal, sigma, C
 
-def  simple_calibration(S, coord_tri, slice_distributed):
+def  simple_calibration(C, coord_tri, slice_distributed):
     """
     This function determines the paramrters a
     simple calibration based
@@ -376,25 +352,29 @@ def  simple_calibration(S, coord_tri, slice_distributed):
     determination of crosspolarized imbalance
     Parameters
     ----------
-    S : scatteringMatrix
+    C : coherencyMatrix
         The image to calibrate
     coord_tri : tuple
         The coordinates where the TCR is located
     slice_distributed  : tuple
         A tuple of slices identifinyg a region of distributed targets
     """
-    #Determine cochannel imbalance
-    S_tri = S[coord_tri]
-    f_mag = (_np.abs(S_tri['VV'])**2 / (_np.abs(S_tri['HH'])**2))**0.25
-    f_phase = 1 / 2.0 * _np.angle(S_tri['HH'].conj() *  S_tri['VV'])
-    f = f_mag * _np.exp(1j * f_phase)
-    S_d = S[slice_distributed]
-    g_mag = (_np.mean(_np.abs(S_d['VH'])**2) / _np.mean((_np.abs(S_d['HV'])**2)))**0.5
-    g_phase =  _np.mean(_np.angle(S_d['HV'].conj() *  S_d['VH'])) 
-    f = f_mag * _np.exp(1j * f_phase)
-    g = g_mag * _np.exp(1j * g_phase)
-    #Determine imbalance on natural targets
-    return f, g
+    if isinstance(C, core.matrices.coherencyMatrix) and C.basis == 'lexicographic':
+        #Determine cochannel imbalance
+        C_tri = C[coord_tri]
+        f_mag = (_np.abs(C_tri[3,3]) / (_np.abs(C_tri[0,0])))**0.25
+        f_phase = 1/2.0* _np.angle(C_tri[3,0])
+        f = f_mag * _np.exp(1j * f_phase)
+        #Determine for distributed targets
+        C_d = C[slice_distributed]
+        g_mag = _np.mean(_np.abs(C_d[2,2])) / _np.mean((_np.abs(C_d[1,1])))
+#        g_mag = (_np.mean(_np.abs(S_d['VH'])**2) / _np.mean((_np.abs(S_d['HV'])**2)))**0.5
+#        g_phase =  _np.mean(_np.angle(S_d['HV'].conj() *  S_d['VH'])) 
+        g_phase =  _np.mean(_np.angle(C_d[2,1]))
+        f = f_mag * _np.exp(1j * f_phase)
+        g = g_mag * _np.exp(1j * g_phase)
+        #Determine imbalance on natural targets
+        return f, g
     
 
 def gct(exact_targets,measured_targets):
