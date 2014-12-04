@@ -22,6 +22,15 @@ def calibrate_from_r_and_t(S, R,T):
     S_cal = corefun.transform(R_inv,S,T_inv)
     return S_cal
 
+
+def remove_window(S):
+    spectrum = _np.mean(_np.abs((_fftp.fft(S,axis = 1))),axis = 0)
+    spectrum = corefun.smooth(spectrum,5)
+    spectrum[spectrum < 1e-6] = 1
+    S_f = _fftp.fft(S,axis = 1)
+    S_corr = _fftp.ifft(S_f / (spectrum), axis = 1)
+    return S_corr
+
 def calibrate_from_parameters(S,par):
     #TODO check calibration
     """

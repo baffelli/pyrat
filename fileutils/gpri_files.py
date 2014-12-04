@@ -112,7 +112,7 @@ def load_slc(path):
         dt = _np.dtype('complex64')
     elif par['image_format'][0] == 'SCOMPLEX':
         dt = _np.dtype('complex32')
-    d_image = _np.memmap(path, shape = shape, dtype = dt).byteswap()
+    d_image = _np.memmap(path, shape = shape, dtype = dt, mode = 'c').byteswap()
     return d_image
     
 def load_int(path):
