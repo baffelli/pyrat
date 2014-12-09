@@ -488,6 +488,7 @@ def segment_DEM(DEM, center, S_l, heading):
     x_idx = _np.sort(x_lim_idx)
     y_idx = _np.sort(y_lim_idx)
     z = (DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1]].astype(_np.float32)
+    assert len(z) != 0
     #Now we save the DEM segment$
     GT = DEM.GetGeoTransform()
     GT_seg = list(GT)
@@ -498,7 +499,7 @@ def segment_DEM(DEM, center, S_l, heading):
     DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
     return DEM_seg
 
-def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
+def gc_map(DEM,center,S_l,heading, interp = None, seg_DEM = True):
     """
     This function computes a lookup-table
     that contains the radar coordinates
@@ -528,7 +529,7 @@ def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
     #First of all, we compute the extent of the DEM
     #that is approx. covered by the radar
     x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
-    if segment_DEM:
+    if seg_DEM:
         DEM_seg = segment_DEM(DEM, center, S_l, heading)
     else:
         DEM_seg = DEM
@@ -623,7 +624,7 @@ def gc_map(DEM,center,S_l,heading, interp = None, segment_DEM = True):
 ##        for idx_shift_y in range(_np.int(max_shift_y)):
 ##            sha = _np.roll(_np.roll(area,idx_shift_x,axis = 1),idx_shift_y,axis = 0)
 ##            area_tot = (area_tot + sha * (n_pix_x == idx_shift_x) * (n_pix_y == idx_shift_y))
-    return DEM_seg, lut, rev_lut, xrad, yrad, ia, area, area_beta
+    return DEM_seg, lut, rev_lut, xrad, yrad, ia, area, area_beta, r_sl
     
 def ly_sh_map(r_sl, ia):
     """
