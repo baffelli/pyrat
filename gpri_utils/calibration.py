@@ -458,11 +458,21 @@ def gct(exact_targets,measured_targets):
 
     
 def get_shift(image1,image2, oversampling = (10,1), axes = (0,1)):
-    corr_image = norm_xcorr(image1, image2, axes = axes)
-    corr_image_1 = _fftp.fftshift(corr_image)
+    corr_image = norm_xcorr(image1, image2, axes = axes, oversampling = oversampling)
+    #Find the maximum index
     shift = _np.argmax(_np.abs(corr_image))
-    shift_idx = _np.ceil(_np.array(corr_image.shape )/ 2) \
-    - _np.array(_np.unravel_index(shift, corr_image.shape)) 
+    #Unroll it to have the 2D indices
+    shift = _np.unravel_index(shift, corr_image.shape) 
+    #if shift is larger than half array
+    #we have a negative shift
+    half_shape = (_np.array(corr_image.shape) / 2).astype(_np.int)
+    pos_shift =   half_shape - _np.array(shift) 
+    neg_shift =  -1 * ( half_shape - _np.array(shift)  )
+    shift_idx = _np.where(_np.array(shift) > (_np.array(corr_image.shape) / 2.0)
+    ,pos_shift, neg_shift)
+    shift_idx = shift_idx  / _np.array(oversampling).astype(_np.double)
+#    shift = _np.mod(.astype(_np.int))
+#    shift_idx = shift / _np.array(oversampling)
 #    shift_idx = _np.array(shift_idx) / _np.array(oversampling).astype(_np.float)
     return shift_idx, corr_image
     

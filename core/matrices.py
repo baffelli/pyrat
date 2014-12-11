@@ -48,12 +48,8 @@ def __general__getitem__(obj, sl_in):
         try:
             r_vec = obj.r_vec[sl[1]]
             az_vec = obj.az_vec[sl[0]]
-#            if r_vec.ndim > 1:
-#                r_vec = r_vec[:,0]
-#            if az_vec.ndim > 1:
-#                az_vec = az_vec[:,0]
-            new_obj_1.__setattr__('r_vec',r_vec[sl[1]])
-            new_obj_1.__setattr__('az_vec',az_vec[sl[0]])
+            new_obj_1.__setattr__('r_vec',r_vec)
+            new_obj_1.__setattr__('az_vec',az_vec)
         except:
             pass
     return new_obj_1

@@ -213,40 +213,34 @@ def reproject_radar(S, S_ref):
     """
     az_sp = (S.az_vec[1] - S.az_vec[0])
     az_sp_ref = (S_ref.az_vec[1] - S_ref.az_vec[0])
-    az_vec_new = _np.arange(S_ref.shape[0]) / az_sp * az_sp_ref
+    az_vec_new = _np.arange(S_ref.shape[0]) * az_sp_ref / az_sp
     r_vec = _np.arange(S.shape[1])
     az, r = _np.meshgrid(az_vec_new, r_vec, order = 'ij')
     int_arr = bilinear_interpolate(S, r.T, az.T).astype(_np.complex64)
-#    S_res = S_ref.__array_wrap__(int_arr)
-    S_res = int_arr
+    S_res = S.__array_wrap__(int_arr)
     S_res.az_vec = az_vec_new
     S_res.r_vec = S.r_vec
     return S_res
     
-def correct_shift_radar_coordinates(slave, master, thresh = 0.5, axes = (0,1), oversampling = (5,2), sl = None):
+def correct_shift_radar_coordinates(slave, master, axes = (0,1), oversampling = (5,2), sl = None):
     import pyrat.gpri_utils.calibration as calibration
+    master_1 = master.__copy__()
     if sl is None:
-        M = _np.array(_np.abs(master[:,:,0,0])).astype(_np.float32)
-        S = _np.array(_np.abs(slave[:,:,0,0])).astype(_np.float32)
+        M = _np.abs(master_1[:,:,0,0]).astype(_np.float32)
+        S = _np.abs(slave[:,:,0,0]).astype(_np.float32)
     else:
-        M = _np.array(_np.abs(master[sl + (0,0)])).astype(_np.float32)
-        S = _np.array(_np.abs(slave[sl + (0,0)])).astype(_np.float32)
+        M = _np.abs(master_1[sl + (0,0)]).astype(_np.float32)
+        S = _np.abs(slave[sl + (0,0)]).astype(_np.float32)
     #Get shift
-    print M.shape
     co_sh, corr = calibration.get_shift(M,S, oversampling = oversampling, axes=(0,1))
-    co_sh_1, corr = calibration.get_shift(M,S, oversampling = oversampling, axes=(0,1))
-    print co_sh, co_sh_1
-    x = _np.arange(slave.shape[0]) - co_sh[0] 
-    y = _np.arange(slave.shape[1]) - co_sh[1]*0
-    x,y = _np.meshgrid(x, y, order = 'xy')
-    slave_1 = master.__array_wrap__(bilinear_interpolate(_np.array(slave), y.T, x.T))
-    return bilinear_interpolate(_np.array(slave), y.T, x.T), corr
+    slave_1 = shift_image(slave, co_sh)
+    return slave_1, corr
     
 
 
 def shift_image(image, shift):
-    x = _np.arange(image.shape[0]) - shift[0] 
-    y = _np.arange(image.shape[1]) - shift[1]
+    x = _np.arange(image.shape[0]) + shift[0] 
+    y = _np.arange(image.shape[1]) + shift[1]
     x,y = _np.meshgrid(x, y, order = 'xy')
     image_1 = image.__array_wrap__(\
     bilinear_interpolate(_np.array(image), y.T, x.T))
