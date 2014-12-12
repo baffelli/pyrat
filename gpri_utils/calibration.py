@@ -55,13 +55,31 @@ def calibrate_from_parameters(S,par):
         g = m[1]
         S_cal = S.__copy__()
         S_cal['VV'] = S_cal['VV'] * 1/f**2
-        S_cal['HV'] = S_cal['HV'] * 1/f 
-        S_cal['VH'] = S_cal['VH'] * 1/f * 1/g
+        S_cal['HV'] = S_cal['HV'] * 1/f * 1/g
+        S_cal['VH'] = S_cal['VH'] * 1/f
         S_cal = S.__array_wrap__(S_cal)
     return S_cal
 
 
-    
+def coherency_matrix_to_scattering_matrix(C):
+    if C.basis == 'lexicographic':
+        pass
+    else:
+        C = C.pauli_to_lexicographic()
+    if C.ndim == 2:
+        S = _np.zeros((2,2), dtype = C.dtype)
+        sl = ()
+    elif C.ndim == 4:
+        S = _np.zeros(C.shape[0:2] + (2,2), dtype = C.dtype)
+        sl = (Ellipsis, Ellipsis)
+    S = matrices.scatteringMatrix(S)
+    S['HH'] = _np.sqrt(C[sl + (0,0)])
+    S['HV'] = _np.sqrt(C[sl + (1,1)]) * _np.exp(1j * _np.angle(C[sl + (1,0)]))
+    S['VH'] = _np.sqrt(C[sl + (2,2)]) * _np.exp(1j * _np.angle(C[sl + (2,0)]))
+    S['VV'] = _np.sqrt(C[sl + (3,3)]) * _np.exp(1j * _np.angle(C[sl + (3,0)]))
+    S.__dict__ = C.__dict__
+    S.basis = []
+    return S
 
 def remove_phase_ramp(S, B_if, ph_if, bistatic = False):
     C = S.to_coherency_matrix(basis = 'lexicographic', bistatic = bistatic)
