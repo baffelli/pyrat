@@ -196,7 +196,7 @@ def reproject_gt(gt_to_project, gt_reference):
     dest = mem_drv.Create('', int((lrx - ulx)/_np.abs(pixel_spacing_x)), \
             int((uly - lry)/_np.abs(pixel_spacing_y)), gt_to_project.RasterCount,\
             numeric_dt_to_gdal_dt(gt_to_project.GetRasterBand(1).DataType))
-    dest.SetGeoTransform( new_geo )
+    dest.SetGeoTransform(new_geo)
     dest.SetProjection(gt_reference.GetProjection())
     res = gdal.ReprojectImage( gt_to_project, dest, \
                 gt_to_project.GetProjection(), gt_reference.GetProjection(), \

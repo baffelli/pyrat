@@ -628,10 +628,9 @@ class coherencyMatrix(_np.ndarray):
                 C = self.transform(U3LP,_np.linalg.inv(U3LP))
             else:
                 C = self.transform(U4LP,_np.linalg.inv(U4LP))
-        C.basis = 'pauli'
         C = self.__array_wrap__(C)
         C.basis = 'pauli'
-        print 'success'
+        print(C.shape)
         return C
  
 #TODO fix block processing   
