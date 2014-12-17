@@ -264,7 +264,7 @@ def resample_DEM(DEM,new_posting):
     
     x_size = DEM.RasterXSize * _np.int(_np.abs(geo_t[1]/new_posting[0])) # Raster xsize
     y_size = DEM.RasterYSize * _np.int(_np.abs(geo_t[5]/new_posting[1]))# Raster ysize
-    print x_size
+
      #Compute new geotransform
     new_geo = ( geo_t[0], new_posting[0], geo_t[2], \
                 geo_t[3], geo_t[4], new_posting[1] )
@@ -327,7 +327,7 @@ def paletted_to_rgb(gt):
     #Create vector of values:
     palette_list = _np.unique(RAS)
     rgba = _np.zeros((RAS.max() + 1 , 4))
-    print rgba.shape
+
     for idx in palette_list:
         color = _np.array(ct.GetColorEntry(int(idx))) / 255.0
         rgba[idx,:] = color

@@ -95,6 +95,7 @@ def remove_phase_ramp(S, B_if, ph_if, bistatic = False):
             corr = _np.exp(1j*ph_if * cf)
             corr_mat[:, :,idx_1,idx_2] = corr
     C_cal = C * corr_mat
+    print C.r_vec
     return C_cal
 
 
