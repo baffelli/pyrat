@@ -356,6 +356,7 @@ def pol_signature(S, n_points = 100):
         phi_m, tau_m = _np.meshgrid(tilt, ellipticity, indexing = 'ij')
 
         if type(S) is matrices.scatteringMatrix:
+            S1 = S.__copy__()
             M1 = _np.transpose(u2_phi(phi_m), [2,3,0,1])
             M2 = _np.transpose(u2_tau(tau_m),[2,3,0,1])
             A = corefun.transform(M1,M2,_np.eye(2))
@@ -368,9 +369,9 @@ def pol_signature(S, n_points = 100):
         elif type(S) is matrices.coherencyMatrix:
             rho = ellipse_param_to_ratio(phi_m, tau_m)
             if S.basis is 'l':
-                T = S
+                T = S.__copy__()
             else:
-                T = S.pauli_to_lexicographic()
+                T = S.pauli_to_lexicographic().__copy__()
             M1 = _np.transpose(u3_rho(rho), [2,3,0,1])
             T_transf = corefun.transform(M1,T,_np.linalg.inv(M1))
             power = lambda m : _np.abs(_np.array(m)[:,:,0,0]) / 2

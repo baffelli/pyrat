@@ -20,7 +20,7 @@ def __law__(input_obj, out_obj):
     #the input object
     out_obj = out_obj.view(type(input_obj))
     try:
-        out_obj.__dict__ = input_obj.__dict__
+        out_obj.__dict__ = input_obj.__dict__.copy()
     except:
         pass
     return out_obj

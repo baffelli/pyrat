@@ -247,6 +247,14 @@ def shift_image(image, shift):
     return image_1
     
     
+def resample_image(image, sampling_factor):
+    x = _np.linspace(0,image.shape[0], num = image.shape[0] * sampling_factor[0])
+    y = _np.linspace(0,image.shape[1], num = image.shape[1] * sampling_factor[1])
+    x,y = _np.meshgrid(x, y, order = 'xy')
+    image_1 = image.__array_wrap__(\
+    bilinear_interpolate(_np.array(image), y.T, x.T))
+    return image_1
+    
 def resample_DEM(DEM,new_posting):
     """
     This function reporjects a gtiff
@@ -945,8 +953,14 @@ def if_hsv(ifgram):
      return RGB
      
      
-     
-
+def extract_section(image, center, size):
+    x = center[0] + _np.arange(-int(size[0] / 2.0),int(size[0] / 2.0))
+    y = center[1] + _np.arange(-int(size[0] / 2.0),int(size[0] / 2.0))
+    x = _np.mod(x, image.shape[0])  
+    y = _np.mod(y, image.shape[1])
+    xx, yy = _np.meshgrid(x, y)
+    return image[xx,yy]
+    
 def show_if(S1, S2, win):
     name_list = ['HH', 'HV', 'VH', 'VV']
     k1 = S1.scattering_vector(basis='lexicographic')
