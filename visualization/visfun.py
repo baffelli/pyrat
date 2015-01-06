@@ -987,13 +987,17 @@ def hsv_cp(H,alpha,span):
     S = 1 - H
     return _mpl.colors.hsv_to_rgb(_np.dstack((H1,S,V)))
 
-def show_signature(signature_output):
+def show_signature(signature_output, rotate = False):
     phi = signature_output[2]
     tau = signature_output[3]
     sig_co = signature_output[0]
     sig_cross = signature_output[1]
     phi_1, tau_1 = _np.meshgrid(phi, tau)
-    xt = [-45,45,-90,90]
+    if rotate:
+        xt = [-90,90,-45,45]
+        sig_co = sig_co.T
+    else:
+        xt = [-45,45,-90,90]
     f_co = _plt.figure()
     _plt.imshow(sig_co, interpolation = 'none', cmap =  'RdBu_r', extent = xt)
     _plt.locator_params(nbins=5)
