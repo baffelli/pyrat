@@ -996,6 +996,7 @@ def show_signature(signature_output, rotate = False):
     if rotate:
         xt = [-90,90,-45,45]
         sig_co = sig_co.T
+        sig_cross = sig_cross.T
     else:
         xt = [-45,45,-90,90]
     f_co = _plt.figure()
