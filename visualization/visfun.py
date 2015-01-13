@@ -218,7 +218,7 @@ def reproject_radar(S, S_ref):
     az, r = _np.meshgrid(az_vec_new, r_vec, order = 'ij')
     int_arr = bilinear_interpolate(S, r.T, az.T).astype(_np.complex64)
     S_res = S.__array_wrap__(int_arr)
-    S_res.az_vec = az_vec_new
+    S_res.az_vec = S_ref.az_vec
     S_res.r_vec = S.r_vec
     return S_res
     
