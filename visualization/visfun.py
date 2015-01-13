@@ -669,6 +669,12 @@ def coordinate_to_raster_index(gs, coordinate):
     idx_y = _np.ceil((coordinate[1] - GT[3])/ GT[5])
     return (idx_x, idx_y)
 
+
+def raster_index_to_coordinate(gs, index):
+    GT = gs.GetGeoTransform()
+    coord_x = index[0] * GT[1]  + GT[0]
+    coord_y = index[1] * GT[5] + GT[3]
+    return (idx_x, idx_y)
     
     
 def bilinear_interpolate(im, x, y):
