@@ -9,6 +9,7 @@ import matplotlib as _mpl
 import matplotlib.pyplot as _plt
 import pyrat
 import pyrat.core.polfun
+import cv2 as _cv2
 
 
 #Define colormaps
@@ -211,16 +212,38 @@ def reproject_radar(S, S_ref):
     to the sample range and azimuth spacing
     of a given image and coregisters them
     """
-    az_sp = (S.az_vec[1] - S.az_vec[0])
-    az_sp_ref = (S_ref.az_vec[1] - S_ref.az_vec[0])
-    az_vec_new = _np.arange(S_ref.shape[0]) * az_sp_ref / az_sp
-    r_vec = _np.arange(S.shape[1])
-    az, r = _np.meshgrid(az_vec_new, r_vec, order = 'ij')
+    #Azimuth and range spacings
+    az_sp = S.az_vec[1] - S.az_vec[0]  
+    az_sp_ref = S_ref.az_vec[1] - S_ref.az_vec[0]
+    rg_sp = S.r_vec[1] - S.r_vec[0]  
+    rg_sp_ref = S_ref.r_vec[1] - S_ref.r_vec[0]
+    #Compute new azimuth and range vectors
+    az_vec_new = S_ref.az_vec
+    rg_vec_new = S_ref.r_vec
+    az_idx = az_vec_new / az_sp
+    rg_idx = rg_vec_new / rg_sp
+    az, r = _np.meshgrid(az_idx, rg_idx, order = 'ij')
     int_arr = bilinear_interpolate(S, r.T, az.T).astype(_np.complex64)
     S_res = S.__array_wrap__(int_arr)
-    S_res.az_vec = S_ref.az_vec
-    S_res.r_vec = S.r_vec
+    S_res.az_vec = az_vec_new
+    S_res.r_vec = rg_vec_new
     return S_res
+    
+    
+def coarse_coregistration(master, slave, sl):
+    #Determine coarse shift
+    T = _np.abs(master[ sl + (0, 0) ]).astype(_np.float32)
+    I = _np.abs(slave[:,:,0,0]).astype(_np.float32)
+    T[_np.isnan(T)] = 0
+    I[_np.isnan(I)] = 0
+    res = _cv2.matchTemplate(I,T, _cv2.TM_CCOEFF_NORMED)
+    min_val, max_val, min_loc, max_loc = _cv2.minMaxLoc(res)
+    w, h = T.shape[::-1]
+    sh = (sl[0].start - max_loc[1], sl[1].start - max_loc[0])
+    slave_coarse = shift_image(slave, sh)
+    return slave_coarse, res
+    
+    
     
 def correct_shift_radar_coordinates(slave, master, axes = (0,1), oversampling = (5,2), sl = None):
     import pyrat.gpri_utils.calibration as calibration
@@ -233,6 +256,7 @@ def correct_shift_radar_coordinates(slave, master, axes = (0,1), oversampling = 
         S = _np.abs(slave[sl + (0,0)]).astype(_np.float32)
     #Get shift
     co_sh, corr = calibration.get_shift(M,S, oversampling = oversampling, axes=(0,1))
+    print(co_sh)
     slave_1 = shift_image(slave, co_sh)
     return slave_1, corr
     
@@ -869,6 +893,7 @@ def pauli_rgb(scattering_vector, normalized= False, pl=True, gamma = 1, sf = 2.5
             span = _np.sum(scattering_vector,axis=2)
             out = _np.abs(scattering_vector  /span[:,:,None])
         return out
+        
 def show_geocoded(geocoded_image,**kwargs):
         """
         This function is a wrapper to call imshow with a 
