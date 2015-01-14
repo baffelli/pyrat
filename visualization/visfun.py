@@ -220,8 +220,8 @@ def reproject_radar(S, S_ref):
     #Compute new azimuth and range vectors
     az_vec_new = S_ref.az_vec
     rg_vec_new = S_ref.r_vec
-    az_idx = az_vec_new / az_sp
-    rg_idx = rg_vec_new / rg_sp
+    az_idx = _np.arange(S_ref.shape[0]) * az_sp_ref / az_sp
+    rg_idx = _np.arange(S_ref.shape[1]) * rg_sp_ref / rg_sp
     az, r = _np.meshgrid(az_idx, rg_idx, order = 'ij')
     int_arr = bilinear_interpolate(S, r.T, az.T).astype(_np.complex64)
     S_res = S.__array_wrap__(int_arr)
@@ -238,9 +238,9 @@ def coarse_coregistration(master, slave, sl):
     I[_np.isnan(I)] = 0
     res = _cv2.matchTemplate(I,T, _cv2.TM_CCOEFF_NORMED)
     min_val, max_val, min_loc, max_loc = _cv2.minMaxLoc(res)
-    w, h = T.shape[::-1]
     sh = (sl[0].start - max_loc[1], sl[1].start - max_loc[0])
-    slave_coarse = shift_image(slave, sh)
+    print sh
+    slave_coarse = shift_image(slave, (-sh[0], -sh[1]))
     return slave_coarse, res
     
     
