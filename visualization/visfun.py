@@ -674,7 +674,7 @@ def raster_index_to_coordinate(gs, index):
     GT = gs.GetGeoTransform()
     coord_x = index[0] * GT[1]  + GT[0]
     coord_y = index[1] * GT[5] + GT[3]
-    return (idx_x, idx_y)
+    return (coord_x, coord_y)
     
     
 def bilinear_interpolate(im, x, y):
