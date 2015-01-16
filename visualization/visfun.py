@@ -165,6 +165,26 @@ def numpy_dt_to_numeric_dt(numpy_dt):
 
 
 
+def auto_azimuth(DOM, sec, tiepoint, initial_heading, center):
+    def ftm(heading):
+        DOM_sec = segment_DEM(DOM, center, sec, heading)
+        DOM_sec = resample_DEM(DOM_sec,[0.25, -0.25])
+        DEM_seg, lut_sec, rev_lut_sec, xrad, yrad, ia, area, area_beta, r_sl = gc_map(DOM_sec, center, 
+                                                                        sec, heading, seg_DEM =False)
+        #Find maximum amplitude
+        ampl = _np.abs(sec[:,:,0,0])
+        max_idx = _np.nanargmax(ampl)
+        max_pos = _np.unravel_index(max_idx, sec.shape[0:2] )
+        #Convert position into coordinate
+        max_pos_gc = rev_lut_sec[max_pos]
+        max_pos_gc = (max_pos_gc.real, max_pos_gc.imag)
+        max_coord = raster_index_to_coordinate(DOM_sec, max_pos_gc)
+        err =  _np.array(tiepoint[0:2]) - _np.array(max_coord)
+        return _np.linalg.norm(err)
+    import scipy
+    res = scipy.optimize.minimize_scalar(ftm, bounds = (0, 2 * _np.pi))
+    return res
+    
     
 def reproject_gt(gt_to_project, gt_reference):
 
