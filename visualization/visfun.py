@@ -31,7 +31,9 @@ def compute_dim(WIDTH,FACTOR):
     return fig_dims
     
 
-
+def set_figure_size(f, x_size, ratio):
+    y_size = x_size * ratio
+    f.set_size_inches(x_size, y_size, forward=True)
 
 def scale_array(*args,**kwargs):
     """

@@ -232,19 +232,17 @@ def gpd(T1,T2,RedR=1):
     return deter
 
 def extract_single_pol(T):
-    if type(T) is matrices.coherencyMatrix:
-        if not T.basis is 'lexicographic':
-            C1 = T.pauli_to_lexicographic()
-        else:
-            C1 = T
-        if T.ndim is 4:
-            indices1 =  (Ellipsis, Ellipsis, 0,0)
-        if T.ndim is 2:
-            indices1 = (0,0)
-        HH1 = C1[indices1]
-        return _np.asarray(_np.abs(HH1), dtype=_np.float64)
+    if not T.basis is 'lexicographic':
+        C1 = T.pauli_to_lexicographic()
     else:
-        return _np.abs(T)
+        C1 = T
+    if T.ndim is 4:
+        indices1 =  (Ellipsis, Ellipsis, 0,0)
+    if T.ndim is 2:
+        indices1 = (0,0)
+    HH1 = C1[indices1]
+    return _np.asarray(_np.abs(HH1), dtype=_np.float64)
+
 
 def S_di(angle):
  return  matrices.scatteringMatrix(_np.array([[_np.cos(2*angle), _np.sin(2*angle)], [_np.sin(2*angle), -_np.cos(2*angle)]]))
