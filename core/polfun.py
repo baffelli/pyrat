@@ -244,7 +244,7 @@ def extract_single_pol(T):
         HH1 = C1[indices1]
         return _np.asarray(_np.abs(HH1), dtype=_np.float64)
     else:
-        return T
+        return _np.abs(T)
 
 def S_di(angle):
  return  matrices.scatteringMatrix(_np.array([[_np.cos(2*angle), _np.sin(2*angle)], [_np.sin(2*angle), -_np.cos(2*angle)]]))
