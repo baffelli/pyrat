@@ -890,13 +890,22 @@ def pauli_rgb(scattering_vector, normalized= False, pl=True, gamma = 1, sf = 2.5
             if pl:
                 data_diagonal = _np.abs(scattering_vector)
                 sp = _np.sum(data_diagonal,axis = 2)
-                m = _np.nanmean(sp, axis = (0,1)) * sf
-                m = _np.nanmax(sp, axis = (0,1)) * sf
+#                m = _np.nanmean(sp, axis = (0,1)) * sf
+#                m = _np.nanmax(sp, axis = (0,1)) * sf
+                sp[_np.isnan(sp)] = 0
+                min_perc = []
+                max_perc = []
+                for idx in range(3):
+                    min_perc.append(_np.percentile(sp / 3, 5))
+                    max_perc.append(_np.percentile(sp / 3, 99.5))
 #                mx = _np.nanmax(data_diagonal, axis = (0,1))
 #                m = _np.minimum(m,mx) 
-                data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0], max_val = m)
-                data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1], max_val = m)
-                data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2], max_val = m)
+                data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0], 
+                min_val = min_perc[0], max_val = max_perc[0])
+                data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1], 
+                min_val = min_perc[1], max_val = max_perc[1])
+                data_diagonal[:,:,2] = scale_array(data_diagonal[:,:,2], 
+                min_val = min_perc[2], max_val = max_perc[2])
                 data_diagonal = (((data_diagonal)**(gamma)))
                 data_diagonal[:,:,0] = scale_array(data_diagonal[:,:,0])
                 data_diagonal[:,:,1] = scale_array(data_diagonal[:,:,1])
