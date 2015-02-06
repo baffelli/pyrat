@@ -12,6 +12,21 @@ from ..visualization import visfun
 #compensate for the cable delay
 rcf = 5
 
+def gpi(input_mat, **kwargs):
+    if 'basis' in kwargs:
+        basis = kwargs.pop('basis')
+    else:
+        basis = 'pauli'
+    if type(input_mat) is scatteringMatrix:
+        k = _np.abs(input_mat.scattering_vector(basis = basis))[:,:,[1,2,0]]
+    else:
+        if input_mat.basis is 'pauli':
+            k = _np.diagonal(input_mat,axis1 = 2, axis2 = 3)[:,:,[1,2,0]]
+        else:
+            k = _np.diagonal(input_mat,axis1 = 2, axis2 = 3)
+    im = visfun.pauli_rgb(k,**kwargs)
+    return im
+
 #Define shared methods
 def __law__(input_obj, out_obj):
     #This is just a lazy
@@ -405,18 +420,19 @@ class scatteringMatrix(_np.ndarray):
 
 
     def pauli_image(self,**kwargs):
-        if 'basis' in kwargs:
-            basis = kwargs.pop('basis')
-        else:
-            basis = 'pauli'
-        k = self.scattering_vector(bistatic = False, basis = basis)
-        if basis is 'pauli':
-            k = k[:,:,[1,2,0]]
-        else:
-            pass
-        im = visfun.pauli_rgb(_np.abs(k),**kwargs)
-        return im
-        
+        return gpi(self, **kwargs)
+#        if 'basis' in kwargs:
+#            basis = kwargs.pop('basis')
+#        else:
+#            basis = 'pauli'
+#        k = self.scattering_vector(bistatic = False, basis = basis)
+#        if basis is 'pauli':
+#            k = k[:,:,[1,2,0]]
+#        else:
+#            pass
+#        im = visfun.pauli_rgb(_np.abs(k),**kwargs)
+#        return im
+#        
    
 
         
@@ -426,10 +442,9 @@ class coherencyMatrix(_np.ndarray):
     
     global U3LP, U3PL, U4PL, U4LP
     U3LP = 1/_np.sqrt(2) * _np.array([[1, 0, 1],[1, 0, -1],[0, _np.sqrt(2), 0]])
-    U3PL = 1/_np.sqrt(2) * _np.array([[1, 1, 0],[0, 0, _np.sqrt(2)],[1, -1, 0]])
     U4LP = 1/_np.sqrt(2) * _np.array([[1, 0, 0, 1],[1, 0, 0, -1],[0, 1, 1, 0],[0, 1j, -1j, 0]])
     U4PL =  U4LP.T.conj()
-    
+    U3PL =  U3LP.T.conj()
     def vectorize(self):
         dim = self.shape
         if dim[-1] is 3: 
@@ -584,12 +599,12 @@ class coherencyMatrix(_np.ndarray):
         
 
     def pauli_image(self,**kwargs):
-        if self.basis is 'pauli':
-            k = _np.diagonal(self,axis1 = 2, axis2 = 3)[:,:,[1,2,0]]
-        else:
-            k = _np.diagonal(self,axis1 = 2, axis2 = 3)
-        im = visfun.pauli_rgb(k,**kwargs)
-        return im
+#        if self.basis is 'pauli':
+#            k = _np.diagonal(self,axis1 = 2, axis2 = 3)[:,:,[1,2,0]]
+#        else:
+#            k = _np.diagonal(self,axis1 = 2, axis2 = 3)
+#        im = visfun.pauli_rgb(k,**kwargs)
+        return gpi(self, **kwargs)
        
 
     def generateRealizations(self, n_real, n_looks):
@@ -609,9 +624,9 @@ class coherencyMatrix(_np.ndarray):
         """
         if self.basis is 'pauli':
             if self.shape[-1] is 3:
-                C = self.transform((U3PL),_np.linalg.inv(U3PL))
+                C = self.transform(U3PL, U3LP)
             else:
-                C = self.transform((U4PL),_np.linalg.inv(U4PL))
+                C = self.transform(U4PL, U4LP)
         else:
             C = self
         C = self.__array_wrap__(C)
@@ -625,9 +640,9 @@ class coherencyMatrix(_np.ndarray):
         """        
         if self.basis is 'lexicographic':
             if self.shape[-1] is 3:
-                C = self.transform(U3LP,_np.linalg.inv(U3LP))
+                C = self.transform(U3LP, U3PL)
             else:
-                C = self.transform(U4LP,_np.linalg.inv(U4LP))
+                C = self.transform(U4LP, U4PL)
         C = self.__array_wrap__(C)
         C.basis = 'pauli'
         print(C.shape)
