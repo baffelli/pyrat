@@ -81,8 +81,14 @@ def coherency_matrix_to_scattering_matrix(C):
     S.basis = []
     return S
 
-def remove_phase_ramp(S, B_if, ph_if, bistatic = False):
-    C = S.to_coherency_matrix(basis = 'lexicographic', bistatic = bistatic)
+def remove_phase_ramp(S1, B_if, ph_if, bistatic = False, S2 = None):
+    if S2 is None:
+        S2 = S1 * 1
+    else:
+        pass
+    k1 = S1.scattering_vector(basis = 'lexicographic', bistatic = bistatic)
+    k2 = S2.scattering_vector(basis = 'lexicographic', bistatic = bistatic)
+    C = corefun.outer_product(k1, k2)
     corr_mat = _np.zeros(C.shape,dtype = _np.complex64)
     if bistatic is True:
         channel_vec = ['HH','HV','VH','VV']
@@ -90,7 +96,7 @@ def remove_phase_ramp(S, B_if, ph_if, bistatic = False):
         channel_vec = ['HH','HV','VV']
     for idx_1 in range(C.shape[-1]):
         for idx_2 in range(C.shape[-1]):
-            pol_baseline = S.ant_vec[channel_vec[idx_1]] - S.ant_vec[channel_vec[idx_2]]
+            pol_baseline = S1.ant_vec[channel_vec[idx_1]] - S2.ant_vec[channel_vec[idx_2]]
             cf = (pol_baseline) / B_if
             corr = _np.exp(1j*ph_if * cf)
             corr_mat[:, :,idx_1,idx_2] = corr

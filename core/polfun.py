@@ -44,8 +44,13 @@ def cloude_pottier_histogram(*args,**kwargs):
     return w
 
 
-
-
+def normalize_covariance(T):
+    T_norm = T * 1
+    for i in range(T.shape[-1]):
+        for j in range(T.shape[-2]):
+            T_norm[:,:,i, j] = T[:,:, i, j] /\
+            _np.sqrt(_np.abs(T[:,:, i, i]) * T[:,:, j, j])
+    return T_norm
 
 def coherence(im1,im2,win, fun = None):
     """
