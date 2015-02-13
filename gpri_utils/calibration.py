@@ -54,7 +54,7 @@ def calibrate_from_parameters(S,par):
         f = m[0]
         g = m[1]
         S_cal = S.__copy__()
-        S_cal['VV'] = S_cal['VV'] * 1/f**2
+        S_cal['VV'] = S_cal['VV'] * 1/f**2 
         S_cal['HV'] = S_cal['HV'] * 1/f * 1/g
         S_cal['VH'] = S_cal['VH'] * 1/f
         S_cal = S.__array_wrap__(S_cal)
@@ -89,6 +89,7 @@ def remove_phase_ramp(S1, B_if, ph_if, bistatic = False, S2 = None):
     k1 = S1.scattering_vector(basis = 'lexicographic', bistatic = bistatic)
     k2 = S2.scattering_vector(basis = 'lexicographic', bistatic = bistatic)
     C = corefun.outer_product(k1, k2)
+    dummy = S1.to_coherency_matrix(basis = 'lexicographic')
     corr_mat = _np.zeros(C.shape,dtype = _np.complex64)
     if bistatic is True:
         channel_vec = ['HH','HV','VH','VV']
@@ -101,7 +102,7 @@ def remove_phase_ramp(S1, B_if, ph_if, bistatic = False, S2 = None):
             corr = _np.exp(1j*ph_if * cf)
             corr_mat[:, :,idx_1,idx_2] = corr
     C_cal = C * corr_mat
-    C_cal = C.__array_wrap__(C_cal)
+    C_cal = dummy.__array_wrap__(C_cal)
     return C_cal
 
 
@@ -156,34 +157,7 @@ def coregister_channels_FFT(S,shift_patch, oversampling = 1):
     return S_cor
 
 
-def correct_HHVV_phase_ramp(S, if_phase, baseline_ratio):
-    """
-    This function corrects the phase ramp
-    between the HH-VV channels. It is used
-    as a preliminary correction, useful
-    to determine the correct HH-VV
-    phase
-    Parameters
-    ----------
-    S : scatteringMatrix
-        `S` is the Scattering matrix that is to be corrected
-    if_phase : array_like
-        `if_phase` the unwrapped interferometric phase
-        which is to be removed from S
-    baseline_ratio  : float
-        The ratio of the polarimetric baseline to
-        the interferometric baseline
-    Returns
-    -------
-    S_coor : scatteringMatrix
-        A scattering matrix where the HH-VV phase contains a
-        polarimetric contribution only
-    """
-    S_corr = S * 1
-    
-    S_corr['VV'] = S['VV'] *  _np.exp(-1j*baseline_ratio*if_phase)
-    return S_corr
-        
+
 
         
 def remove_window(S):
@@ -314,8 +288,7 @@ def  simple_calibration(C_tri,C_distributed):
     if isinstance(C_tri, core.matrices.coherencyMatrix) and C_tri.basis == 'lexicographic':
         #Determine cochannel imbalance
         f_mag = (_np.abs(C_tri[3,3]) / (_np.abs(C_tri[0,0])))**0.25
-        f_phase = 1/2.0* _np.angle(C_tri[3,0])
-        f = f_mag * _np.exp(1j * f_phase)
+        f_phase = 1/2.0 * _np.angle(C_tri[3,0])
         #Determine for distributed targets
         C_d = C_distributed
         g_mag = _np.mean(_np.abs(C_d[2,2])) / _np.mean((_np.abs(C_d[1,1])))

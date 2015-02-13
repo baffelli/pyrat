@@ -1004,7 +1004,7 @@ def rectangle_vertices(v1,v2):
     return _np.array([[x1,y1],[x1,y2],[x2,y2],[x2,y1]])
 
 def scale_coherence(c):
-        return (_np.sin(c * _np.pi / 2  - _np.pi / 2) + 1)/2 * (c > 0.2)
+        return (_np.sin(c * _np.pi / 2)) * (c > 0.4)
 
   
 def if_hsv(ifgram):
