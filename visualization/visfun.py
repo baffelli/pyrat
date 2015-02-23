@@ -290,6 +290,7 @@ def shift_image(image, shift):
     x,y = _np.meshgrid(x, y, order = 'xy')
     image_1 = image.__array_wrap__(\
     bilinear_interpolate(_np.array(image), y.T, x.T))
+    image_1[_np.isnan(image_1)] = 0
     return image_1
     
     
@@ -1079,3 +1080,19 @@ def show_signature(signature_output, rotate = False):
 #    _plt.axis('equal')
     return f_co, f_x
 
+
+def blockshaped(arr, n_patch):
+    """
+    Return an array of shape (n, nrows, ncols) where
+    n * nrows * ncols = arr.size
+
+    If arr is a 2D array, the returned array should look like n subblocks with
+    each subblock preserving the "physical" layout of arr.
+    from:
+
+    """
+    nrows, ncols = n_patch
+    h, w = arr.shape
+    return (arr.reshape(h//nrows, nrows, -1, ncols)
+               .swapaxes(1,2)
+               .reshape(-1, nrows, ncols))

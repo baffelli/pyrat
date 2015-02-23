@@ -147,47 +147,7 @@ def matrix_root(A):
     A_sq = transform(w, L_sq, _np.linalg.inv(w))
     return A_sq
     
-def range_variant_filter(data,area):
-    """
-    This function implements a moving average 
-    filter with variable size, in order to obtain
-    a filtered pixel with uniform size.
-    
-    Parameters
-    ----------
-    data : ndarray
-        the data to process.
-    area : double
-        the desired pixel area in meters.
-    """
-    filtered = data * 1
-    filter_size = _np.zeros(data.shape[0:2])
-    az_step = data.az_step
-    r_step = data.r_step
-    for idx_r in _np.arange(data.shape[1]):
-        n_r = idx_r + 1
-        pixel_area = az_step * ((n_r*r_step)**2 - ((n_r -1) * r_step)**2)
-        n_pix = _np.ceil(area  / pixel_area)
-        current_pixels = data[:,idx_r,:,:]
-        filtered[:,idx_r,:,:] = smooth(current_pixels,[n_pix,1,1])
-        filter_size[:,idx_r] = n_pix
-    return filtered, filter_size
 
-def split_bandwdith(data,n_splits,axis = 0):
-    pad_size = n_splits - data.shape[axis] % n_splits
-    print pad_size
-    data_hat = _sp.fftpack.fftshift(_sp.fftpack.fft(data,axis = axis),axes = (axis,))
-    pad_arr = [[0,0]] * data.ndim
-    pad_arr[axis] = [pad_size,0]
-    data_hat = _np.pad(data_hat,pad_arr,mode=  'constant')
-    data_split = _np.split(data_hat,n_splits,axis = axis)
-    data_cube = []
-    broadcast_slice = [None,] * data.ndim
-    broadcast_slice[axis] = Ellipsis
-    for data_slice in data_split:
-        data_win = _np.hamming(data_slice.shape[axis])[broadcast_slice] * data_slice
-        data_cube = data_cube + [ _sp.fftpack.ifft(_sp.fftpack.ifftshift(data_win, axes = (axis,)),axis = axis),]
-    return data_cube
         
     
 
