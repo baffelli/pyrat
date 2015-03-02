@@ -548,6 +548,100 @@ def segment_DEM(DEM, center, S_l, heading):
     DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
     return DEM_seg
 
+
+def gc_map_bi(DEM,center_TX,center_RX,S_l,heading, interp = None, seg_DEM = True):
+    """
+    This function computes a lookup-table
+    that contains the radar coordinates
+    corresponding to each coordinate in the
+    DEM grid
+    Parameters
+    ----------
+    DEM : osgeo.gdal.Dataset
+        The DEM that will be used to compute the LUT
+    S_l : pyrat.scatteringMatrix
+        A scattering matrix object that contains
+        the necessary data for geocoding (azimuth vector etc)
+    center_TC : tuple
+        the center of the radar in DEM coordinates
+    center_RX : tuple
+        the center of the radar in DEM coordinates
+    heading : float
+        The heading of the radar in degrees
+    Returns
+    -------
+    lut : ndarray
+        The real part of the lut contains the first index, the imaginary part the second
+    incidence_angle : ndarray
+        The computed incidence angle map
+    
+    """
+    #%% DEM Segmentation
+    #First of all, we compute the extent of the DEM
+    #that is approx. covered by the radar
+    x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center_RX, S_l, heading)
+    if seg_DEM:
+        DEM_seg = segment_DEM(DEM, center_RX, S_l, heading)
+    else:
+        DEM_seg = DEM
+    z = (DEM_seg.ReadAsArray()).astype(_np.float32)
+    GT_seg = DEM_seg.GetGeoTransform()
+    x = GT_seg[0] + _np.arange(0,DEM_seg.RasterXSize) * GT_seg[1]
+    y = GT_seg[3] + _np.arange(0,DEM_seg.RasterYSize) * GT_seg[5]
+    #Convert the positions to Radar Centered Coordinates
+    #shift only
+    x_rad_RX = x - center_RX[0]
+    y_rad_RX = y - center_RX[1]
+    z_rad_RX = z - center_RX[2] 
+    x_rad_TX = x - center_TX[0]
+    y_rad_TX = y - center_TX[1]
+    z_rad_TX = z - center_TX[2]
+    
+    #The coordinates have to be rotated by the heading
+    theta = heading
+    #Compute rotation matrix to transform by heading
+    R_mat = _np.array([[_np.cos(-theta), - _np.sin(-theta)],[_np.sin(-theta), _np.cos(-theta)]])
+    xx, yy = _np.meshgrid(x_rad_RX,y_rad_RX)
+    xy = _np.vstack([xx.flatten(),yy.flatten()]).transpose([1,0])
+    xy_rot = _np.einsum('...ij,...j',R_mat,xy)
+    x_rad_RX = xy_rot[:,0].reshape(z.shape)
+    y_rad_RX = xy_rot[:,1].reshape(z.shape)
+    xx, yy = _np.meshgrid(x_rad_TX,y_rad_TX)
+    xy = _np.vstack([xx.flatten(),yy.flatten()]).transpose([1,0])
+    xy_rot = _np.einsum('...ij,...j',R_mat,xy)
+    x_rad_TX = xy_rot[:,0].reshape(z.shape)
+    y_rad_TX = xy_rot[:,1].reshape(z.shape)
+    #Compute bistatic ranges
+    sep = _np.abs(_np.array(center_RX) - _np.array(center_TX))**2
+    r_bi = _np.sqrt(x_rad_RX**2 + y_rad_RX**2 + z_rad_RX**2) + _np.sqrt(x_rad_TX**2 + y_rad_TX**2 + z_rad_TX**2) - sep 
+    #Conver coordinates into range and azimuths
+#    r_sl = _np.sqrt(x_rad**2 + y_rad**2 + z_rad**2)
+    az = _np.arctan2(x_rad_RX, y_rad_RX)
+    #Convert coordinates into indices
+    r_step = S_l.r_vec[1] - S_l.r_vec[0]
+    az_step = S_l.az_vec[1] - S_l.az_vec[0]
+    r_idx = (r_bi - S_l.r_vec[0]) / r_step
+    az_idx = (az - S_l.az_vec[0]) / (az_step)
+    lut = 1j * az_idx + r_idx
+#    #The slant ranges can be used to compute shadow maps
+#    #Now we can compute the reverse transformation (From DEM to Radar)
+#    #To each index (azimuth and range) in the radar geometry, the LUT contains
+#    #the corresponding DEM indices
+#    rev_lut = _np.zeros(S_l.shape)
+#    r_vec = S_l.r_vec
+#    az_vec =  S_l.az_vec - heading
+#    r1,az1  = _np.meshgrid(r_vec, az_vec)
+#    #Compute the points on the map that correspond to the slant ranges and azimuth on the radar
+#    xrad = r1 * _np.sin(az1) + center[0]
+#    yrad = r1 * _np.cos(az1) + center[1]
+#    #Convert in map indices by using the geotransform
+#    x_idx = (xrad - GT_seg[0]) / GT_seg[1]
+#    y_idx = (yrad - GT_seg[3]) / GT_seg[5]
+#    rev_lut = x_idx + 1j * y_idx
+    return DEM_seg, lut
+    
+
+
 def gc_map(DEM,center,S_l,heading, interp = None, seg_DEM = True):
     """
     This function computes a lookup-table
@@ -657,22 +751,6 @@ def gc_map(DEM,center,S_l,heading, interp = None, seg_DEM = True):
         sh = nex < current
         shadow[:, idx_r] = sh
         current = nex * (sh) + current * ~sh
-#        
-#        
-#    #We compute how many DEM pixels are illuminated by the beam
-#    #in x direction and in y direction
-##    r_d = r_vec[1] - r_vec[0]
-##    area_beta_dem = (az_vec[1] - az_vec[0]) * ((r_sl + r_d)**2 - r_sl**2 )
-##    n_pix_x = area_beta_dem / (GT_seg[1])
-##    n_pix_y = area_beta_dem / _np.abs(GT_seg[5])
-##    max_shift_x = _np.int(_np.max(n_pix_x.flatten()))
-##    max_shift_y = _np.int(_np.max(n_pix_y.flatten()))
-##    area_tot = area * 1
-##    #At this point we compute the new area
-##    for idx_shift_x in range(_np.int(max_shift_x)):
-##        for idx_shift_y in range(_np.int(max_shift_y)):
-##            sha = _np.roll(_np.roll(area,idx_shift_x,axis = 1),idx_shift_y,axis = 0)
-##            area_tot = (area_tot + sha * (n_pix_x == idx_shift_x) * (n_pix_y == idx_shift_y))
     return DEM_seg, lut, rev_lut, xrad, yrad, ia, area, area_beta, r_sl
     
 def ly_sh_map(r_sl, ia):
@@ -1007,14 +1085,32 @@ def rectangle_vertices(v1,v2):
 def scale_coherence(c):
         return (_np.sin(c * _np.pi / 2)) * (c > 0.4)
 
+
   
-def if_hsv(ifgram):
-     H = scale_array(_np.angle(ifgram))
-     S = _np.zeros_like(H) + 0.8
-     V = scale_coherence(_np.abs(ifgram))
-     RGB = _mpl.colors.hsv_to_rgb(_np.dstack((H, S, V)))
-     return RGB
-     
+def disp_mph(data, dt = 'amplitude', k = 0.5, min_val = - 2 * _np.pi ,max_val = 2 * _np.pi, return_pal = False):
+    H = scale_array(_np.angle(data), min_val = min_val, max_val = max_val)
+    S = _np.zeros_like(H) + 0.5
+    if dt == 'coherence':
+        V = scale_coherence((_np.abs(data)))
+    elif dt == 'amplitude':
+        V = scale_array(_np.abs(data)** k)
+    elif dt == 'none':
+        V = scale_array(_np.abs(data))
+    RGB = _mpl.colors.hsv_to_rgb(_np.dstack((H, S, V)))
+    if return_pal:
+        H_pal = scale_array(_np.linspace(min_val, max_val, 255))
+        S_pal = H_pal * 0 + 0.5
+        V_pal = H_pal * 0 + 1 
+        pal = _mpl.colors.hsv_to_rgb(_np.dstack((H_pal, S_pal, V_pal))).squeeze()
+        cmap = _mpl.colors.LinearSegmentedColormap.from_list('my_colormap',pal,256)
+        return RGB, cmap
+    else:
+        return RGB
+
+def load_custom_palette():
+    RGB = disp_mph(_np.exp(1j * _np.linspace(0,2 * _np.pi,255))).squeeze()
+    cmap = _mpl.colors.LinearSegmentedColormap.from_list('my_colormap',RGB,256)
+    return cmap
      
 def extract_section(image, center, size):
     x = center[0] + _np.arange(-int(size[0] / 2.0),int(size[0] / 2.0))
