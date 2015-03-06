@@ -237,74 +237,15 @@ class scatteringMatrix(_np.ndarray):
         return self_1
         
     def __getitem__(self,sl):
-#        if type(sl) is str:
-#            if sl is 'HH':
-#                base_idx = (0,0)
-#            elif sl is 'VV':
-#                base_idx = (1,1)
-#            elif sl is 'HV':
-#                base_idx = (0,1)
-#            elif sl is 'VH':
-#                base_idx = (1,0)
-#            if self.ndim is 4:
-#                sli = (Ellipsis,Ellipsis) + base_idx
-#            elif self.ndim is 3:
-#                sli = (Ellipsis,) + base_idx
-#            else:
-#                sli = base_idx
-#                new_obj_1 =  (super(scatteringMatrix,self).__getitem__(sli))
-#                return new_obj_1
-#        elif type(sl) is slice or type(sl) is tuple or type(sl) is int or type(sl) is list:
-#            sli = sl
-#        #apply slicing
-#        new_obj_1 =  (super(scatteringMatrix,self).__getitem__(sli))
-#        if  hasattr(self,'geometry') and type(sli) is tuple:
-#            if hasattr(new_obj_1, '__dict__'):
-#                new_obj_1.__dict__.update(self.__dict__)
-#            if self.geometry is 'polar':
-#                r_vec = self.r_vec[(sli[1])]
-#                az_vec = self.az_vec[(sli[0])]
-#                new_obj_1.__setattr__('r_vec',r_vec)
-#                new_obj_1.__setattr__('az_vec',az_vec)
-#                if type(sl) is str:
-#                    chan_phase_center = self.ant_vec[base_idx]
-#                    new_obj_1.__setattr__('ant_vec',chan_phase_center)
-#        return new_obj_1
         return __general__getitem__(self, sl)
         
 
         
     def __setitem__(self,sl,item):
-#        if type(sl) is str:
-#            if sl is 'HH':
-#                base_idx = (0,0)
-#            elif sl is 'VV':
-#                base_idx = (1,1)
-#            elif sl is 'HV':
-#                base_idx = (0,1)
-#            elif sl is 'VH':
-#                base_idx = (1,0)
-#            if self.ndim is 4:
-#                sli = (Ellipsis,Ellipsis) + base_idx
-#            else:
-#                sli = base_idx
-#        else:
-#            sli = sl
-#        self1 = self.view(_np.ndarray)
-#        self1.__setitem__(sli,item)
-#        self1 = self1.view(scatteringMatrix)
-#        self1.__dict__.update(self.__dict__)
-#        if self.geometry is 'polar':
-#            r_vec = self.r_vec
-#            az_vec = self.az_vec
-#            self1.__setattr__('r_vec',r_vec)
-#            self1.__setattr__('az_vec',az_vec)
-#        self = self1 
          __general__setitem__(self, sl, item)
 
     
     def __array_wrap__(self, out_arr, context=None):
-#        temp_arr = _np.ndarray.__array_wrap__(self, out_arr, context)
         temp_arr = __law__(self, out_arr)
         return temp_arr
         
@@ -420,18 +361,8 @@ class scatteringMatrix(_np.ndarray):
 
     def pauli_image(self,**kwargs):
         return gpi(self, **kwargs)
-#        if 'basis' in kwargs:
-#            basis = kwargs.pop('basis')
-#        else:
-#            basis = 'pauli'
-#        k = self.scattering_vector(bistatic = False, basis = basis)
-#        if basis is 'pauli':
-#            k = k[:,:,[1,2,0]]
-#        else:
-#            pass
-#        im = visfun.pauli_rgb(_np.abs(k),**kwargs)
-#        return im
-#        
+
+#    
    
 
         
@@ -507,17 +438,6 @@ class coherencyMatrix(_np.ndarray):
         return counts
     
     def __getitem__(self,sl):
-#        new_obj_1 = _np.array(self).__getitem__(sl)
-#        new_obj_1 = new_obj_1.view(coherencyMatrix)
-#        if type(sl) is slice or type(sl) is tuple and self.geometry is 'polar':
-#            r_vec = self.r_vec
-#            az_vec = self.az_vec
-#            new_obj_1.__setattr__('r_vec',r_vec[(sl[1])])
-#            new_obj_1.__setattr__('az_vec',az_vec[(sl[0])])
-#            new_obj_1.__setattr__('basis',self.basis)
-#            new_obj_1.__setattr__('geometry',self.geometry)
-#            return new_obj_1
-#        return new_obj_1
         return __general__getitem__(self, sl)
 
     def __new__(*args,**kwargs):
@@ -598,11 +518,6 @@ class coherencyMatrix(_np.ndarray):
         
 
     def pauli_image(self,**kwargs):
-#        if self.basis is 'pauli':
-#            k = _np.diagonal(self,axis1 = 2, axis2 = 3)[:,:,[1,2,0]]
-#        else:
-#            k = _np.diagonal(self,axis1 = 2, axis2 = 3)
-#        im = visfun.pauli_rgb(k,**kwargs)
         return gpi(self, **kwargs)
        
 
