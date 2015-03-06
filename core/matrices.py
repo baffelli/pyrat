@@ -210,11 +210,10 @@ class scatteringMatrix(_np.ndarray):
             phase_center = {}
             for polarimetric_channel, idx_tx,idx_rx in zip(['HH','HV','VH','VV'],[0,0,1,1],[0,1,0,1]):
                 if chan is 'l':
-                    rx_vec = RX_VEC_U
-                else:
                     rx_vec = RX_VEC_L
+                else:
+                    rx_vec = RX_VEC_U
                 phase_center[polarimetric_channel] = (rx_vec[idx_rx] + TX_VEC[idx_tx])/2
-#                phase_center.append((rx_vec[idx_rx] + TX_VEC[idx_tx])/2)#Compute effective phase center
             obj.ant_vec = phase_center
         else:
             if isinstance(args[1], _np.ndarray):
