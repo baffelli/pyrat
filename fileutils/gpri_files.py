@@ -45,6 +45,30 @@ def load_par(path):
                     new_numbers  = new_numbers + [flt]
                 par = par + [(par_name,new_numbers)]
     return dict(par)
+    
+def path_helper(location, date, time, slc_dir = 'slc', data_dir= '/media/bup/Data'):
+    """
+    This is an helper function to construct the paths
+    to load slc file in the usual order they are stored
+    i.e '/location/date/slc/date_time.slc'
+    Parameters
+    ----------
+        location : str
+            The location of acquistion
+        date : str
+            Date
+        time : str
+            Time of the acquistion
+        slc_dir : str
+            name of the slc subdirectory
+        data_dir : str
+            absolute path to where the data is stored
+    """
+        
+    base_folder = data_dir + '/' + location + '/' + date + '/'
+    name = date + '_' + time
+    def_path =  base_folder + slc_dir + '/' +  name
+    return def_path
 
 def dict_to_par(par_dict):
     """

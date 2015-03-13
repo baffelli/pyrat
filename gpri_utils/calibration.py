@@ -374,9 +374,6 @@ def get_shift(image1,image2, oversampling = (10,1), axes = (0,1)):
     shift_idx = _np.where(_np.array(shift) > (_np.array(corr_image.shape) / 2.0)
     ,pos_shift, neg_shift)
     shift_idx = shift_idx  / _np.array(oversampling).astype(_np.double)
-#    shift = _np.mod(.astype(_np.int))
-#    shift_idx = shift / _np.array(oversampling)
-#    shift_idx = _np.array(shift_idx) / _np.array(oversampling).astype(_np.float)
     return shift_idx, corr_image
     
     

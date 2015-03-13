@@ -148,7 +148,14 @@ def matrix_root(A):
     return A_sq
     
 
-        
+def window_idx(arr, idx, zs):
+    indices = []
+    for cnt, (current_size,current_idx) in enumerate(zip(zs, idx)):
+        mi = _np.clip(current_idx - current_size, 0, arr.shape[cnt])
+        mx = _np.clip(current_idx + current_size, 0, arr.shape[cnt])
+        sl = slice(mi, mx)
+        indices.append(sl)
+    return indices 
     
 
 
