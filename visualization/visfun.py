@@ -300,6 +300,7 @@ def resample_image(image, sampling_factor):
     x,y = _np.meshgrid(x, y, order = 'xy')
     image_1 = image.__array_wrap__(\
     bilinear_interpolate(_np.array(image), y.T, x.T))
+    image_1[_np.isnan(image_1)] = 0
     return image_1
     
 def resample_DEM(DEM,new_posting):
@@ -1087,7 +1088,7 @@ def scale_coherence(c):
 
 
   
-def disp_mph(data, dt = 'amplitude', k = 0.5, min_val = - 2 * _np.pi ,max_val = 2 * _np.pi, return_pal = False):
+def disp_mph(data, dt = 'amplitude', k = 0.5, min_val = -_np.pi ,max_val =  _np.pi, return_pal = False):
     H = scale_array(_np.angle(data), min_val = min_val, max_val = max_val)
     S = _np.zeros_like(H) + 0.5
     if dt == 'coherence':
@@ -1099,7 +1100,7 @@ def disp_mph(data, dt = 'amplitude', k = 0.5, min_val = - 2 * _np.pi ,max_val = 
     RGB = _mpl.colors.hsv_to_rgb(_np.dstack((H, S, V)))
     if return_pal:
         H_pal = scale_array(_np.linspace(min_val, max_val, 255))
-        S_pal = H_pal * 0 + 0.5
+        S_pal = H_pal * 0 + 0.8
         V_pal = H_pal * 0 + 1 
         pal = _mpl.colors.hsv_to_rgb(_np.dstack((H_pal, S_pal, V_pal))).squeeze()
         cmap = _mpl.colors.LinearSegmentedColormap.from_list('my_colormap',pal,256)
