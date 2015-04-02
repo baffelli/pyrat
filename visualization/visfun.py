@@ -1094,7 +1094,7 @@ def disp_mph(data, dt = 'amplitude', k = 0.5, min_val = -_np.pi ,max_val =  _np.
     if dt == 'coherence':
         V = scale_coherence((_np.abs(data)))
     elif dt == 'amplitude':
-        V = scale_array(_np.abs(data)** k)
+        V = scale_array(exp_im(data,k))
     elif dt == 'none':
         V = scale_array(_np.abs(data))
     RGB = _mpl.colors.hsv_to_rgb(_np.dstack((H, S, V)))
