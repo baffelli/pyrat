@@ -377,17 +377,27 @@ def get_shift(image1,image2, oversampling = (10,1), axes = (0,1)):
     return shift_idx, corr_image
     
     
-def norm_xcorr(image1,image2, axes = (0,1),  oversampling = (2,2)):
+def norm_xcorr(image1,image2, axes =(0,1),  oversampling =(2,2), pad_factor=(0.5,0.5)):
     import pyfftw.interfaces.scipy_fftpack as fftp
+    #Remove nans
     image1[_np.isnan(image1)] = 0
     image2[_np.isnan(image2)] = 0
+    #Pad edges to reduce edge effects
+    edge_pad_size = zip([0] * image1.ndim,[0] * image1.ndim)
+    for ax, pf in zip(axes, pad_factor):
+        ps = image1.shape[ax] * (pf/2)
+        edge_pad_size[ax] = (ps , ps)
+    edge_pad_size = tuple(edge_pad_size)
+#    image1 = _np.pad(image1, edge_pad_size, mode='constant')
+#    image2 = _np.pad(image2, edge_pad_size, mode='constant')
     #Take trnasform
     image_1_hat = fftp.fftn(image1, axes = axes)
     image_2_hat = fftp.fftn(image2, axes = axes)
     #Oversample
-    pad_size = zip(_np.zeros(image1.ndim),_np.zeros(image1.ndim))
+    pad_size = zip([0] * image1.ndim,[0] * image1.ndim)
     for ax, ov in zip(axes, oversampling):
-        pad_size[ax] = (image1.shape[ax] * (ov - 1), 0)
+        os = image1.shape[ax] * (ov - 1)
+        pad_size[ax] = (os/2, os/2)
     pad_size = tuple(pad_size)
     ft_corr = image_1_hat * image_2_hat.conj()\
     / (_np.abs( image_1_hat * image_2_hat.conj()))
@@ -398,16 +408,21 @@ def norm_xcorr(image1,image2, axes = (0,1),  oversampling = (2,2)):
 
 
 def patch_coregistration(im1, im2, n_patch, oversampling = (5,5)):
-    patches_1 = matrices.block_array(im1, n_patch, (2,2))
-    patches_2 = matrices.block_array(im2, n_patch, (2,2))
-#    sh_arr = _np.zeros(patches_1.shape[0:2], dtype = _np.complex64)
-#    n_blocks = _np.product(patches_1.shape[0:2])
+    rem = _np.array(n_patch) - _np.mod(im1.shape, n_patch)
+    pad_size = [0] * im1.ndim
+    for ax in range(im1.ndim):
+        ps = rem[ax]
+        pad_size[ax] = (ps, 0)
+    im1 = _np.pad(im1, pad_size, mode='constant')
+    im2 = _np.pad(im2, pad_size, mode='constant')
+    sh = _np.divide(im1.shape, n_patch)
+    patches_1 = matrices.blockshaped(im1, sh[0], sh[1])
+    patches_2 = matrices.blockshaped(im2, sh[0], sh[1])
     sh_list = []
     for p1, p2 in zip(patches_1, patches_2):
-##        block_idxs = _np.unravel_index(idx_block, patches_1.shape[0:2])
-#        p1 = patches_1[block_idxs] 
-#        p2 = patches_2[block_idxs] 
+        block_idxs = _np.unravel_index(idx_block, patches_1.shape[0:2])
         sh, co = get_shift(p1, p2, oversampling = oversampling)
 #        sh_arr[block_idxs] = sh[0] + 1j *sh[1]
         sh_list.append(sh)
     return sh_list
+

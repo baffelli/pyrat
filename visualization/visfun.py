@@ -10,7 +10,8 @@ import matplotlib.pyplot as _plt
 import pyrat
 import pyrat.core.polfun
 import cv2 as _cv2
-
+import scipy.fftpack as _fftp
+import scipy.ndimage as _ndim
 
 #Define colormaps
 
@@ -283,7 +284,6 @@ def correct_shift_radar_coordinates(slave, master, axes = (0,1), oversampling = 
     return slave_1, corr
     
 
-
 def shift_image(image, shift):
     x = _np.arange(image.shape[0]) + shift[0] 
     y = _np.arange(image.shape[1]) + shift[1]
@@ -292,7 +292,34 @@ def shift_image(image, shift):
     bilinear_interpolate(_np.array(image), y.T, x.T))
     image_1[_np.isnan(image_1)] = 0
     return image_1
-    
+   
+def shift_image_FT(image, shift):
+    #Pad at least three times the shift required
+    edge_pad_size = zip([0] * image.ndim,[0] * image.ndim)
+    axes = range(len(shift))
+    for ax in axes:
+        ps = abs(int(shift[ax])) * 0
+        edge_pad_size[ax] = (ps, ps)
+    image_pad = _np.pad(image, edge_pad_size, mode ='constant')
+    #Transform in fourier domain
+    image_hat = _fftp.fftn(image_pad, axes=axes)
+##    #Generate frequency vectors
+#    freqs = [_fftp.ifftshift(_fftp.fftfreq(sh)) for sh in image_hat.shape]
+#    #Compute shift ramp
+#    fr = _np.zeros(image_hat.shape)
+#
+#    for f, sh, d, ax in zip(freqs, shift,\
+#    image_hat.shape, range(image_hat.ndim)):
+#        #Slicing for broadcasting
+#        sl_bc = [None] * image_hat.ndim
+#        sl_bc[ax] = Ellipsis
+#        fr = fr + (f[sl_bc] * sh) / _np.double(d) 
+#    ramp = _np.exp(-1j * 2* _np.pi * fr)
+#    #Apply fourier shift theorem
+    image_hat_shift = _ndim.fourier_shift(image_hat, shift)
+#    image_hat_shift = image_hat * ramp
+    image_shift = _fftp.ifftn(image_hat_shift, axes=axes)
+    return image_shift
     
 def resample_image(image, sampling_factor):
     x = _np.linspace(0,image.shape[0], num = image.shape[0] * sampling_factor[0])
