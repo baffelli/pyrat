@@ -120,7 +120,7 @@ def load_complex(path):
     d_comp = d_real + 1j * d_imag
     return d_comp
 
-def load_slc(path):
+def load_slc(path, sl = None):
     """
     Load Gamma Format .slc image 
     --------
@@ -139,6 +139,11 @@ def load_slc(path):
     d_image = _np.memmap(path, shape = shape, dtype = dt, mode = 'c').byteswap()
     return d_image
     
+def load_raw(path):
+    par = load_par(path +'.raw_par')
+    
+
+
 def load_int(path):
     split__str = path.split('.')
     print split__str
