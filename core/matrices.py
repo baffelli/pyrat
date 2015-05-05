@@ -126,7 +126,7 @@ class gpriImage(_np.ndarray):
         az_min = _np.deg2rad(par['GPRI_az_start_angle'][0])
         r_step = par['range_pixel_spacing'][0]
         #Compute grid
-        obj.r_vec = r_min + _np.arange(obj.shape[0]) * r_step - rcf
+        obj.r_vec = r_min + _np.arange(obj.shape[1]) * r_step - rcf
         obj.az_vec = az_min + _np.arange(obj.shape[0]) * az_step
         #The center of the image in WGS84
         obj.center = [north, east,par['GPRI_ref_alt'][0] + par['GPRI_geoid'][0]] 
@@ -147,16 +147,6 @@ class gpriImage(_np.ndarray):
     
         
     def __getitem__(self,sl):
-#        new_obj_1 = _np.array(super(gpriImage, self).__getitem__(sl))
-#        new_obj_1 = new_obj_1.view(gpriImage)
-#        new_obj_1.__dict__.update(self.__dict__)
-#        if type(sl) is slice or type(sl) is tuple:
-#            r_vec = self.r_vec
-#            az_vec = self.az_vec
-#            new_obj_1.__setattr__('r_vec',r_vec[(sl[1])])
-#            new_obj_1.__setattr__('az_vec',az_vec[(sl[0])])
-#            return new_obj_1
-#        return new_obj_1
         return __general__getitem__(self, sl)
 
         
@@ -183,6 +173,10 @@ class scatteringMatrix(_np.ndarray):
         if gpri is True:
             if 'chan' in kwargs:
                 chan = kwargs.get('chan')
+            if 'sl' in kwargs:
+                sl = kwargs.get('sl')
+            else:
+                sl = [Ellipsis] * 2
             H_ant = 'A'
             V_ant = 'B'
             base_path = args[1]
@@ -190,18 +184,31 @@ class scatteringMatrix(_np.ndarray):
             slc_path_VV = base_path + "_" + V_ant + V_ant + V_ant + chan + ".slc"
             slc_path_HV = base_path + "_" + H_ant + V_ant + V_ant + chan + ".slc"
             slc_path_VH = base_path + "_" + V_ant + H_ant + H_ant + chan + ".slc"
-            HH = gpriImage(slc_path_HH)
-            VV = gpriImage(slc_path_VV)
-            HV = gpriImage(slc_path_HV)
-            VH = gpriImage(slc_path_VH)
-            s_matrix = _np.zeros(HH.shape + (2,2), dtype = HH.dtype)
+            HH = gpriImage(slc_path_HH)[sl]
+            VV = gpriImage(slc_path_VV)[sl]
+            HV = gpriImage(slc_path_HV)[sl]
+            VH = gpriImage(slc_path_VH)[sl]
+            print('Done Loading')
+            print(type(HH))
+            #Create memmaps
+            mat_path = base_path + 's_matrix_' + chan
+            open(mat_path, 'w+').close() 
+            s_matrix = _np.memmap(mat_path, 
+                                  dtype = HH.dtype, shape = HH.shape + (2,2), 
+                                    mode ='r+')
+#            s_matrix = _np.zeros(HH.shape + (2,2), dtype = HH.dtype)
             s_matrix[:,:,0,0] = HH
+            s_matrix.flush()
             s_matrix[:,:,1,1] = VV
+            s_matrix.flush()
             s_matrix[:,:,0,1] = HV
+            s_matrix.flush()
             s_matrix[:,:,1,0] = VH
-            obj = _np.asarray(s_matrix).view(cls)
+            s_matrix.flush()
+            obj = s_matrix.view(cls)
             #Copy attributes from one channel
             obj.__dict__.update(HH.__dict__)
+            del HH,HV,VV,VH
             phase_center = []
             obj.geometry = 'polar'
             TX_VEC = [0,0.125]

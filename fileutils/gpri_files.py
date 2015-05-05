@@ -9,6 +9,9 @@ import numpy as _np
 import dateutil.parser
 import string as _str
 import other_files
+import os.path as _osp
+from numpy.lib.stride_tricks import as_strided as _ast
+
 
 def load_par(path):
     """
@@ -35,6 +38,8 @@ def load_par(path):
                     continue
             elif keys[0] == "image_format:":
                 par = par + [('image_format', keys[1::])]
+            elif keys[0] == "TX_RX_SEQ:":
+                par = par + [('TX_RX_SEQ', keys[1::])]
             else:
                 par_name = keys[0]
                 par_name = par_name.replace(":","")
@@ -136,13 +141,48 @@ def load_slc(path, sl = None):
         dt = _np.dtype('complex64')
     elif par['image_format'][0] == 'SCOMPLEX':
         dt = _np.dtype('complex32')
-    d_image = _np.memmap(path, shape = shape, dtype = dt, mode = 'c').byteswap()
+    if sl is None:
+        d_image = _np.memmap(path, shape = shape, dtype = dt, mode = 'r').byteswap()
     return d_image
+    
+
+    
+def gpri_raw_strides(nsamp,nchan,npat, itemsize):
+    """
+    This function computes the array strides for 
+    the gpri raw file format
+    """
+    #The first stride jumps from one record to the 
+    #next corresponding to the same pattern (AAA etc)
+    st_az = ((nsamp + 1) * nchan) * npat * itemsize
+    #The second stride, for the range samples
+    #jumps from one range sample to the next, they 
+    #alternate between one channel and another
+    st_rg = itemsize * nchan
+    #The third stride, for the two receivers, from
+    #one channel to the other
+    st_chan =  itemsize
+    #The final stride is for the polarimetric channels,
+    #they are in subsequent records
+    st_pol = ((nsamp + 1) * nchan)  * itemsize
+    #The full strides
+    return (st_az, st_rg, st_chan, st_pol) 
     
 def load_raw(path):
     par = load_par(path +'.raw_par')
-    
-
+    nsamp = par['CHP_num_samp'][0]
+    nchan = 2
+    npat = len(par['TX_RX_SEQ'][0].split('-'))
+    itemsize = _np.int16(1).itemsize
+    bytes_per_record = (nsamp + 1) * 2 * itemsize
+    filesize = _osp.getsize(path + '.raw')
+    raw = _np.memmap(path + '.raw', dtype='int16', mode='r')
+    nl_tot = int(filesize/bytes_per_record)
+    sh = (nl_tot / npat, nsamp + 1,\
+        nchan, npat)
+    stride = gpri_raw_strides(nsamp, nchan, npat, itemsize)
+    raw_shp = _ast(raw, shape=sh, strides=stride)
+    return raw_shp
 
 def load_int(path):
     split__str = path.split('.')
