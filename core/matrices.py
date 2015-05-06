@@ -177,6 +177,10 @@ class scatteringMatrix(_np.ndarray):
                 sl = kwargs.get('sl')
             else:
                 sl = [Ellipsis] * 2
+            if 'memmap' in kwargs:
+                memmap = kwargs.get('memmap')
+            else:
+                memmap = False
             H_ant = 'A'
             V_ant = 'B'
             base_path = args[1]
@@ -188,23 +192,21 @@ class scatteringMatrix(_np.ndarray):
             VV = gpriImage(slc_path_VV)[sl]
             HV = gpriImage(slc_path_HV)[sl]
             VH = gpriImage(slc_path_VH)[sl]
-            print('Done Loading')
-            print(type(HH))
             #Create memmaps
-            mat_path = base_path + 's_matrix_' + chan
-            open(mat_path, 'w+').close() 
-            s_matrix = _np.memmap(mat_path, 
-                                  dtype = HH.dtype, shape = HH.shape + (2,2), 
-                                    mode ='r+')
-#            s_matrix = _np.zeros(HH.shape + (2,2), dtype = HH.dtype)
+            if memmap:
+                mat_path = base_path + 's_matrix_' + chan
+                open(mat_path, 'w+').close() 
+                s_matrix = _np.memmap(mat_path, 
+                                      dtype = HH.dtype, shape = HH.shape + (2,2), 
+                                        mode ='r+')
+            else:
+                s_matrix = _np.zeros(HH.shape + (2,2), dtype = HH.dtype)
             s_matrix[:,:,0,0] = HH
-            s_matrix.flush()
             s_matrix[:,:,1,1] = VV
-            s_matrix.flush()
             s_matrix[:,:,0,1] = HV
-            s_matrix.flush()
             s_matrix[:,:,1,0] = VH
-            s_matrix.flush()
+            if memmap:
+                s_matrix.flush()
             obj = s_matrix.view(cls)
             #Copy attributes from one channel
             obj.__dict__.update(HH.__dict__)

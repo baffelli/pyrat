@@ -125,15 +125,22 @@ def load_complex(path):
     d_comp = d_real + 1j * d_imag
     return d_comp
 
-def load_slc(path, sl = None):
+def load_slc(path, memmap = True, sl = None):
     """
     Load Gamma Format .slc image 
-    --------
-    Parameters 
-    path: The path of the file to load
-    --------
+
+    Parameters
+    ----------
+    path : string
+    The path of the file to load
+    memmap : boolean
+    If set to true, load as a memmap
+    sl : iterable
+    List of slice to access only a part of the data
     Returns
-    par: the file as a numpy array. The shape is (n_azimuth, n_range)
+    --------
+        par: 
+            the file as a numpy array. The shape is (n_azimuth, n_range)
     """
     par = load_par(path +'.par')
     shape = (par['azimuth_lines'][0],par['range_samples'][0])
@@ -141,8 +148,21 @@ def load_slc(path, sl = None):
         dt = _np.dtype('complex64')
     elif par['image_format'][0] == 'SCOMPLEX':
         dt = _np.dtype('complex32')
-    if sl is None:
-        d_image = _np.memmap(path, shape = shape, dtype = dt, mode = 'r').byteswap()
+#    with open(path, 'rb') as slcfile:
+#        if sl is None:
+#            pass
+#        else:
+#            #We have to skip to the beginning of
+#            #the block we are interested in
+#            seeksize = _np.ravel_multi_index((el.start for el in sl),
+#                                             shape)
+#            slcfile.seek(0, seeksize)
+#            
+#            
+    if memmap:
+        d_image = _np.memmap(path, shape=shape, dtype=dt, mode='r').byteswap()
+    else:
+        d_image = _np.fromfile(path, dtype=dt)
     return d_image
     
 
