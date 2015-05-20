@@ -1115,7 +1115,8 @@ def scale_coherence(c):
 
 
   
-def disp_mph(data, dt = 'amplitude', k = 0.5, min_val = -_np.pi ,max_val =  _np.pi, return_pal = False):
+def disp_mph(data, dt = 'amplitude', k = 0.5, min_val = -_np.pi ,
+             max_val =  _np.pi, return_pal = False):
     H = scale_array(_np.angle(data), min_val = min_val, max_val = max_val)
     S = _np.zeros_like(H) + 0.5
     if dt == 'coherence':

@@ -62,25 +62,7 @@ def calibrate_from_parameters(S,par):
     return S_cal
 
 
-def coherency_matrix_to_scattering_matrix(C):
-    if C.basis == 'lexicographic':
-        pass
-    else:
-        C = C.pauli_to_lexicographic()
-    if C.ndim == 2:
-        S = _np.zeros((2,2), dtype = C.dtype)
-        sl = ()
-    elif C.ndim == 4:
-        S = _np.zeros(C.shape[0:2] + (2,2), dtype = C.dtype)
-        sl = (Ellipsis, Ellipsis)
-    S = matrices.scatteringMatrix(S)
-    S['HH'] = _np.sqrt(C[sl + (0,0)])
-    S['HV'] = _np.sqrt(C[sl + (1,1)]) * _np.exp(1j * _np.angle(C[sl + (1,0)]))
-    S['VH'] = _np.sqrt(C[sl + (2,2)]) * _np.exp(1j * _np.angle(C[sl + (2,0)]))
-    S['VV'] = _np.sqrt(C[sl + (3,3)]) * _np.exp(1j * _np.angle(C[sl + (3,0)]))
-    S.__dict__ = C.__dict__
-    S.basis = []
-    return S
+
 
 def remove_phase_ramp(S1, B_if, ph_if, bistatic = False, S2 = None):
     if S2 is None:
@@ -201,61 +183,7 @@ def synthetic_interferogram(S, DEM, B):
 
 
     
-#def natural_targets_calibration(S,area,estimation_window):
-#    """
-#    This function performs polarimetric calibration using
-#    the azimuthal symmetry assumption
-#    Parameters
-#    ----------
-#    S : scatteringMatrix
-#        the image to be calibrated
-#    area : tuple
-#        tuple of slice to extract the calibration information
-#    estimation window : iterable
-#        tuple or list of window size for the estimation of the correlation
-#    Returns
-#    -------
-#    scatteringMatrix
-#        the calibrated matrix
-#    """
-#    s1 = S[area] * 1
-#    C = s1.to_coherency_matrix(basis='lexicographic', bistatic=True)
-#    C = corefun.smooth(C,estimation_window + [1,1])
-#    delta_0 = C[:,:,0,0]*C[:,:,3,3] - _np.abs(C[:,:,0,3])**2
-#    u_0 = (C[:,:,3,3]*C[:,:,1,0] -C[:,:,3,0]*C[:,:,1,3]) / delta_0
-#    v_0 = (C[:,:,0,0]*C[:,:,1,3] -C[:,:,1,0]*C[:,:,0,3]) / delta_0
-#    z_0 = (C[:,:,3,3]*C[:,:,2,0] -C[:,:,3,0]*C[:,:,2,3]) / delta_0
-#    w_0 = (C[:,:,0,0]*C[:,:,2,3] -C[:,:,2,0]*C[:,:,0,3]) / delta_0
-#    X_0 = C[:,:,2,1] - z_0 * C[:,:,0,1] - w_0 * C[:,:,3,1]
-#    alpha_0_1 = (C[:,:,1,1] - u_0 * C[:,:,0,1] - v_0 * C[:,:,3,1]) / X_0
-#    alpha_0_2 = X_0.conj() / (C[:,:,2,2] - z_0.conj() * C[:,:,2,0] - w_0.conj() * C[:,:,2,3])
-#    alpha_0 = (_np.abs(alpha_0_1*alpha_0_2) - 1 + _np.sqrt((_np.abs(alpha_0_1*alpha_0_2)-1)**2 + 4 + _np.abs(alpha_0_2)**2))/(2*_np.abs(alpha_0_2)) * alpha_0_1/_np.abs(alpha_0_1)
-#    alpha = alpha_0
-#    sigma = _np.zeros(alpha.shape + (4,4), dtype = s1.dtype)
-#    sigma[:,:,0,0] = 1
-#    sigma[:,:,0,1] = -w_0
-#    sigma[:,:,0,2] = -v_0
-#    sigma[:,:,0,3] = v_0*w_0
-#    sigma[:,:,1,0] = -u_0/_np.sqrt(alpha)
-#    sigma[:,:,1,1] =  1/_np.sqrt(alpha)
-#    sigma[:,:,1,2] =  u_0*v_0/_np.sqrt(alpha)
-#    sigma[:,:,1,3] =  v_0/_np.sqrt(alpha)
-#    sigma[:,:,2,0] = -z_0*_np.sqrt(alpha)
-#    sigma[:,:,2,1] = w_0*z_0*_np.sqrt(alpha)
-#    sigma[:,:,2,2] = _np.sqrt(alpha)
-#    sigma[:,:,2,3] = -w_0*_np.sqrt(alpha)
-#    sigma[:,:,3,0] = u_0*z_0
-#    sigma[:,:,3,1] = -z_0
-#    sigma[:,:,3,2] = -u_0
-#    sigma[:,:,3,3] = 1
-#    sigma_1 = (_np.ones_like(u_0)/((u_0*w_0-1))*(v_0*z_0-1))[:,:,None,None] * sigma
-#    sigma_1 = _np.nanmean(sigma,axis=(0,1))
-#    sv = S.scattering_vector(basis='lexicographic')
-#    sv_corr = _np.einsum('...ij,...j->...i',sigma_1,sv)
-#    s_cal = _np.reshape(sv_corr,sv_corr.shape[0:2] + (2,2))
-#    s_cal = s_cal.view(scatteringMatrix)
-#    s_cal = S.__array_wrap__(s_cal)
-#    return s_cal, sigma, C
+
 
 def  simple_calibration(C_tri,C_distributed):
     """
