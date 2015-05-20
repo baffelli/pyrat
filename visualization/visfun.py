@@ -287,7 +287,7 @@ def correct_shift_radar_coordinates(slave, master, axes = (0,1), oversampling = 
 def shift_image(image, shift):
     x = _np.arange(image.shape[0]) + shift[0] 
     y = _np.arange(image.shape[1]) + shift[1]
-    x,y = _np.meshgrid(x, y, order = 'xy')
+    x,y = _np.meshgrid(x, y, indexing='xy')
     image_1 = image.__array_wrap__(\
     bilinear_interpolate(_np.array(image), y.T, x.T))
     image_1[_np.isnan(image_1)] = 0
