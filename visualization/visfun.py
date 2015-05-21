@@ -1111,7 +1111,7 @@ def rectangle_vertices(v1,v2):
     return _np.array([[x1,y1],[x1,y2],[x2,y2],[x2,y1]])
 
 def scale_coherence(c):
-    c_sc = _np.select(((_np.sin(c * _np.pi / 2)), 0.3), (c > 0.2, c<0.2))
+#    c_sc = _np.select(((_np.sin(c * _np.pi / 2)), 0.3), (c > 0.2, c<0.2))
     return _np.sin(c * _np.pi / 2)
 
 
