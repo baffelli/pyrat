@@ -528,7 +528,7 @@ def exp_im(im, k):
     return scale_array(1 - _np.exp(- k * _np.abs(im)))
     
     
-def compute_map_extent(MAP, center, S, heading):
+def compute_map_extent(MAP, center, S, heading, return_coverage=False):
     """
     This function computes the extent
     that a gpri Image occupies
@@ -561,8 +561,10 @@ def compute_map_extent(MAP, center, S, heading):
     #Convert grid limits into DEM indices
     x_lim_idx = ((((x_lim - GT[0]) / GT[1]))) 
     y_lim_idx = ((((y_lim - GT[3]) / GT[5])))
-    return x_lim, x_lim_idx, y_lim, y_lim_idx
-
+    if return_coverage:
+        return x_lim, x_lim_idx, y_lim, y_lim_idx, x, y
+    else:
+        return x_lim, x_lim_idx, y_lim, y_lim_idx
 
 def extract_extent(GD, ext):
     """
@@ -608,7 +610,7 @@ def gdal_to_np_format(arr):
     if arr.ndim == 2:
         return arr
     elif arr.ndim > 2:
-        return arr.transpose([1,2,0])
+        return arr.transpose([1, 2, 0])
 
 def np_to_gdal_format(arr):
     if arr.ndim is 2:
@@ -625,7 +627,8 @@ def segment_GT(DEM, center, S_l, heading):
     y_idx = _np.sort(y_lim_idx).astype(_np.int)
     nx = _np.abs(_np.diff(x_idx))[0]
     ny = _np.abs(_np.diff(y_idx))[0]
-    z = gdal_to_np_format(DEM.ReadAsArray(x_idx[0], y_idx[0] ,nx ,ny))
+    z =  gdal_to_np_format(DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1] ]
+#    z = gdal_to_np_format(DEM.ReadAsArray(x_idx[0], y_idx[0] ,nx ,ny))
     #Now we save the DEM segment$
     GT = DEM.GetGeoTransform()
     GT_seg = list(GT)
