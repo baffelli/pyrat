@@ -16,6 +16,22 @@ import scipy.ndimage as _ndim
 #Define colormaps
 
 
+def psi_cmap(bounds):
+    color_list = (
+    (75,185,79),
+    (120, 196, 78),
+    (177, 213, 63),
+    (244, 238, 15),
+    (253, 186, 47),
+    (236, 85, 42),
+    (222, 30, 61)
+    )
+    color_list = _np.array(color_list)/255.0
+    cm = _mpl.colors.ListedColormap(color_list, name='defo')
+    norm = _mpl.colors.BoundaryNorm(bounds, cm.N)
+    return cm, norm
+
+
 def compute_dim(WIDTH,FACTOR):
     """
     This function computes the figure size
