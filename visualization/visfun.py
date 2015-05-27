@@ -14,9 +14,23 @@ import scipy.fftpack as _fftp
 import scipy.ndimage as _ndim
 
 #Define colormaps
-
-
 def psi_cmap(bounds):
+    """
+    This function computes
+    a colormap to display 
+    displacements given a series of boundaries
+    Parameters
+    ----------
+    bounds : iterable
+        A list of bounds
+    Returns
+    -------
+    cm : matplotlib.colors.Colormap
+        The colormap
+    norm : matplotlib.colors.BoundaryNorm
+        The boundary norm used to display
+        the image with the colormap
+    """
     color_list = (
     (75,185,79),
     (120, 196, 78),
@@ -30,7 +44,19 @@ def psi_cmap(bounds):
     cm = _mpl.colors.ListedColormap(color_list, name='defo')
     norm = _mpl.colors.BoundaryNorm(bounds, cm.N)
     return cm, norm
-
+    
+    
+def draw_shapefile(path, basename="VEC200"):
+    from osgeo import gdal, osr, ogr
+    #Create driver
+    layers = [    'Building', 
+                  'FlowingWater',
+                  'LandCover',
+                  'Lake',
+                  'Road']
+    for l in layers:
+        layer_name = path + basename + '_' + l + '.shp'
+        dataSource = pyrat.other_files.load_shapefile(layer_name)
 
 def compute_dim(WIDTH,FACTOR):
     """
@@ -186,7 +212,7 @@ def numpy_dt_to_numeric_dt(numpy_dt):
 
 def auto_azimuth(DOM, sec, tiepoint, initial_heading, center):
     def ftm(heading):
-        DOM_sec = segment_DEM(DOM, center, sec, heading)
+        DOM_sec = segment_GT(DOM, center, sec, heading)
         DOM_sec = resample_DEM(DOM_sec,[0.25, -0.25])
         DEM_seg, lut_sec, rev_lut_sec, xrad, yrad, ia, area, area_beta, r_sl = gc_map(DOM_sec, center, 
                                                                         sec, heading, seg_DEM =False)
@@ -407,7 +433,11 @@ def write_gt(arr, GT, proj):
     #Set geotransform and projection
     dest.SetGeoTransform(GT)
     dest.SetProjection(proj)
-    dest.GetRasterBand(1).WriteArray(arr)
+    if nbands > 1:
+        for band_number in range(nbands):
+            dest.GetRasterBand(band_number + 1).WriteArray(arr[:,:,band_number])
+    else:
+        dest.GetRasterBand(1).WriteArray(arr)
     return dest
     
     
@@ -513,7 +543,7 @@ def compute_map_extent(MAP, center, S, heading):
     S   : pyrat.ScatteringMatrix
         The object of interest
     heading : float
-        The heading on the map
+        The heading on the map in degrees
     """
     ext = get_extent(MAP)
     #Compute the area covered by radar
@@ -570,25 +600,41 @@ def extract_extent(GD, ext):
     dest.SetProjection(GD.GetProjection())
     res = gdal.ReprojectImage( GD, dest, \
                 GD.GetProjection(), GD.GetProjection(), \
-                gdal.GRA_Bilinear )
+                gdal.GRA_Bilinear)
     return dest
 
 
-def segment_DEM(DEM, center, S_l, heading):
+def gdal_to_np_format(arr):
+    if arr.ndim == 2:
+        return arr
+    elif arr.ndim > 2:
+        return arr.transpose([1,2,0])
+
+def np_to_gdal_format(arr):
+    if arr.ndim is 2:
+        return arr
+    else:
+        return arr.transpose([1,2,0])
+
+
+def segment_GT(DEM, center, S_l, heading):
     from osgeo import osr, gdal
     x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
     #Now we cut the section of interest
-    x_idx = _np.sort(x_lim_idx)
-    y_idx = _np.sort(y_lim_idx)
-    z = (DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1]].astype(_np.float32)
-    assert len(z) != 0
+    x_idx = _np.sort(x_lim_idx).astype(_np.int)
+    y_idx = _np.sort(y_lim_idx).astype(_np.int)
+    nx = _np.abs(_np.diff(x_idx))[0]
+    ny = _np.abs(_np.diff(y_idx))[0]
+    z = gdal_to_np_format(DEM.ReadAsArray(x_idx[0], y_idx[0] ,nx ,ny))
     #Now we save the DEM segment$
     GT = DEM.GetGeoTransform()
     GT_seg = list(GT)
     GT_seg[0] = x_lim[0]
     GT_seg[3] = y_lim[1]
+    print(GT)
     proj = osr.SpatialReference()
     proj.ImportFromWkt(DEM.GetProjection())
+    
     DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
     return DEM_seg
 
@@ -625,7 +671,7 @@ def gc_map_bi(DEM,center_TX,center_RX,S_l,heading, interp = None, seg_DEM = True
     #that is approx. covered by the radar
     x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center_RX, S_l, heading)
     if seg_DEM:
-        DEM_seg = segment_DEM(DEM, center_RX, S_l, heading)
+        DEM_seg = segment_GT(DEM, center_RX, S_l, heading)
     else:
         DEM_seg = DEM
     z = (DEM_seg.ReadAsArray()).astype(_np.float32)
@@ -717,7 +763,7 @@ def gc_map(DEM,center,S_l,heading, interp = None, seg_DEM = True):
     #that is approx. covered by the radar
     x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
     if seg_DEM:
-        DEM_seg = segment_DEM(DEM, center, S_l, heading)
+        DEM_seg = segment_GT(DEM, center, S_l, heading)
     else:
         DEM_seg = DEM
     z = (DEM_seg.ReadAsArray()).astype(_np.float32)
@@ -755,7 +801,7 @@ def gc_map(DEM,center,S_l,heading, interp = None, seg_DEM = True):
     #the corresponding DEM indices
     rev_lut = _np.zeros(S_l.shape)
     r_vec = S_l.r_vec
-    az_vec =  S_l.az_vec - heading
+    az_vec =  S_l.az_vec - theta
     r1,az1  = _np.meshgrid(r_vec, az_vec)
     #Compute the points on the map that correspond to the slant ranges and azimuth on the radar
     xrad = r1 * _np.sin(az1) + center[0]
@@ -1064,6 +1110,8 @@ def show_geocoded(geocoded_image,**kwargs):
         else:
             a = _np.ma.masked_where(_np.isnan(a), a)
         _plt.imshow(a ,**kwargs)
+        _plt.xlabel(r'Easting [m]')
+        _plt.ylabel(r'Northing [m]')
         return a
 class ROI:
     """

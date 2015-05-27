@@ -40,7 +40,17 @@ def load_geotiff(path):
     from osgeo import gdal
     ds = gdal.Open(path)
     return ds
-  
+
+
+def load_shapefile(path, mode=0):
+    from osgeo import gdal, osr, ogr
+    #Create driver
+    driver = ogr.GetDriverByName('ESRI Shapefile')
+    dataSource = driver.Open(path, mode)
+    if dataSource is None:
+        print("Could not open " + str(path))
+    else:
+        return dataSource
 
   
 def gdal_to_dict(ds):
