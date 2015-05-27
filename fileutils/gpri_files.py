@@ -124,6 +124,10 @@ def load_complex(path):
     d_imag = d[1::2]
     d_comp = d_real + 1j * d_imag
     return d_comp
+    
+def save_complex(arr, path):
+    with open(path,'wb') as out:
+        out.write(arr.astype('>c8'))
 
 def load_slc(path, memmap = True, sl = None):
     """
