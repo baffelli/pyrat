@@ -627,8 +627,8 @@ def segment_GT(DEM, center, S_l, heading):
     y_idx = _np.sort(y_lim_idx).astype(_np.int)
     nx = _np.abs(_np.diff(x_idx))[0]
     ny = _np.abs(_np.diff(y_idx))[0]
-    z =  gdal_to_np_format(DEM.ReadAsArray())[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1] ]
-#    z = gdal_to_np_format(DEM.ReadAsArray(x_idx[0], y_idx[0] ,nx ,ny))
+    #z =  gdal_to_np_format(DEM.ReadAsArray(y_idx[0],y_idx[0]))[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1] ]
+    z = gdal_to_np_format(DEM.ReadAsArray(x_idx[0], y_idx[0] ,nx ,ny))
     #Now we save the DEM segment$
     GT = DEM.GetGeoTransform()
     GT_seg = list(GT)
@@ -751,7 +751,7 @@ def gc_map(DEM,center,S_l,heading, interp = None, seg_DEM = True):
     center : tuple
         the center of the radar in DEM coordinates
     heading : float
-        The heading of the radar in degrees
+        The heading of the radar in radians
     Returns
     -------
     lut : ndarray
@@ -835,7 +835,8 @@ def gc_map(DEM,center,S_l,heading, interp = None, seg_DEM = True):
     #Compute incidence angle
     los_v = positions / _np.linalg.norm(positions, axis = 2)[:,:,None]
     dot = los_v[:,:,0] * normal[:,:,0] + los_v[:,:,1] * normal[:,:,1] + los_v[:,:,2] * normal[:,:,2]
-    ia = _np.arccos(dot)
+#    ia = _np.arccos(dot)
+    ia = _np.arcsin(zrad / _np.linalg.norm(positions,axis=2))
     #Compute the shadow map
     current = ia[:,0]
     shadow = _np.zeros_like(ia)
