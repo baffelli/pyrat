@@ -8,6 +8,7 @@ import numpy as _np
 from ..fileutils import gpri_files, other_files  
 from . import corefun
 from ..visualization import visfun
+from  osgeo import _gdal,_osr
 #Range correction factor to
 #compensate for the cable delay
 rcf = 5
@@ -98,6 +99,9 @@ channel_dict =  {
 
 
 
+
+
+class
 
 
 

@@ -225,3 +225,12 @@ def load_coherency(path, dim):
     data[:,:,1,2] = read_data_real + 1j* read_data_imag
     data[:,:,2,1] = read_data_real - 1j* read_data_imag
     return data
+
+
+def slice_from_file(file):
+    """
+    This function returns a list
+    of slice from a file
+    :param file:
+    :return:
+    """
