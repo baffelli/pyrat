@@ -8,7 +8,7 @@ import numpy as _np
 from ..fileutils import gpri_files, other_files  
 from . import corefun
 from ..visualization import visfun
-from  osgeo import _gdal,_osr
+from  osgeo import gdal as __gdal__
 #Range correction factor to
 #compensate for the cable delay
 rcf = 5
@@ -99,12 +99,6 @@ channel_dict =  {
 
 
 
-
-
-class
-
-
-
 class gpriImage(_np.ndarray):
     def __new__(*args):
         cls = args[0]
@@ -166,7 +160,7 @@ class gpriImage(_np.ndarray):
 
  
 
-class scatteringMatrix(_np.ndarray):
+class scatteringMatrix(gpriImage):
     
     pauli_basis = [_np.array([[1,0],[0,1]])*1/_np.sqrt(2),_np.array([[1,0],[0,-1]])*1/_np.sqrt(2),_np.array([[0,1],[1,0]])*1/_np.sqrt(2)]
     lexicographic_basis = [_np.array([[1,0],[0,0]])*2,_np.array([[0,1],[0,0]])*2*_np.sqrt(2),_np.array([[0,0],[0,1]])*2]
@@ -381,7 +375,7 @@ class scatteringMatrix(_np.ndarray):
         
         
 
-class coherencyMatrix(_np.ndarray):
+class coherencyMatrix(gpriImage):
     
     global U3LP, U3PL, U4PL, U4LP
     U3LP = 1/_np.sqrt(2) * _np.array([[1, 0, 1],[1, 0, -1],[0, _np.sqrt(2), 0]])
