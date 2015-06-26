@@ -8,7 +8,7 @@ import numpy as _np
 from ..fileutils import gpri_files, other_files  
 from . import corefun
 from ..visualization import visfun
-from  osgeo import gdal as __gdal__
+import h5py as _h5py
 #Range correction factor to
 #compensate for the cable delay
 rcf = 5
@@ -99,39 +99,34 @@ channel_dict =  {
 
 
 
-class gpriImage(_np.ndarray):
+
+
+
+
+class gammaDataset(_np.ndarray):
     def __new__(*args):
         cls = args[0]
         if len(args) is 2:
-            if type(args[1]) is list:
-                data = ()
-                #Load whole stack
-                paths = args[1]
-                par = gpri_files.load_par(paths[0] + '.par')
-                for path in paths:
-                    temp_data = gpri_files.load_slc(path)
-                    data = data + (temp_data,) 
-                data_1 = _np.dstack(data)
-            elif type(args[1]) is str:
-                path = args[1]
-                data_1= gpri_files.load_slc(path)
-                par = gpri_files.load_par(path + '.par')
-        obj = data_1.view(cls)
-        north = par['GPRI_ref_north'][0]
-        east = par['GPRI_ref_east'][0]
-        r_min = par['near_range_slc'][0] 
-        az_step = _np.deg2rad(par['GPRI_az_angle_step'][0])
-        az_min = _np.deg2rad(par['GPRI_az_start_angle'][0])
-        r_step = par['range_pixel_spacing'][0]
-        #Compute grid
-        obj.r_vec = r_min + _np.arange(obj.shape[1]) * r_step - rcf
-        obj.az_vec = az_min + _np.arange(obj.shape[0]) * az_step
-        #The center of the image in WGS84
-        obj.center = [north, east,par['GPRI_ref_alt'][0] + par['GPRI_geoid'][0]] 
-        obj.tx_coord = par['GPRI_tx_coord']
-        obj.incidence_angle = par['incidence_angle']
-        obj.center_frequency = par['radar_frequency'][0]
-        obj.utc = par['utc']
+            par_path = args[1]
+            bin_path = args[2]
+            image, par_dict = gpri_files.load_dataset(par_path, bin_path)
+        obj = image.view(cls)
+        obj.__dict__ = par_dict
+        # north = par['GPRI_ref_north'][0]
+        # east = par['GPRI_ref_east'][0]
+        # r_min = par['near_range_slc'][0]
+        # az_step = _np.deg2rad(par['GPRI_az_angle_step'][0])
+        # az_min = _np.deg2rad(par['GPRI_az_start_angle'][0])
+        # r_step = par['range_pixel_spacing'][0]
+        # #Compute grid
+        # obj.r_vec = r_min + _np.arange(obj.shape[1]) * r_step - rcf
+        # obj.az_vec = az_min + _np.arange(obj.shape[0]) * az_step
+        # #The center of the image in WGS84
+        # obj.center = [north, east,par['GPRI_ref_alt'][0] + par['GPRI_geoid'][0]]
+        # obj.tx_coord = par['GPRI_tx_coord']
+        # obj.incidence_angle = par['incidence_angle']
+        # obj.center_frequency = par['radar_frequency'][0]
+        # obj.utc = par['utc']
         return obj 
     
     def az_step(self):
@@ -160,7 +155,7 @@ class gpriImage(_np.ndarray):
 
  
 
-class scatteringMatrix(gpriImage):
+class scatteringMatrix(gammaDataset):
     
     pauli_basis = [_np.array([[1,0],[0,1]])*1/_np.sqrt(2),_np.array([[1,0],[0,-1]])*1/_np.sqrt(2),_np.array([[0,1],[1,0]])*1/_np.sqrt(2)]
     lexicographic_basis = [_np.array([[1,0],[0,0]])*2,_np.array([[0,1],[0,0]])*2*_np.sqrt(2),_np.array([[0,0],[0,1]])*2]
@@ -186,10 +181,10 @@ class scatteringMatrix(gpriImage):
             slc_path_VV = base_path + "_" + V_ant + V_ant + V_ant + chan + ".slc"
             slc_path_HV = base_path + "_" + H_ant + V_ant + V_ant + chan + ".slc"
             slc_path_VH = base_path + "_" + V_ant + H_ant + H_ant + chan + ".slc"
-            HH = gpriImage(slc_path_HH)[sl]
-            VV = gpriImage(slc_path_VV)[sl]
-            HV = gpriImage(slc_path_HV)[sl]
-            VH = gpriImage(slc_path_VH)[sl]
+            HH = gammaDataset(slc_path_HH)[sl]
+            VV = gammaDataset(slc_path_VV)[sl]
+            HV = gammaDataset(slc_path_HV)[sl]
+            VH = gammaDataset(slc_path_VH)[sl]
             #Create memmaps
             if memmap:
                 mat_path = base_path + 's_matrix_' + chan
@@ -375,7 +370,7 @@ class scatteringMatrix(gpriImage):
         
         
 
-class coherencyMatrix(gpriImage):
+class coherencyMatrix(gammaDataset):
     
     global U3LP, U3PL, U4PL, U4LP
     U3LP = 1/_np.sqrt(2) * _np.array([[1, 0, 1],[1, 0, -1],[0, _np.sqrt(2), 0]])

@@ -13,6 +13,70 @@ import os.path as _osp
 from numpy.lib.stride_tricks import as_strided as _ast
 
 
+
+type_mapping ={
+    'FCOMPLEX':_np.dtype('>c8'),
+    'SCOMPLEX':_np.dtype('>c4'),
+    'FLOAT':_np.dtype('>f4'),
+    'SHORT INTEGER':_np.dtype('>i2')
+}
+
+
+
+def par_to_dict(par_file):
+    par_dict = {}
+    with open(par_file, 'r') as fin:
+        # Skip first line
+        fin.readline()
+        for line in fin:
+            if line:
+                split_array = line.split(':')
+                if len(split_array) > 1:
+                    key = split_array[0]
+                    l = []
+                    param = split_array[1].split()
+                    for p in param:
+                        try:
+                            l.append(float(p))
+                        except ValueError:
+                            l.append(p)
+            if len(l) > 1:
+                par_dict[key] = l
+            else:
+                par_dict[key] = l[0]
+    return par_dict
+
+
+def dict_to_par(par_dict, par_file):
+    with open(par_file,'w') as fout:
+        for key,par in par_dict.iteritems():
+            out = str(key) + ":" + '\t'
+            if isinstance(par, basestring):
+                out = out + par
+            else:
+                try:
+
+                    for p in par:
+                        out = out + '\t' + str(p)
+                except TypeError:
+                    out = out + str(par)
+            fout.write(out + '\n')
+
+
+def load_dataset(par_file, bin_file, memmap=True):
+    par_dict = par_to_dict(par_file)
+    dt = type_mapping[par_dict['image_format']]
+    shape = [par_dict['range_samples'],
+             par_dict['azimuth_lines']]
+    print(shape)
+    if memmap:
+        d_image = _np.memmap(bin_file, shape=shape, dtype=dt, mode='r')
+    else:
+        d_image = _np.fromfile(bin_file, dtype=dt).reshape(shape)
+    return d_image, par_dict
+
+
+
 def load_par(path):
     """
     Load Gamma Format .par parameter file in a dictionary
@@ -75,22 +139,6 @@ def path_helper(location, date, time, slc_dir = 'slc', data_dir= '/media/bup/Dat
     def_path =  base_folder + slc_dir + '/' +  name
     return def_path
 
-def dict_to_par(par_dict):
-    """
-    This function converts a dict in  the gamma format parameter list
-    Parameters
-    ----------
-    par_dict : dict
-        A dictionary
-    Returns
-    -------
-    str
-    """
-    a = ""
-    for key, value in par_dict.iteritems():
-        temp_str = str(key) + ':\t' + str(value) + '\n'
-        a = a + temp_str
-    return a
     
 def geotif_to_dem(gt, path):
     """
