@@ -8,6 +8,7 @@ import numpy as _np
 from ..fileutils import gpri_files, other_files  
 from . import corefun
 from ..visualization import visfun
+import numbers as _num
 import h5py as _h5py
 #Range correction factor to
 #compensate for the cable delay
@@ -104,12 +105,14 @@ channel_dict =  {
 
 
 class gammaDataset(_np.ndarray):
-    def __new__(*args):
+    def __new__(*args,**kwargs):
         cls = args[0]
-        if len(args) is 2:
+        if len(args) == 3:
+            print('here')
             par_path = args[1]
             bin_path = args[2]
-            image, par_dict = gpri_files.load_dataset(par_path, bin_path)
+            memmap = kwargs.get('memmap', False)
+            image, par_dict = gpri_files.load_dataset(par_path, bin_path, memmap=memmap)
         obj = image.view(cls)
         obj.__dict__ = par_dict
         # north = par['GPRI_ref_north'][0]
@@ -138,11 +141,42 @@ class gammaDataset(_np.ndarray):
     def __array_wrap__(self, out_arr, context=None):
         return __law__(self, out_arr)
     
-        
-    def __getitem__(self,sl):
-        return __general__getitem__(self, sl)
 
-        
+    def __getitem__(self, item):
+        print(type(item))
+        if type(item) is str:
+            try:
+                sl_mat = channel_dict[item]
+                sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
+            except KeyError:
+                raise IndexError('This channel does not exist')
+        else:
+            sl = item
+            new_obj_1 = self.__array_wrap__(_np.array(self).__getitem__(sl))
+            try:
+                #Passing only number, slice along first dim
+                if isinstance(sl, _num.Number):
+                    az_0 = self.GPRI_az_start_angle + sl * self.GPRI_az_angle_step
+                else:
+                    r_0 = self.near_range_slc + (r_sl.stop - r_sl.start) * self.range_pixel_spacing
+            except:
+                pass
+
+
+
+
+    def __getattr__(self, item):
+        if self.__dict__.__contains__(item):
+            return self.__dict__[item]
+        elif item is 'r_vec':
+            return self.__dict__['near_range_slc'][0] + _np.arange(self.__dict__['range_samples']) * self.__dict__['range_pixel_spacing'][0]
+        elif item is 'az_vec':
+            return self.__dict__['GPRI_az_start_angle'][0] + _np.arange(self.__dict__['azimuth_lines']) * self.__dict__['GPRI_az_angle_step'][0]
+        else:
+            pass
+
+
+
     def __array_finalize__(self, obj):
        __laf__(self,obj)
         

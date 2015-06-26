@@ -669,13 +669,6 @@ def segment_GT(DEM, center, S_l, heading):
     return DEM_seg
 
 
-def gc_GPRI_map()
-    """
-    This if a wrapper function
-    to call gamma's gc_gpri_map
-
-    :return:
-    """
 
 def gc_map_bi(DEM, center_TX, center_RX, S_l, heading, interp=None, seg_DEM=True):
     """
