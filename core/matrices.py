@@ -115,35 +115,14 @@ class gammaDataset(_np.ndarray):
             image, par_dict = gpri_files.load_dataset(par_path, bin_path, memmap=memmap)
         obj = image.view(cls)
         obj.__dict__ = par_dict
-        # north = par['GPRI_ref_north'][0]
-        # east = par['GPRI_ref_east'][0]
-        # r_min = par['near_range_slc'][0]
-        # az_step = _np.deg2rad(par['GPRI_az_angle_step'][0])
-        # az_min = _np.deg2rad(par['GPRI_az_start_angle'][0])
-        # r_step = par['range_pixel_spacing'][0]
-        # #Compute grid
-        # obj.r_vec = r_min + _np.arange(obj.shape[1]) * r_step - rcf
-        # obj.az_vec = az_min + _np.arange(obj.shape[0]) * az_step
-        # #The center of the image in WGS84
-        # obj.center = [north, east,par['GPRI_ref_alt'][0] + par['GPRI_geoid'][0]]
-        # obj.tx_coord = par['GPRI_tx_coord']
-        # obj.incidence_angle = par['incidence_angle']
-        # obj.center_frequency = par['radar_frequency'][0]
-        # obj.utc = par['utc']
         return obj 
-    
-    def az_step(self):
-        return (self.az_vec[1] - self.az_vec[0])
-    
-    def r_step(self):
-        return (self.r_vec[1] - self.r_vec[0])
+
  
     def __array_wrap__(self, out_arr, context=None):
         return __law__(self, out_arr)
     
 
     def __getitem__(self, item):
-        print(type(item))
         if type(item) is str:
             try:
                 sl_mat = channel_dict[item]
@@ -153,15 +132,40 @@ class gammaDataset(_np.ndarray):
         else:
             sl = item
             new_obj_1 = self.__array_wrap__(_np.array(self).__getitem__(sl))
-            try:
-                #Passing only number, slice along first dim
-                if isinstance(sl, _num.Number):
-                    az_0 = self.GPRI_az_start_angle + sl * self.GPRI_az_angle_step
+            #Construct temporary azimuth and  range vectors
+            r_vec = self.GPRI_az_start_angle[0] + _np.arange(self.shape[1]) * self.GPRI_az_angle_step[0]
+            az_vec = self.near_range_slc[0] + _np.arange(self.shape[0]) * self.range_pixel_spacing[0]
+            #Passing only number, slice along first dim only
+            if isinstance(sl, _num.Number):
+                az_0 = az_vec[sl]
+                r_0 = self.near_range_slc
+                az_spac = self.GPRI_az_angle_step
+                r_spac = self.range_pixel_spacing
+            #Tuple of slices (or integers)
+            elif hasattr(sl, '__contains__'):
+                print(sl)
+                #By taking the first element, we automatically have
+                #the correct data
+                az_vec_sl = az_vec[sl[0]]
+                r_vec_sl = r_vec[sl[1]]
+                #THe result of slicing
+                #could be a number or an array
+                if hasattr(az_vec_sl, '__contains__'):
+                    az_spac = az_vec_sl[1] - az_vec_sl[0]
+                    az_0 = az_vec_sl[0]
                 else:
-                    r_0 = self.near_range_slc + (r_sl.stop - r_sl.start) * self.range_pixel_spacing
-            except:
-                pass
-
+                    az_0 = az_vec_sl
+                    az_spac = self.GPRI_az_angle_step
+                if hasattr(r_vec_sl, '__contains__'):
+                    r_spac = r_vec_sl[1] - r_vec_sl[0]
+                    r_0 = r_vec_sl[0]
+                else:
+                    r_spac = self.range_pixel_spacing
+                    r_0 = r_vec_sl
+            new_obj_1.GPRI_az_start_angle[0] = az_0
+            new_obj_1.near_range_slc[0] = r_0
+            new_obj_1.GPRI_az_angle_step[0] = az_spac
+            new_obj_1.range_pixel_spacing[0] = r_spac
 
 
 
@@ -172,6 +176,8 @@ class gammaDataset(_np.ndarray):
             return self.__dict__['near_range_slc'][0] + _np.arange(self.__dict__['range_samples']) * self.__dict__['range_pixel_spacing'][0]
         elif item is 'az_vec':
             return self.__dict__['GPRI_az_start_angle'][0] + _np.arange(self.__dict__['azimuth_lines']) * self.__dict__['GPRI_az_angle_step'][0]
+        elif item is 'center':
+            return [self.__dict__['GPRI_ref_north'],self.__dict__['GPRI_ref_east'], self.__dict__['GPRI_ref_alt']]
         else:
             pass
 
