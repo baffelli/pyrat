@@ -121,67 +121,70 @@ class gammaDataset(_np.ndarray):
     def __array_wrap__(self, out_arr, context=None):
         return __law__(self, out_arr)
     
-    # def __getslice__(self, start, stop) :
-    #     """This solves a subtle bug, where __getitem__ is not called, and all
-    #     the dimensional checking not done, when a slice of only the first
-    #     dimension is taken, e.g. a[1:3]. From the Python docs:
-    #        Deprecated since version 2.0: Support slice objects as parameters
-    #        to the __getitem__() method. (However, built-in types in CPython
-    #        currently still implement __getslice__(). Therefore, you have to
-    #        override it in derived classes when implementing slicing.)
-    #     """
-    #     return self.__getitem__(slice(start, stop))
+    def __getslice__(self, start, stop) :
+        """This solves a subtle bug, where __getitem__ is not called, and all
+        the dimensional checking not done, when a slice of only the first
+        dimension is taken, e.g. a[1:3]. From the Python docs:
+           Deprecated since version 2.0: Support slice objects as parameters
+           to the __getitem__() method. (However, built-in types in CPython
+           currently still implement __getslice__(). Therefore, you have to
+           override it in derived classes when implementing slicing.)
+        """
+        return self.__getitem__(slice(start, stop))
 
 
 
 
-    # def __getitem__(self, item):
-    #     if type(item) is str:
-    #         try:
-    #             sl_mat = channel_dict[item]
-    #             sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
-    #         except KeyError:
-    #             raise IndexError('This channel does not exist')
-    #     else:
-    #         sl = item
-    #     obj_to_slice = self * 1
-    #     new_obj_1 = self.__array_wrap__(_np.array(obj_to_slice).__getitem__(sl))
-    #     #Construct temporary azimuth and  range vectors
-    #     az_vec = self.GPRI_az_start_angle[0] + _np.arange(self.shape[1]) * self.GPRI_az_angle_step[0]
-    #     r_vec = self.near_range_slc[0] + _np.arange(self.shape[0]) * self.range_pixel_spacing[0]
-    #     #Passing only number, slice along first dim only
-    #     if isinstance(sl, _num.Number):
-    #         az_0 = az_vec[sl]
-    #         r_0 = self.near_range_slc
-    #         az_spac = self.GPRI_az_angle_step
-    #         r_spac = self.range_pixel_spacing
-    #     #Tuple of slices (or integers)
-    #     elif hasattr(sl, '__contains__'):
-    #         #By taking the first element, we automatically have
-    #         #the correct data
-    #         az_vec_sl = az_vec[sl[1]]
-    #         r_vec_sl = r_vec[sl[0]]
-    #         #THe result of slicing
-    #         #could be a number or an array
-    #         if hasattr(az_vec_sl, '__contains__'):
-    #             az_spac = az_vec_sl[1] - az_vec_sl[0]
-    #             az_0 = az_vec_sl[0]
-    #         else:
-    #             az_0 = az_vec_sl
-    #             az_spac = self.GPRI_az_angle_step
-    #         if hasattr(r_vec_sl, '__contains__'):
-    #             r_spac = r_vec_sl[1] - r_vec_sl[0]
-    #             r_0 = r_vec_sl[0]
-    #         else:
-    #             r_spac = self.range_pixel_spacing
-    #             r_0 = r_vec_sl
-    #     new_obj_1.GPRI_az_start_angle[0] = az_0
-    #     new_obj_1.near_range_slc[0] = r_0
-    #     new_obj_1.GPRI_az_angle_step[0] = az_spac
-    #     new_obj_1.range_pixel_spacing[0] = r_spac
-    #
-    #     print(type(new_obj_1))
-    #     return new_obj_1
+    def __getitem__(self, item):
+        if type(item) is str:
+            try:
+                sl_mat = channel_dict[item]
+                sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
+            except KeyError:
+                raise IndexError('This channel does not exist')
+        else:
+            sl = item
+        obj_to_slice = self * 1
+        new_obj_1 = self.__array_wrap__(_np.array(obj_to_slice).__getitem__(sl))
+        # if hasattr(new_obj_1, 'near_range_slc'):
+        #      #Construct temporary azimuth and  range vectors
+        #     az_vec = self.az_vec
+        #     r_vec = self.r_vec
+        #     r_0 = self.az_vec[0]
+        #     az_0 = self.r_vec[0]
+        #     az_spac =  self.GPRI_az_angle_step[0]
+        #     r_spac = self.range_pixel_spacing[0]
+        #     #Passing only number, slice along first dim only
+        #     if isinstance(sl, _num.Number):
+        #         az_0 = az_vec[sl]
+        #         r_0 = self.near_range_slc[0] * 1
+        #         az_spac = self.GPRI_az_angle_step[0] * 1
+        #         r_spac = self.range_pixel_spacing[0] * 1
+        #     #Tuple of slices (or integers)
+        #     elif hasattr(sl, '__contains__'):
+        #         #By taking the first element, we automatically have
+        #         #the correct data
+        #         az_vec_sl = az_vec[sl[1]]
+        #         r_vec_sl = r_vec[sl[0]]
+        #         #THe result of slicing
+        #         #could be a number or an array
+        #         if hasattr(az_vec_sl, '__contains__'):
+        #             az_spac = az_vec_sl[1] - az_vec_sl[0]
+        #             az_0 = az_vec_sl[0]
+        #         else:
+        #             az_0 = az_vec_sl
+        #             az_spac = self.GPRI_az_angle_step * 1
+        #         if hasattr(r_vec_sl, '__contains__'):
+        #             r_spac = r_vec_sl[1] - r_vec_sl[0]
+        #             r_0 = r_vec_sl[0]
+        #         else:
+        #             r_spac = self.range_pixel_spacing * 1
+        #             r_0 = r_vec_sl
+        #     new_obj_1.GPRI_az_start_angle[0] = az_0
+        #     new_obj_1.near_range_slc[0] = r_0
+        #     new_obj_1.GPRI_az_angle_step[0] = az_spac
+        #     new_obj_1.range_pixel_spacing[0] = r_spac
+        return new_obj_1
 
 
     def __getattr__(self, item):
@@ -192,7 +195,7 @@ class gammaDataset(_np.ndarray):
         elif item is 'az_vec':
             return self.__dict__['GPRI_az_start_angle'][0] + _np.arange(self.__dict__['azimuth_lines']) * self.__dict__['GPRI_az_angle_step'][0]
         elif item is 'center':
-            return [self.__dict__['GPRI_ref_north'],self.__dict__['GPRI_ref_east'], self.__dict__['GPRI_ref_alt']]
+            return [self.__dict__['GPRI_ref_north'],self.__dict__['GPRI_ref_east'], self.__dict__['GPRI_ref_alt'][0]]
         else:
             pass
 
