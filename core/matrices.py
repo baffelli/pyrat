@@ -117,7 +117,6 @@ class gammaDataset(_np.ndarray):
         obj.__dict__ = par_dict
         return obj 
 
- 
     def __array_wrap__(self, out_arr, context=None):
         return __law__(self, out_arr)
     
@@ -132,9 +131,6 @@ class gammaDataset(_np.ndarray):
         """
         return self.__getitem__(slice(start, stop))
 
-
-
-
     def __getitem__(self, item):
         if type(item) is str:
             try:
@@ -144,8 +140,9 @@ class gammaDataset(_np.ndarray):
                 raise IndexError('This channel does not exist')
         else:
             sl = item
-        obj_to_slice = self * 1
-        new_obj_1 = self.__array_wrap__(_np.array(obj_to_slice).__getitem__(sl))
+        print("Slice: " + repr(sl))
+        new_obj_1 = _np.array(self).__getitem__(sl)
+        print("Result of slicing: " + repr(new_obj_1))
         # if hasattr(new_obj_1, 'near_range_slc'):
         #      #Construct temporary azimuth and  range vectors
         #     az_vec = self.az_vec
