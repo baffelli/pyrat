@@ -13,12 +13,15 @@ import os.path as _osp
 from numpy.lib.stride_tricks import as_strided as _ast
 
 
-
+#This dict defines the mapping
+#between the gamma datasets and numpy
 type_mapping ={
     'FCOMPLEX':_np.dtype('>c8'),
     'SCOMPLEX':_np.dtype('>c4'),
     'FLOAT':_np.dtype('>f4'),
-    'SHORT INTEGER':_np.dtype('>i2')
+    'SHORT INTEGER':_np.dtype('>i2'),
+    'INTEGER*2': _np.dtype('>i2'),
+    'REAL*4': _np.dtype('>f4')
 }
 
 
@@ -66,8 +69,8 @@ def dict_to_par(par_dict, par_file):
 def load_dataset(par_file, bin_file, memmap=True):
     par_dict = par_to_dict(par_file)
     dt = type_mapping[par_dict['image_format']]
-    shape = [par_dict['range_samples'],
-             par_dict['azimuth_lines']]
+    shape = (par_dict['range_samples'],
+             par_dict['azimuth_lines'])
     print(shape)
     if memmap:
         d_image = _np.memmap(bin_file, shape=shape, dtype=dt, mode='r')
@@ -81,7 +84,7 @@ def load_par(path):
     """
     Load Gamma Format .par parameter file in a dictionary
     --------
-    Parameters 
+    Parameters
     path: The path of the file to load
     --------
     Returns

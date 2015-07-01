@@ -108,103 +108,98 @@ class gammaDataset(_np.ndarray):
     def __new__(*args,**kwargs):
         cls = args[0]
         if len(args) == 3:
-            print('here')
             par_path = args[1]
             bin_path = args[2]
             memmap = kwargs.get('memmap', False)
             image, par_dict = gpri_files.load_dataset(par_path, bin_path, memmap=memmap)
         obj = image.view(cls)
-        obj.__dict__ = par_dict
-        return obj 
+        if hasattr(obj, '__dict__'):
+            obj.__dict__.update(par_dict)
+        else:
+            obj.__dict__ = par_dict
+        return obj
 
-    def __array_wrap__(self, out_arr, context=None):
-        return __law__(self, out_arr)
-    
-    # def __getslice__(self, start, stop) :
-    #     """This solves a subtle bug, where __getitem__ is not called, and all
-    #     the dimensional checking not done, when a slice of only the first
-    #     dimension is taken, e.g. a[1:3]. From the Python docs:
-    #        Deprecated since version 2.0: Support slice objects as parameters
-    #        to the __getitem__() method. (However, built-in types in CPython
-    #        currently still implement __getslice__(). Therefore, you have to
-    #        override it in derived classes when implementing slicing.)
-    #     """
-    #     print('I have been called by a stupid method that does not know extended slicing')
-    #     print("I was given the following parameters:" + repr(start)+ " '" + repr(stop))
-    #     mess='From stupid'
-    #     return self.__getitem__(slice(start, stop, None))
+    def __array_finalize__(self,obj):
+        if obj is None: return
+        if hasattr(obj,'__dict__'):
+            self.__dict__.update(obj.__dict__)
 
-    # def __getitem__(self, item, message=None):
-    #     # if type(item) is str:
-    #     #     try:
-    #     #         sl_mat = channel_dict[item]
-    #     #         sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
-    #     #     except KeyError:
-    #     #         raise IndexError('This channel does not exist')
-    #     # else:
-    #     #     sl = item
-    #     print("I got the followin message:" + repr(message))
-    #     print("Slice: " + repr(item))
-    #     new_obj_1 = _np.array(self).__getitem__(item)
-    #     print(type(new_obj_1))
-    #     new_obj_1.__array_finalize__(self)
-    #     # if hasattr(new_obj_1, 'near_range_slc'):
-    #     #      #Construct temporary azimuth and  range vectors
-    #     #     az_vec = self.az_vec
-    #     #     r_vec = self.r_vec
-    #     #     r_0 = self.az_vec[0]
-    #     #     az_0 = self.r_vec[0]
-    #     #     az_spac =  self.GPRI_az_angle_step[0]
-    #     #     r_spac = self.range_pixel_spacing[0]
-    #     #     #Passing only number, slice along first dim only
-    #     #     if isinstance(sl, _num.Number):
-    #     #         az_0 = az_vec[sl]
-    #     #         r_0 = self.near_range_slc[0] * 1
-    #     #         az_spac = self.GPRI_az_angle_step[0] * 1
-    #     #         r_spac = self.range_pixel_spacing[0] * 1
-    #     #     #Tuple of slices (or integers)
-    #     #     elif hasattr(sl, '__contains__'):
-    #     #         #By taking the first element, we automatically have
-    #     #         #the correct data
-    #     #         az_vec_sl = az_vec[sl[1]]
-    #     #         r_vec_sl = r_vec[sl[0]]
-    #     #         #THe result of slicing
-    #     #         #could be a number or an array
-    #     #         if hasattr(az_vec_sl, '__contains__'):
-    #     #             az_spac = az_vec_sl[1] - az_vec_sl[0]
-    #     #             az_0 = az_vec_sl[0]
-    #     #         else:
-    #     #             az_0 = az_vec_sl
-    #     #             az_spac = self.GPRI_az_angle_step * 1
-    #     #         if hasattr(r_vec_sl, '__contains__'):
-    #     #             r_spac = r_vec_sl[1] - r_vec_sl[0]
-    #     #             r_0 = r_vec_sl[0]
-    #     #         else:
-    #     #             r_spac = self.range_pixel_spacing * 1
-    #     #             r_0 = r_vec_sl
-    #     #     new_obj_1.GPRI_az_start_angle[0] = az_0
-    #     #     new_obj_1.near_range_slc[0] = r_0
-    #     #     new_obj_1.GPRI_az_angle_step[0] = az_spac
-    #     #     new_obj_1.range_pixel_spacing[0] = r_spac
-    #     return new_obj_1
+    def __getslice__(self, start, stop) :
+        """This solves a subtle bug, where __getitem__ is not called, and all
+        the dimensional checking not done, when a slice of only the first
+        dimension is taken, e.g. a[1:3]. From the Python docs:
+           Deprecated since version 2.0: Support slice objects as parameters
+           to the __getitem__() method. (However, built-in types in CPython
+           currently still implement __getslice__(). Therefore, you have to
+           override it in derived classes when implementing slicing.)
+        """
+        return self.__getitem__(slice(start, stop, None))
+
+    def __getitem__(self, item, message=None):
+        if type(item) is str:
+            try:
+                sl_mat = channel_dict[item]
+                sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
+            except KeyError:
+                raise IndexError('This channel does not exist')
+        else:
+            sl = item
+        new_obj_1 = _np.atleast_1d(super(gammaDataset, self).__getitem__(item)).view(gammaDataset)
+        if hasattr(new_obj_1, 'near_range_slc'):
+             #Construct temporary azimuth and  range vectors
+            az_vec = self.az_vec
+            r_vec = self.r_vec
+            r_0 = self.az_vec[0]
+            az_0 = self.r_vec[0]
+            az_spac =  self.GPRI_az_angle_step[0] * 1
+            r_spac = self.range_pixel_spacing[0] * 1
+            #Passing only number, slice along first dim only
+            if isinstance(sl, _num.Number):
+                az_0 = az_vec[sl]
+                r_0 = self.near_range_slc[0] * 1
+                az_spac = self.GPRI_az_angle_step[0] * 1
+                r_spac = self.range_pixel_spacing[0] * 1
+            #Tuple of slices (or integers)
+            elif hasattr(sl, '__contains__'):
+                #By taking the first element, we automatically have
+                #the correct data
+                az_vec_sl = az_vec[sl[1]]
+                r_vec_sl = r_vec[sl[0]]
+                #THe result of slicing
+                #could be a number or an array
+                if hasattr(az_vec_sl, '__contains__'):
+                    az_spac = az_vec_sl[1] - az_vec_sl[0]
+                    az_0 = az_vec_sl[0]
+                else:
+                    az_0 = az_vec_sl
+                    az_spac = self.GPRI_az_angle_step * 1
+                if hasattr(r_vec_sl, '__contains__'):
+                    r_spac = r_vec_sl[1] - r_vec_sl[0]
+                    r_0 = r_vec_sl[0]
+                else:
+                    r_spac = self.range_pixel_spacing * 1
+                    r_0 = r_vec_sl
+            new_obj_1.GPRI_az_start_angle[0] = az_0
+            new_obj_1.near_range_slc[0] = r_0
+            new_obj_1.GPRI_az_angle_step[0] = az_spac
+            new_obj_1.range_pixel_spacing[0] = r_spac
+        return new_obj_1
 
 
     def __getattr__(self, item):
-        if self.__dict__.__contains__(item):
-            return self.__dict__[item]
-        elif item is 'r_vec':
+        if item is 'r_vec':
             return self.__dict__['near_range_slc'][0] + _np.arange(self.__dict__['range_samples']) * self.__dict__['range_pixel_spacing'][0]
         elif item is 'az_vec':
             return self.__dict__['GPRI_az_start_angle'][0] + _np.arange(self.__dict__['azimuth_lines']) * self.__dict__['GPRI_az_angle_step'][0]
         elif item is 'center':
             return [self.__dict__['GPRI_ref_north'],self.__dict__['GPRI_ref_east'], self.__dict__['GPRI_ref_alt'][0]]
         else:
-            pass
+            return super(gammaDataset, self).__getattr__(item)
 
 
 
-    def __array_finalize__(self, obj):
-        self.__dict__ = getattr(obj, '__dict__', {})
+    # def __array_finalize__(self, obj):
+    #     self.__dict__ = getattr(obj, '__dict__', {})
 
 
 
