@@ -186,6 +186,12 @@ def geotif_to_dem(gt, par_path, path):
     d['ellipsoid_ra'] = srs.GetSemiMajor()
     d['ellipsoid_reciprocal_flattening'] = srs.GetInvFlattening()
     #Datum Information
+    #Projection Information
+    d['false_easting'] = srs.srs.GetProjParm('false_easting')
+    d['false_northing'] = srs.srs.GetProjParm('false_northing')
+    d['projection_k0'] = srs.srs.GetProjParm('scale_factor')
+    d['center_longitude'] = srs.srs.GetProjParm('longitude_of_center')
+    d['center_latitude'] = srs.srs.GetProjParm('latitude_of_center')
     out_type = type_mapping[d['data_format']]
    #TODO only works for switzerland at the moment
     DEM_par = dict_to_par(d, par_path)
