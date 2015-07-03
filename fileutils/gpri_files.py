@@ -43,10 +43,13 @@ def par_to_dict(par_file):
                             l.append(float(p))
                         except ValueError:
                             l.append(p)
-            if len(l) > 1:
-                par_dict[key] = l
-            else:
-                par_dict[key] = l[0]
+                try:
+                    if len(l) > 1:
+                        par_dict[key] = l
+                    else:
+                        par_dict[key] = l[0]
+                except:
+                    pass
     return par_dict
 
 
@@ -185,7 +188,15 @@ def geotif_to_dem(gt, par_path, path):
     d['ellipsoid_name'] = srs.GetAttrValue('SPHEROID')
     d['ellipsoid_ra'] = srs.GetSemiMajor()
     d['ellipsoid_reciprocal_flattening'] = srs.GetInvFlattening()
+    #TODO only works for switzerland at the moment
     #Datum Information
+    sr2 = _osr.SpatialReference()
+    sr2.ImportFromEPSG(21781)
+    datum=sr2.GetTOWGS84()
+    d['datum_name'] = 'Swiss National 3PAR'
+    d['datum_shift_dx'] = 679.396
+    d['datum_shift_dy'] = -0.095
+    d['datum_shift_dz'] = 406.471
     #Projection Information
     d['false_easting'] = srs.GetProjParm('false_easting')
     d['false_northing'] = srs.GetProjParm('false_northing')
@@ -193,7 +204,7 @@ def geotif_to_dem(gt, par_path, path):
     d['center_longitude'] = srs.GetProjParm('longitude_of_center')
     d['center_latitude'] = srs.GetProjParm('latitude_of_center')
     out_type = type_mapping[d['data_format']]
-   #TODO only works for switzerland at the moment
+
     DEM_par = dict_to_par(d, par_path)
     DEM = DEM.flatten()
     DEM.astype(out_type).tofile(path)

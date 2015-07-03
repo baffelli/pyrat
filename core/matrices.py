@@ -144,7 +144,7 @@ class gammaDataset(_np.ndarray):
                 raise IndexError('This channel does not exist')
         else:
             sl = item
-        new_obj_1 = _np.atleast_1d(super(gammaDataset, self).__getitem__(item)).view(gammaDataset)
+        new_obj_1 = (super(gammaDataset, self).__getitem__(item)).view(gammaDataset)
         if hasattr(new_obj_1, 'near_range_slc'):
              #Construct temporary azimuth and  range vectors
             az_vec = self.az_vec
@@ -168,16 +168,23 @@ class gammaDataset(_np.ndarray):
                 #THe result of slicing
                 #could be a number or an array
                 if hasattr(az_vec_sl, '__contains__'):
-                    az_spac = az_vec_sl[1] - az_vec_sl[0]
+                    if len(az_vec_sl)>1:
+                        az_spac = az_vec_sl[1] - az_vec_sl[0]
+                    else:
+                        az_spac = az_spac
                     az_0 = az_vec_sl[0]
                 else:
                     az_0 = az_vec_sl
-                    az_spac = self.GPRI_az_angle_step * 1
+                    az_spac = self.GPRI_az_angle_step[0] * 1
                 if hasattr(r_vec_sl, '__contains__'):
+                    if len(r_vec_sl)>1:
+                        r_spac = r_vec_sl[1] - r_vec_sl[0]
+                    else:
+                        r_spac = r_spac
                     r_spac = r_vec_sl[1] - r_vec_sl[0]
                     r_0 = r_vec_sl[0]
                 else:
-                    r_spac = self.range_pixel_spacing * 1
+                    r_spac = self.range_pixel_spacing[0] * 1
                     r_0 = r_vec_sl
             new_obj_1.GPRI_az_start_angle[0] = az_0
             new_obj_1.near_range_slc[0] = r_0
@@ -186,6 +193,7 @@ class gammaDataset(_np.ndarray):
         return new_obj_1
 
 
+#TODO Fix gettarrt
     def __getattr__(self, item):
         if item is 'r_vec':
             return self.__dict__['near_range_slc'][0] + _np.arange(self.__dict__['range_samples']) * self.__dict__['range_pixel_spacing'][0]
