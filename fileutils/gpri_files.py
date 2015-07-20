@@ -12,7 +12,7 @@ import other_files
 import os.path as _osp
 from numpy.lib.stride_tricks import as_strided as _ast
 from osgeo import gdal as _gdal, osr as _osr
-
+import mmap as _mm
 
 # This dict defines the mapping
 # between the gamma datasets and numpy
@@ -86,7 +86,10 @@ def load_dataset(par_file, bin_file, memmap=True):
             raise KeyError("This file does not contain data shape specification in a known format")
     print(shape)
     if memmap:
-        d_image = _np.memmap(bin_file, shape=shape, dtype=dt, mode='r')
+        with open(bin_file, 'rb') as mmp:
+            buffer = _mm.mmap(mmp.fileno(), 0, prot=_mm.PROT_READ)
+            d_image = _np.ndarray(shape, dt, buffer)
+        #d_image = _np.memmap(bin_file, shape=shape, dtype=dt, mode='r')
     else:
         d_image = _np.fromfile(bin_file, dtype=dt).reshape(shape)
     return d_image, par_dict

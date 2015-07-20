@@ -9,6 +9,7 @@ from ..fileutils import gpri_files, other_files
 from . import corefun
 from ..visualization import visfun
 import numbers as _num
+import copy as _cp
 import h5py as _h5py
 #Range correction factor to
 #compensate for the cable delay
@@ -113,16 +114,14 @@ class gammaDataset(_np.ndarray):
             memmap = kwargs.get('memmap', False)
             image, par_dict = gpri_files.load_dataset(par_path, bin_path, memmap=memmap)
         obj = image.view(cls)
-        if hasattr(obj, '__dict__'):
-            obj.__dict__.update(par_dict)
-        else:
-            obj.__dict__ = par_dict
+        d1 =  _cp.deepcopy(par_dict)
+        obj.__dict__ = d1
         return obj
 
     def __array_finalize__(self,obj):
         if obj is None: return
         if hasattr(obj,'__dict__'):
-            self.__dict__.update(obj.__dict__)
+            self.__dict__ = _cp.deepcopy(obj.__dict__)
 
     def __getslice__(self, start, stop) :
         """This solves a subtle bug, where __getitem__ is not called, and all
@@ -135,7 +134,7 @@ class gammaDataset(_np.ndarray):
         """
         return self.__getitem__(slice(start, stop, None))
 
-    def __getitem__(self, item, message=None):
+    def __getitem__(self, item):
         if type(item) is str:
             try:
                 sl_mat = channel_dict[item]
@@ -144,11 +143,11 @@ class gammaDataset(_np.ndarray):
                 raise IndexError('This channel does not exist')
         else:
             sl = item
-        new_obj_1 = (super(gammaDataset, self).__getitem__(item)).view(gammaDataset)
+        new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).view(gammaDataset)
         if hasattr(new_obj_1, 'near_range_slc'):
              #Construct temporary azimuth and  range vectors
-            az_vec = self.az_vec
-            r_vec = self.r_vec
+            az_vec = self.az_vec * 1
+            r_vec = self.r_vec * 1
             r_0 = self.az_vec[0]
             az_0 = self.r_vec[0]
             az_spac =  self.GPRI_az_angle_step[0] * 1
@@ -206,8 +205,7 @@ class gammaDataset(_np.ndarray):
 
 
 
-    # def __array_finalize__(self, obj):
-    #     self.__dict__ = getattr(obj, '__dict__', {})
+
 
 
 
@@ -264,7 +262,7 @@ class scatteringMatrix(gammaDataset):
                 s_matrix.flush()
             obj = s_matrix.view(cls)
             #Copy attributes from one channel
-            obj.__dict__.update(HH_par)
+            obj.__dict__ = _cp.deepcopy(HH_par)
             phase_center = []
             obj.geometry = 'polar'
             TX_VEC = [0,0.125]
@@ -481,8 +479,7 @@ class coherencyMatrix(gammaDataset):
         counts = c1.astype(_np.int) + c2.astype(_np.int) + c3.astype(_np.int)
         return counts
     
-    def __getitem__(self,sl):
-        return __general__getitem__(self, sl)
+
 
     def __new__(*args,**kwargs):
         cls = args[0]
@@ -527,13 +524,7 @@ class coherencyMatrix(gammaDataset):
         obj.geometry = 'cartesian'
         return obj
         
-    def __array_finalize__(self, obj):
-        if obj is None: return
-        __laf__(self, obj)
-        
-    def __array_wrap__(self, out_arr, context=None):
-        return __law__(self, out_arr)
-        
+
 
     def boxcar_filter(self,window, discard= False):
         """
