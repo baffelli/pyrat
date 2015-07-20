@@ -14,6 +14,10 @@ from numpy.lib.stride_tricks import as_strided as _ast
 from osgeo import gdal as _gdal, osr as _osr
 import mmap as _mm
 import array as _arr
+import copy as _cp
+import numbers as _num
+import tempfile as _tf
+
 
 # This dict defines the mapping
 # between the gamma datasets and numpy
@@ -25,6 +29,131 @@ type_mapping = {
     'INTEGER*2': _np.dtype('<i2'),
     'REAL*4': _np.dtype('<f4')
 }
+
+#This dict defines the mapping
+#between channels in the file name and the matrix
+channel_dict =  {
+                'HH':(0,0),
+                'HV':(0,1),
+                'VH':(1,0),
+                'VV':(1,1),
+                }
+
+class gammaDataset(_np.ndarray):
+    def __new__(*args,**kwargs):
+        cls = args[0]
+        if len(args) == 3:
+            par_path = args[1]
+            bin_path = args[2]
+            memmap = kwargs.get('memmap', False)
+            image, par_dict = load_dataset(par_path, bin_path, memmap=memmap)
+        obj = image.view(cls)
+        d1 =  _cp.deepcopy(par_dict)
+        obj.__dict__ = d1
+        return obj
+    def __array_finalize__(self,obj):
+        if obj is None: return
+        if hasattr(obj,'__dict__'):
+            self.__dict__ = _cp.deepcopy(obj.__dict__)
+
+    def __getslice__(self, start, stop) :
+        """This solves a subtle bug, where __getitem__ is not called, and all
+        the dimensional checking not done, when a slice of only the first
+        dimension is taken, e.g. a[1:3]. From the Python docs:
+           Deprecated since version 2.0: Support slice objects as parameters
+           to the __getitem__() method. (However, built-in types in CPython
+           currently still implement __getslice__(). Therefore, you have to
+           override it in derived classes when implementing slicing.)
+        """
+        return self.__getitem__(slice(start, stop, None))
+
+    def __getitem__(self, item):
+        if type(item) is str:
+            try:
+                sl_mat = channel_dict[item]
+                sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
+            except KeyError:
+                raise IndexError('This channel does not exist')
+        else:
+            sl = item
+        new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).view(gammaDataset)
+        if hasattr(new_obj_1, 'near_range_slc'):
+             #Construct temporary azimuth and  range vectors
+            az_vec = self.az_vec * 1
+            r_vec = self.r_vec * 1
+            r_0 = self.az_vec[0]
+            az_0 = self.r_vec[0]
+            az_spac =  self.GPRI_az_angle_step[0] * 1
+            r_spac = self.range_pixel_spacing[0] * 1
+            #Passing only number, slice along first dim only
+            if isinstance(sl, _num.Number):
+                az_0 = az_vec[sl]
+                r_0 = self.near_range_slc[0] * 1
+                az_spac = self.GPRI_az_angle_step[0] * 1
+                r_spac = self.range_pixel_spacing[0] * 1
+            #Tuple of slices (or integers)
+            elif hasattr(sl, '__contains__'):
+                #By taking the first element, we automatically have
+                #the correct data
+                az_vec_sl = az_vec[sl[1]]
+                r_vec_sl = r_vec[sl[0]]
+                #THe result of slicing
+                #could be a number or an array
+                if hasattr(az_vec_sl, '__contains__'):
+                    if len(az_vec_sl)>1:
+                        az_spac = az_vec_sl[1] - az_vec_sl[0]
+                    else:
+                        az_spac = az_spac
+                    az_0 = az_vec_sl[0]
+                else:
+                    az_0 = az_vec_sl
+                    az_spac = self.GPRI_az_angle_step[0] * 1
+                if hasattr(r_vec_sl, '__contains__'):
+                    if len(r_vec_sl)>1:
+                        r_spac = r_vec_sl[1] - r_vec_sl[0]
+                    else:
+                        r_spac = r_spac
+                    r_spac = r_vec_sl[1] - r_vec_sl[0]
+                    r_0 = r_vec_sl[0]
+                else:
+                    r_spac = self.range_pixel_spacing[0] * 1
+                    r_0 = r_vec_sl
+            new_obj_1.GPRI_az_start_angle[0] = az_0
+            new_obj_1.near_range_slc[0] = r_0
+            new_obj_1.GPRI_az_angle_step[0] = az_spac
+            new_obj_1.range_pixel_spacing[0] = r_spac
+        return new_obj_1
+
+    def tofile(self, par_path, bin_path):
+        write_dataset(self, self.__dict__, par_path, bin_path)
+
+
+    def __setitem__(self, key, value):
+        #Construct indices
+        if type(key) is str:
+           try:
+               sl_mat = channel_dict[key]
+               sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
+           except KeyError:
+               raise IndexError('This channel does not exist')
+        else:
+            sl = key
+        super(gammaDataset, self).__setitem__(key, value)
+
+
+
+    def to_tempfile(self):
+        tf = _tf.NamedTemporaryFile()
+        tf_par = _tf.NamedTemporaryFile()
+        self.tofile(tf_par.name, tf.name)
+        return tf, tf_par
+
+    def rvec(obj):
+        return  obj.__dict__['near_range_slc'][0] + _np.arange(obj.__dict__['range_samples']) * obj.__dict__['range_pixel_spacing'][0]
+    def azvec(obj):
+        return   obj.__dict__['GPRI_az_start_angle'][0] + _np.arange(obj.__dict__['azimuth_lines']) * obj.__dict__['GPRI_az_angle_step'][0]
+    r_vec = property(rvec)
+    az_vec = property(azvec)
 
 
 def par_to_dict(par_file):
@@ -109,7 +238,7 @@ def load_dataset(par_file, bin_file, memmap=True):
 def write_dataset(dataset, par_dict, par_file, bin_file):
     #Write the  binary file
     try:
-        dataset.tofile(bin_file)
+        _np.array(dataset).tofile(bin_file,"")
     except AttributeError:
         raise TypeError("The dataset is not a numpy ndarray")
     #Write the parameter file
@@ -142,7 +271,7 @@ def path_helper(location, date, time, slc_dir='slc', data_dir='/media/bup/Data')
     def_path = base_folder + slc_dir + '/' + name
     return def_path
 
-
+#TODO make compatible with other datums
 def geotif_to_dem(gt, par_path, bin_path):
     """
     This function converts a gdal dataset
@@ -165,6 +294,7 @@ def geotif_to_dem(gt, par_path, bin_path):
     #Geotransform information
     d['DEM_scale'] = 1.0
     d['DEM_projection'] = 'OMCH'
+    d['projection_name'] = 'OM - Switzerland'
     d['corner_north'] = GT[3]
     d['corner_east'] = GT[0]
     d['width'] = gt.RasterXSize

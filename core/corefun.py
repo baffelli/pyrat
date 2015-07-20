@@ -8,6 +8,8 @@ import numpy as _np
 import scipy as _sp
 from scipy import ndimage as _nd
 from numpy.lib.stride_tricks import as_strided as _ast
+import tempfile as _tf
+
 
 def outer_product(data,data1, large = False):
     """
@@ -64,6 +66,13 @@ def smooth_1(T,window):
     for ax, roll_size in enumerate(window):
         T_sm = T_sm + _np.roll(T, roll_size, axis = ax)
     return T_sm / _np.prod(window)
+
+
+def multi_look(dataset,lks):
+    mli = _tf.NamedTemporaryFile()
+    mli_par = _tf.NamedTemporaryFile()
+    cmd_mli =
+ run = subprocess.call(cmd_adf, shell=True,env=os.environ)
     
 def shift_array(array,shift):
     """
