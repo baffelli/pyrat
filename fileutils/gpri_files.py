@@ -13,6 +13,7 @@ import os.path as _osp
 from numpy.lib.stride_tricks import as_strided as _ast
 from osgeo import gdal as _gdal, osr as _osr
 import mmap as _mm
+import array as _arr
 
 # This dict defines the mapping
 # between the gamma datasets and numpy
@@ -21,8 +22,8 @@ type_mapping = {
     'SCOMPLEX': _np.dtype('>c4'),
     'FLOAT': _np.dtype('>f4'),
     'SHORT INTEGER': _np.dtype('>i2'),
-    'INTEGER*2': _np.dtype('>i2'),
-    'REAL*4': _np.dtype('>f4')
+    'INTEGER*2': _np.dtype('<i2'),
+    'REAL*4': _np.dtype('<f4')
 }
 
 
@@ -72,7 +73,13 @@ def dict_to_par(par_dict, par_file):
 def load_dataset(par_file, bin_file, memmap=True):
     par_dict = par_to_dict(par_file)
     #Map type to gamma
-    dt = type_mapping[par_dict['image_format']]
+    try:
+        dt = type_mapping[par_dict['image_format']]
+    except:
+        try:
+            dt = type_mapping[par_dict['data_format']]
+        except:
+            raise KeyError("This file does not contain datatype specification in a known format")
     try:
         shape = (par_dict['range_samples'],
                  par_dict['azimuth_lines'])
@@ -80,11 +87,15 @@ def load_dataset(par_file, bin_file, memmap=True):
         #We dont have a SAR image,
         #try as it were a DEM
         try:
-                shape = (par_dict['width'],
-                 par_dict['nlines'])
+                shape = (par_dict['nlines'],
+                par_dict['width'])
         except:
-            raise KeyError("This file does not contain data shape specification in a known format")
-    print(shape)
+        #Last try
+        #interferogram
+                try:
+                    shape = (par_dict['interferogram_width'], par_dict['interferogram_azimuth_lines'])
+                except:
+                    raise KeyError("This file does not contain data shape specification in a known format")
     if memmap:
         with open(bin_file, 'rb') as mmp:
             buffer = _mm.mmap(mmp.fileno(), 0, prot=_mm.PROT_READ)
@@ -95,43 +106,16 @@ def load_dataset(par_file, bin_file, memmap=True):
     return d_image, par_dict
 
 
-def load_par(path):
-    """
-    Load Gamma Format .par parameter file in a dictionary
-    --------
-    Parameters
-    path: The path of the file to load
-    --------
-    Returns
-    par: the dictionary of the parameters
-    """
-    par = []
-    with open(path, 'r') as fin:
-        lines = fin.readlines()
-    for l in lines:
-        keys = l.split()
-        if len(keys) > 1:
-            if keys[0] == "title:":
-                try:
-                    utc = dateutil.parser.parse(_str.join(keys[1:3]))
-                    par = par + [('utc', utc)]
-                    continue
-                except:
-                    continue
-            elif keys[0] == "image_format:":
-                par = par + [('image_format', keys[1::])]
-            elif keys[0] == "TX_RX_SEQ:":
-                par = par + [('TX_RX_SEQ', keys[1::])]
-            else:
-                par_name = keys[0]
-                par_name = par_name.replace(":", "")
-                par_numbers = re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", l)
-                new_numbers = []
-                for num in par_numbers:
-                    flt = float(num)
-                    new_numbers = new_numbers + [flt]
-                par = par + [(par_name, new_numbers)]
-    return dict(par)
+def write_dataset(dataset, par_dict, par_file, bin_file):
+    #Write the  binary file
+    try:
+        dataset.tofile(bin_file)
+    except AttributeError:
+        raise TypeError("The dataset is not a numpy ndarray")
+    #Write the parameter file
+    dict_to_par(par_dict, par_file)
+
+
 
 
 def path_helper(location, date, time, slc_dir='slc', data_dir='/media/bup/Data'):
@@ -159,9 +143,9 @@ def path_helper(location, date, time, slc_dir='slc', data_dir='/media/bup/Data')
     return def_path
 
 
-def geotif_to_dem(gt, par_path, path):
+def geotif_to_dem(gt, par_path, bin_path):
     """
-    This function converts a geotiff 
+    This function converts a gdal dataset
     DEM into a gamma format pair
     of binary DEM and parameter file
     """
@@ -207,66 +191,10 @@ def geotif_to_dem(gt, par_path, path):
     d['center_longitude'] = srs.GetProjParm('longitude_of_center')
     d['center_latitude'] = srs.GetProjParm('latitude_of_center')
     out_type = type_mapping[d['data_format']]
-
-    DEM_par = dict_to_par(d, par_path)
-    DEM = DEM.flatten()
-    DEM.astype(out_type).tofile(path)
+    write_dataset(DEM, d, par_path,  bin_path)
 
 
 
-def load_complex(path):
-    d = _np.fromfile(file=path, dtype=_np.float32)
-    d = d.byteswap()
-    d_real = d[0::2]
-    d_imag = d[1::2]
-    d_comp = d_real + 1j * d_imag
-    return d_comp
-
-
-def save_complex(arr, path):
-    with open(path, 'wb') as out:
-        out.write(arr.astype('>c8'))
-
-
-def load_slc(path, memmap=True, sl=None):
-    """
-    Load Gamma Format .slc image 
-
-    Parameters
-    ----------
-    path : string
-    The path of the file to load
-    memmap : boolean
-    If set to true, load as a memmap
-    sl : iterable
-    List of slice to access only a part of the data
-    Returns
-    --------
-        par: 
-            the file as a numpy array. The shape is (n_azimuth, n_range)
-    """
-    par = load_par(path + '.par')
-    shape = (par['azimuth_lines'][0], par['range_samples'][0])
-    if par['image_format'][0] == 'FCOMPLEX':
-        dt = _np.dtype('complex64')
-    elif par['image_format'][0] == 'SCOMPLEX':
-        dt = _np.dtype('complex32')
-    #    with open(path, 'rb') as slcfile:
-    #        if sl is None:
-    #            pass
-    #        else:
-    #            #We have to skip to the beginning of
-    #            #the block we are interested in
-    #            seeksize = _np.ravel_multi_index((el.start for el in sl),
-    #                                             shape)
-    #            slcfile.seek(0, seeksize)
-    #
-    #
-    if memmap:
-        d_image = _np.memmap(path, shape=shape, dtype=dt, mode='r').byteswap()
-    else:
-        d_image = _np.fromfile(path, dtype=dt)
-    return d_image
 
 
 def gpri_raw_strides(nsamp, nchan, npat, itemsize):
@@ -308,23 +236,3 @@ def load_raw(path):
     return raw_shp
 
 
-def load_int(path):
-    split__str = path.split('.')
-    print split__str
-    par_path = split__str[0] + '.off'
-    print par_path
-    par = load_par(par_path)
-    d_comp = load_complex(path)
-    d_image = _np.reshape(d_comp, (par['interferogram_azimuth_lines'][0], par['interferogram_width'][0]))
-    return d_image
-
-
-def load_dem(path):
-    split__str = path.split('.')
-    print split__str
-    par_path = split__str[0] + '.par'
-    print par_path
-    par = load_par(par_path)
-    d = _np.fromfile(file=path, dtype=_np.float32).byteswap()
-    d_image = _np.reshape(d, (par['interferogram_azimuth_lines'][0], par['interferogram_width'][0]))
-    return d_image
