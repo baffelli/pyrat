@@ -223,12 +223,14 @@ class scatteringMatrix(gammaDataset):
     pauli_basis = [_np.array([[1,0],[0,1]])*1/_np.sqrt(2),_np.array([[1,0],[0,-1]])*1/_np.sqrt(2),_np.array([[0,1],[1,0]])*1/_np.sqrt(2)]
     lexicographic_basis = [_np.array([[1,0],[0,0]])*2,_np.array([[0,1],[0,0]])*2*_np.sqrt(2),_np.array([[0,0],[0,1]])*2]
 
-    def __new__(*args,**kwargs):      
+    def __new__(*args,**kwargs):
         cls = args[0]
         gpri = kwargs.get('gpri')
         if gpri is True:
             if 'chan' in kwargs:
                 chan = kwargs.get('chan')
+            else:
+                chan = 'l'
             if 'sl' in kwargs:
                 sl = kwargs.get('sl')
             else:
@@ -240,33 +242,29 @@ class scatteringMatrix(gammaDataset):
             H_ant = 'A'
             V_ant = 'B'
             base_path = args[1]
-            slc_path_HH = base_path + "_" + H_ant + H_ant + H_ant + chan + ".slc"
-            slc_path_VV = base_path + "_" + V_ant + V_ant + V_ant + chan + ".slc"
-            slc_path_HV = base_path + "_" + H_ant + V_ant + V_ant + chan + ".slc"
-            slc_path_VH = base_path + "_" + V_ant + H_ant + H_ant + chan + ".slc"
-            HH = gammaDataset(slc_path_HH)[sl]
-            VV = gammaDataset(slc_path_VV)[sl]
-            HV = gammaDataset(slc_path_HV)[sl]
-            VH = gammaDataset(slc_path_VH)[sl]
+            lst_tx = [0,1]
+            lst_rx = [0,1]
+            HH_par = gpri_files.par_to_dict(base_path + "_" + "AAAl.slc.par")
+            shpe = (HH_par['range_samples'], HH_par['azimuth_lines'])
+            dt = gpri_files.type_mapping[HH_par['image_format']]
             #Create memmaps
             if memmap:
                 mat_path = base_path + 's_matrix_' + chan
-                open(mat_path, 'w+').close() 
-                s_matrix = _np.memmap(mat_path, 
-                                      dtype = HH.dtype, shape = HH.shape + (2,2), 
+                open(mat_path, 'w+').close()
+                s_matrix = _np.memmap(mat_path,
+                                      dtype = dt, shape = shpe + (2,2),
                                         mode ='r+')
             else:
-                s_matrix = _np.zeros(HH.shape + (2,2), dtype = HH.dtype)
-            s_matrix[:,:,0,0] = HH
-            s_matrix[:,:,1,1] = VV
-            s_matrix[:,:,0,1] = HV
-            s_matrix[:,:,1,0] = VH
+                s_matrix = _np.zeros(shpe + (2,2), dtype = dt)
+            for tx, idx_tx in zip([H_ant, V_ant], lst_tx):
+                for rx, idx_rx in zip([H_ant, V_ant], lst_rx):
+                    file_pattern = base_path + "_" + tx + rx + rx + chan
+                    s_matrix[:,:,idx_tx,idx_rx] = gammaDataset(file_pattern + ".slc.par", file_pattern + '.slc', memmap=memmap)
             if memmap:
                 s_matrix.flush()
             obj = s_matrix.view(cls)
             #Copy attributes from one channel
-            obj.__dict__.update(HH.__dict__)
-            del HH,HV,VV,VH
+            obj.__dict__.update(HH_par)
             phase_center = []
             obj.geometry = 'polar'
             TX_VEC = [0,0.125]
@@ -290,31 +288,13 @@ class scatteringMatrix(gammaDataset):
             obj = s_matrix.view(scatteringMatrix)
             obj.geometry = 'cartesian'
         return obj
-        
-    def __array_finalize__(self, obj):
-        if obj is None: return
-        __laf__(self, obj)
-        
+
     
     def from_gpri_to_normal(self):
         self_1 = self[:]
         self_1.geometry = None
         return self_1
-        
-    def __getitem__(self,sl):
-        return __general__getitem__(self, sl)
-        
 
-        
-    def __setitem__(self,sl,item):
-         __general__setitem__(self, sl, item)
-
-    
-    def __array_wrap__(self, out_arr, context=None):
-        temp_arr = __law__(self, out_arr)
-        return temp_arr
-        
-        
     
     def scattering_vector(self,basis = 'pauli',bistatic = True):
         """ 
@@ -428,7 +408,6 @@ class scatteringMatrix(gammaDataset):
         return gpi(self, **kwargs)
 
 #    
-   
 
         
         
