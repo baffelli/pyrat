@@ -224,6 +224,16 @@ def par_to_dict(par_file):
 
 
 def dict_to_par(par_dict, par_file):
+    """
+    This function writes a dict to a gamma
+    format parameter file
+    :param par_dict:
+    A dict of parameters
+    :param par_file:
+    A string with the path to the parameter file
+    :return:
+    None
+    """
     with open(par_file, 'w') as fout:
         for key, par in par_dict.iteritems():
             out = str(key) + ":" + '\t'
