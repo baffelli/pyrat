@@ -135,6 +135,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
             for tx, idx_tx in zip([H_ant, V_ant], lst_tx):
                 for rx, idx_rx in zip([H_ant, V_ant], lst_rx):
                     file_pattern = base_path + "_" + tx + rx + rx + chan
+                    ds = gpri_files.gammaDataset(file_pattern + ".slc.par", file_pattern + '.slc', memmap=memmap)
                     s_matrix[:,:,idx_tx,idx_rx] = gpri_files.gammaDataset(file_pattern + ".slc.par", file_pattern + '.slc', memmap=memmap)
             if memmap:
                 s_matrix.flush()
@@ -282,6 +283,9 @@ class scatteringMatrix(gpri_files.gammaDataset):
 
     def pauli_image(self,**kwargs):
         return gpi(self, **kwargs)
+
+
+
 
 #    
 

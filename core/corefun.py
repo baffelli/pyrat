@@ -9,7 +9,19 @@ import scipy as _sp
 from scipy import ndimage as _nd
 from numpy.lib.stride_tricks import as_strided as _ast
 import tempfile as _tf
+import subprocess as _sp
+import os as _os
+from ..fileutils import gpri_files as _gpf
+#Set environment variables
+_os.environ['GAMMA_HOME']='/usr/local/GAMMA_SOFTWARE-20130717'
+_os.environ['ISP_HOME']=_os.environ['GAMMA_HOME'] + '/ISP'
+_os.environ['MSP_HOME']=_os.environ['GAMMA_HOME'] + '/MSP'
+_os.environ['DIFF_HOME']=_os.environ['GAMMA_HOME'] + '/DIFF'
+_os.environ['GEO_HOME']=_os.environ['GAMMA_HOME'] + '/GEO'
+_os.environ['LD_LIBRARY_PATH']=_os.environ['GAMMA_HOME'] +'/lib'
+_os.environ["PATH"] = _os.environ["PATH"] +  _os.pathsep + _os.environ['GAMMA_HOME'] + '/bin' + _os.pathsep + _os.environ['ISP_HOME'] + '/bin' + _os.pathsep + _os.environ['DIFF_HOME'] + '/bin'
 
+print _os.environ
 
 def outer_product(data,data1, large = False):
     """
@@ -68,12 +80,62 @@ def smooth_1(T,window):
     return T_sm / _np.prod(window)
 
 
-def multi_look(dataset,lks):
-    mli = _tf.NamedTemporaryFile()
-    mli_par = _tf.NamedTemporaryFile()
-    cmd_mli =
- run = subprocess.call(cmd_adf, shell=True,env=os.environ)
-    
+def multi_look(dataset, lks):
+    slc_par_tf, slc_tf = dataset.to_tempfile()
+    mli_par, mli = _gpf.temp_dataset()
+    cmd_list = [
+        "multi_look",
+        slc_tf.name,
+        slc_par_tf.name,
+        mli.name,
+        mli_par.name,
+        lks[0],
+        lks[1],
+        '-',
+        '-'
+    ]
+    try:
+        cmd = " ".join([str(i) for i in cmd_list])
+        print cmd
+        status = _sp.Popen(cmd, env=_os.environ, stderr=_sp.STDOUT)
+    except _sp.CalledProcessError as e:
+        print(e.output)
+    multi_looked = _gpf.gammaDataset(mli_par.name, mli.name)
+    return multi_looked
+
+
+def unwrap(intf, wgt, mask):
+    #Write to a binary file
+    intf_tf = _gpf.temp_binary()
+    intf.T.astype(_np.dtype('>c8')).tofile(intf_tf.name,'')
+    #Temporary file for the unwrapped
+    unw_tf = _gpf.temp_binary()
+    #Temporary file for the mask
+    mask_tf = _gpf.temp_binary(suffix='.bmp')
+    _gpf.to_bitmap(mask.T, mask_tf)
+    #Temporary file for the wgt
+    wgt_tf = _gpf.temp_binary()
+    wgt.T.astype(_gpf.type_mapping['FLOAT']).tofile(wgt_tf.name)
+    arg_list = [
+        'mcf',
+        intf_tf.name,
+        wgt_tf.name,
+        mask_tf.name,
+        unw_tf.name,
+        str(intf.shape[0]),
+        1
+    ]
+    try:
+        cmd = [str(el) for el in arg_list]
+        P = _sp.Popen(cmd,env=_os.environ, stderr=_sp.STDOUT)
+        P.wait()
+    except Exception as e:
+        print(e)
+        return -1
+    unwrapped = _np.fromfile(unw_tf.name, dtype=_gpf.type_mapping['FLOAT']).reshape(intf.shape[::-1]).T
+    return unwrapped
+
+
 def shift_array(array,shift):
     """
     Shift a multidimensional array and pads it with zeros.

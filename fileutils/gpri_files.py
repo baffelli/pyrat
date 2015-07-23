@@ -2,21 +2,23 @@
 """
 Created on Thu May 15 13:51:30 2014
 
+This module contains classes and function to deal with Gamma file formats
+
+
 @author: baffelli
 """
-import re
-import numpy as _np
-import dateutil.parser
-import string as _str
-import other_files
 import os.path as _osp
-from numpy.lib.stride_tricks import as_strided as _ast
-from osgeo import gdal as _gdal, osr as _osr
+from osgeo import osr as _osr
 import mmap as _mm
-import array as _arr
 import copy as _cp
 import numbers as _num
+
 import tempfile as _tf
+
+import numpy as _np
+from numpy.lib.stride_tricks import as_strided as _ast
+import scipy as _sp
+
 
 
 # This dict defines the mapping
@@ -30,17 +32,40 @@ type_mapping = {
     'REAL*4': _np.dtype('<f4')
 }
 
-#This dict defines the mapping
-#between channels in the file name and the matrix
-channel_dict =  {
-                'HH':(0,0),
-                'HV':(0,1),
-                'VH':(1,0),
-                'VV':(1,1),
-                }
+# This dict defines the mapping
+# between channels in the file name and the matrix
+channel_dict = {
+    'HH': (0, 0),
+    'HV': (0, 1),
+    'VH': (1, 0),
+    'VV': (1, 1),
+}
+
+
+def temp_dataset():
+    """
+    This function produces a temporary dataset which uses a temporary
+    file for both the binary  file and the parameter file
+    :return:
+    two file descriptors. the first for the parameter and the second for
+    the binary file
+    """
+    tf_par = _tf.NamedTemporaryFile(delete=False, mode='w+t')
+    tf = _tf.NamedTemporaryFile(delete=False)
+    return tf_par, tf
+
+
+def temp_binary(suffix=''):
+    return _tf.NamedTemporaryFile(delete=False, suffix=suffix)
+
+
+def to_bitmap(dataset, filename):
+    fmt = 'bmp'
+    _sp.misc.imsave(filename, dataset, format=fmt)
+
 
 class gammaDataset(_np.ndarray):
-    def __new__(*args,**kwargs):
+    def __new__(*args, **kwargs):
         cls = args[0]
         if len(args) == 3:
             par_path = args[1]
@@ -48,15 +73,16 @@ class gammaDataset(_np.ndarray):
             memmap = kwargs.get('memmap', False)
             image, par_dict = load_dataset(par_path, bin_path, memmap=memmap)
         obj = image.view(cls)
-        d1 =  _cp.deepcopy(par_dict)
+        d1 = _cp.deepcopy(par_dict)
         obj.__dict__ = d1
         return obj
-    def __array_finalize__(self,obj):
+
+    def __array_finalize__(self, obj):
         if obj is None: return
-        if hasattr(obj,'__dict__'):
+        if hasattr(obj, '__dict__'):
             self.__dict__ = _cp.deepcopy(obj.__dict__)
 
-    def __getslice__(self, start, stop) :
+    def __getslice__(self, start, stop):
         """This solves a subtle bug, where __getitem__ is not called, and all
         the dimensional checking not done, when a slice of only the first
         dimension is taken, e.g. a[1:3]. From the Python docs:
@@ -76,31 +102,31 @@ class gammaDataset(_np.ndarray):
                 raise IndexError('This channel does not exist')
         else:
             sl = item
-        new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).view(gammaDataset)
+        new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).view(type(self))
         if hasattr(new_obj_1, 'near_range_slc'):
-             #Construct temporary azimuth and  range vectors
+            # Construct temporary azimuth and  range vectors
             az_vec = self.az_vec * 1
             r_vec = self.r_vec * 1
             r_0 = self.az_vec[0]
             az_0 = self.r_vec[0]
-            az_spac =  self.GPRI_az_angle_step[0] * 1
+            az_spac = self.GPRI_az_angle_step[0] * 1
             r_spac = self.range_pixel_spacing[0] * 1
-            #Passing only number, slice along first dim only
+            # Passing only number, slice along first dim only
             if isinstance(sl, _num.Number):
                 az_0 = az_vec[sl]
                 r_0 = self.near_range_slc[0] * 1
                 az_spac = self.GPRI_az_angle_step[0] * 1
                 r_spac = self.range_pixel_spacing[0] * 1
-            #Tuple of slices (or integers)
+            # Tuple of slices (or integers)
             elif hasattr(sl, '__contains__'):
-                #By taking the first element, we automatically have
-                #the correct data
+                # By taking the first element, we automatically have
+                # the correct data
                 az_vec_sl = az_vec[sl[1]]
                 r_vec_sl = r_vec[sl[0]]
-                #THe result of slicing
-                #could be a number or an array
+                # THe result of slicing
+                # could be a number or an array
                 if hasattr(az_vec_sl, '__contains__'):
-                    if len(az_vec_sl)>1:
+                    if len(az_vec_sl) > 1:
                         az_spac = az_vec_sl[1] - az_vec_sl[0]
                     else:
                         az_spac = az_spac
@@ -109,7 +135,7 @@ class gammaDataset(_np.ndarray):
                     az_0 = az_vec_sl
                     az_spac = self.GPRI_az_angle_step[0] * 1
                 if hasattr(r_vec_sl, '__contains__'):
-                    if len(r_vec_sl)>1:
+                    if len(r_vec_sl) > 1:
                         r_spac = r_vec_sl[1] - r_vec_sl[0]
                     else:
                         r_spac = r_spac
@@ -124,39 +150,53 @@ class gammaDataset(_np.ndarray):
             new_obj_1.range_pixel_spacing[0] = r_spac
         return new_obj_1
 
-    def tofile(self, par_path, bin_path):
-        write_dataset(self, self.__dict__, par_path, bin_path)
-
+    def tofile(*args):
+        self = args[0]
+        # In this case, we want to write both parameters and binary file
+        if len(args) is 3:
+            write_dataset(self, self.__dict__, args[1], args[2])
+        # In this case, we only want to write the binary
+        else:
+            _np.array(self).tofile(args[1])
 
     def __setitem__(self, key, value):
-        #Construct indices
+        # Construct indices
         if type(key) is str:
-           try:
-               sl_mat = channel_dict[key]
-               sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
-           except KeyError:
-               raise IndexError('This channel does not exist')
+            try:
+                sl_mat = channel_dict[key]
+                sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
+            except KeyError:
+                raise IndexError('This channel does not exist')
         else:
             sl = key
         super(gammaDataset, self).__setitem__(key, value)
 
-
-
     def to_tempfile(self):
-        tf = _tf.NamedTemporaryFile()
-        tf_par = _tf.NamedTemporaryFile()
+        tf_par, tf = temp_dataset()
         self.tofile(tf_par.name, tf.name)
-        return tf, tf_par
+        return tf_par, tf
 
     def rvec(obj):
-        return  obj.__dict__['near_range_slc'][0] + _np.arange(obj.__dict__['range_samples']) * obj.__dict__['range_pixel_spacing'][0]
+        return obj.__dict__['near_range_slc'][0] + _np.arange(obj.__dict__['range_samples']) * \
+                                                   obj.__dict__['range_pixel_spacing'][0]
+
     def azvec(obj):
-        return   obj.__dict__['GPRI_az_start_angle'][0] + _np.arange(obj.__dict__['azimuth_lines']) * obj.__dict__['GPRI_az_angle_step'][0]
+        return obj.__dict__['GPRI_az_start_angle'][0] + _np.arange(obj.__dict__['azimuth_lines']) * \
+                                                        obj.__dict__['GPRI_az_angle_step'][0]
+
     r_vec = property(rvec)
     az_vec = property(azvec)
 
 
 def par_to_dict(par_file):
+    """
+    This function converts a gamma '.par' file into
+    a dict of parameters
+    :param par_file:
+    A string containing the path to the parameter file
+    :return:
+    A dict of parameters
+    """
     par_dict = {}
     with open(par_file, 'r') as fin:
         # Skip first line
@@ -201,7 +241,7 @@ def dict_to_par(par_dict, par_file):
 
 def load_dataset(par_file, bin_file, memmap=True):
     par_dict = par_to_dict(par_file)
-    #Map type to gamma
+    # Map type to gamma
     try:
         dt = type_mapping[par_dict['image_format']]
     except:
@@ -213,38 +253,36 @@ def load_dataset(par_file, bin_file, memmap=True):
         shape = (par_dict['range_samples'],
                  par_dict['azimuth_lines'])
     except KeyError:
-        #We dont have a SAR image,
-        #try as it were a DEM
+        # We dont have a SAR image,
+        # try as it were a DEM
         try:
-                shape = (par_dict['nlines'],
-                par_dict['width'])
+            shape = (par_dict['nlines'],
+                     par_dict['width'])
         except:
-        #Last try
-        #interferogram
-                try:
-                    shape = (par_dict['interferogram_width'], par_dict['interferogram_azimuth_lines'])
-                except:
-                    raise KeyError("This file does not contain data shape specification in a known format")
+            # Last try
+            # interferogram
+            try:
+                shape = (par_dict['interferogram_width'], par_dict['interferogram_azimuth_lines'])
+            except:
+                raise KeyError("This file does not contain data shape specification in a known format")
+    shape = shape[::-1]
     if memmap:
         with open(bin_file, 'rb') as mmp:
             buffer = _mm.mmap(mmp.fileno(), 0, prot=_mm.PROT_READ)
-            d_image = _np.ndarray(shape, dt, buffer)
-        #d_image = _np.memmap(bin_file, shape=shape, dtype=dt, mode='r')
+            d_image = _np.ndarray(shape, dt, buffer).T
     else:
-        d_image = _np.fromfile(bin_file, dtype=dt).reshape(shape)
+        d_image = _np.fromfile(bin_file, dtype=dt).reshape(shape).T
     return d_image, par_dict
 
 
 def write_dataset(dataset, par_dict, par_file, bin_file):
-    #Write the  binary file
+    # Write the  binary file
     try:
-        _np.array(dataset).tofile(bin_file,"")
+        _np.array(dataset).T.tofile(bin_file, "")
     except AttributeError:
         raise TypeError("The dataset is not a numpy ndarray")
-    #Write the parameter file
+    # Write the parameter file
     dict_to_par(par_dict, par_file)
-
-
 
 
 def path_helper(location, date, time, slc_dir='slc', data_dir='/media/bup/Data'):
@@ -271,7 +309,8 @@ def path_helper(location, date, time, slc_dir='slc', data_dir='/media/bup/Data')
     def_path = base_folder + slc_dir + '/' + name
     return def_path
 
-#TODO make compatible with other datums
+
+# TODO make compatible with other datums
 def geotif_to_dem(gt, par_path, bin_path):
     """
     This function converts a gdal dataset
@@ -283,7 +322,7 @@ def geotif_to_dem(gt, par_path, bin_path):
     srs = _osr.SpatialReference()
     srs.ImportFromWkt(gt.GetProjection())
     d = {}
-    #FOrmat information
+    # FOrmat information
     if _np.issubdtype(DEM.dtype, _np.int32):
         DEM = DEM.astype(_np.int16)
         d['data_format'] = 'INTEGER*2'
@@ -291,7 +330,7 @@ def geotif_to_dem(gt, par_path, bin_path):
         d['data_format'] = 'INTEGER*2'
     elif _np.issubdtype(DEM.dtype, _np.float32):
         d['data_format'] = 'REAL*4'
-    #Geotransform information
+    # Geotransform information
     d['DEM_scale'] = 1.0
     d['DEM_projection'] = 'OMCH'
     d['projection_name'] = 'OM - Switzerland'
@@ -301,30 +340,27 @@ def geotif_to_dem(gt, par_path, bin_path):
     d['nlines'] = gt.RasterYSize
     d['post_north'] = GT[5]
     d['post_east'] = GT[1]
-    #Ellipsoid information
+    # Ellipsoid information
     d['ellipsoid_name'] = srs.GetAttrValue('SPHEROID')
     d['ellipsoid_ra'] = srs.GetSemiMajor()
     d['ellipsoid_reciprocal_flattening'] = srs.GetInvFlattening()
-    #TODO only works for switzerland at the moment
-    #Datum Information
+    # TODO only works for switzerland at the moment
+    # Datum Information
     sr2 = _osr.SpatialReference()
     sr2.ImportFromEPSG(21781)
-    datum=sr2.GetTOWGS84()
+    datum = sr2.GetTOWGS84()
     d['datum_name'] = 'Swiss National 3PAR'
     d['datum_shift_dx'] = 679.396
     d['datum_shift_dy'] = -0.095
     d['datum_shift_dz'] = 406.471
-    #Projection Information
+    # Projection Information
     d['false_easting'] = srs.GetProjParm('false_easting')
     d['false_northing'] = srs.GetProjParm('false_northing')
     d['projection_k0'] = srs.GetProjParm('scale_factor')
     d['center_longitude'] = srs.GetProjParm('longitude_of_center')
     d['center_latitude'] = srs.GetProjParm('latitude_of_center')
     out_type = type_mapping[d['data_format']]
-    write_dataset(DEM, d, par_path,  bin_path)
-
-
-
+    write_dataset(DEM, d, par_path, bin_path)
 
 
 def gpri_raw_strides(nsamp, nchan, npat, itemsize):
@@ -349,11 +385,11 @@ def gpri_raw_strides(nsamp, nchan, npat, itemsize):
     return (st_az, st_rg, st_chan, st_pol)
 
 
-def load_raw(path):
-    par = load_par(path + '.raw_par')
-    nsamp = par['CHP_num_samp'][0]
+def load_raw(par_path, path):
+    par = par_to_dict(par_path)
+    nsamp = par['CHP_num_samp']
     nchan = 2
-    npat = len(par['TX_RX_SEQ'][0].split('-'))
+    npat = len(par['TX_RX_SEQ'].split('-'))
     itemsize = _np.int16(1).itemsize
     bytes_per_record = (nsamp + 1) * 2 * itemsize
     filesize = _osp.getsize(path + '.raw')
@@ -364,5 +400,3 @@ def load_raw(path):
     stride = gpri_raw_strides(nsamp, nchan, npat, itemsize)
     raw_shp = _ast(raw, shape=sh, strides=stride)
     return raw_shp
-
-
