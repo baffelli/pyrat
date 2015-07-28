@@ -117,33 +117,37 @@ class gammaDataset(_np.ndarray):
                 r_0 = self.near_range_slc[0] * 1
                 az_spac = self.GPRI_az_angle_step[0] * 1
                 r_spac = self.range_pixel_spacing[0] * 1
-            # Tuple of slices (or integers)
+            # Tuple of slices
             elif hasattr(sl, '__contains__'):
                 # By taking the first element, we automatically have
                 # the correct data
-                az_vec_sl = az_vec[sl[1]]
-                r_vec_sl = r_vec[sl[0]]
-                # THe result of slicing
-                # could be a number or an array
-                if hasattr(az_vec_sl, '__contains__'):
-                    if len(az_vec_sl) > 1:
-                        az_spac = az_vec_sl[1] - az_vec_sl[0]
+                try:
+                    az_vec_sl = az_vec[sl[1]]
+                    if hasattr(az_vec_sl, '__contains__'):
+                        if len(az_vec_sl) > 1:
+                            az_spac = az_vec_sl[1] - az_vec_sl[0]
+                        else:
+                            az_spac = az_spac
+                        az_0 = az_vec_sl[0]
                     else:
-                        az_spac = az_spac
-                    az_0 = az_vec_sl[0]
-                else:
-                    az_0 = az_vec_sl
-                    az_spac = self.GPRI_az_angle_step[0] * 1
-                if hasattr(r_vec_sl, '__contains__'):
-                    if len(r_vec_sl) > 1:
+                        az_0 = az_vec_sl
+                        az_spac = self.GPRI_az_angle_step[0] * 1
+                except:
+                    pass
+                try:
+                    r_vec_sl = r_vec[sl[0]]
+                    if hasattr(r_vec_sl, '__contains__'):
+                        if len(r_vec_sl) > 1:
+                            r_spac = r_vec_sl[1] - r_vec_sl[0]
+                        else:
+                            r_spac = r_spac
                         r_spac = r_vec_sl[1] - r_vec_sl[0]
+                        r_0 = r_vec_sl[0]
                     else:
-                        r_spac = r_spac
-                    r_spac = r_vec_sl[1] - r_vec_sl[0]
-                    r_0 = r_vec_sl[0]
-                else:
-                    r_spac = self.range_pixel_spacing[0] * 1
-                    r_0 = r_vec_sl
+                        r_spac = self.range_pixel_spacing[0] * 1
+                        r_0 = r_vec_sl
+                except:
+                    pass
             new_obj_1.GPRI_az_start_angle[0] = az_0
             new_obj_1.near_range_slc[0] = r_0
             new_obj_1.GPRI_az_angle_step[0] = az_spac
