@@ -396,7 +396,7 @@ def gpri_raw_strides(nsamp, nchan, npat, itemsize):
     # they are in subsequent records
     st_pol = ((nsamp + 1) * nchan) * itemsize
     # The full strides
-    return (st_az, st_rg, st_chan, st_pol)
+    return (st_rg, st_az , st_chan, st_pol)
 
 
 def load_raw(par_path, path):
@@ -406,11 +406,11 @@ def load_raw(par_path, path):
     npat = len(par['TX_RX_SEQ'].split('-'))
     itemsize = _np.int16(1).itemsize
     bytes_per_record = (nsamp + 1) * 2 * itemsize
-    filesize = _osp.getsize(path + '.raw')
-    raw = _np.memmap(path + '.raw', dtype='int16', mode='r')
+    filesize = _osp.getsize(path)
+    raw = _np.memmap(path, dtype='int16', mode='r')
     nl_tot = int(filesize / bytes_per_record)
-    sh = (nl_tot / npat, nsamp + 1, \
+    sh = (nsamp + 1, nl_tot / npat, \
           nchan, npat)
     stride = gpri_raw_strides(nsamp, nchan, npat, itemsize)
     raw_shp = _ast(raw, shape=sh, strides=stride)
-    return raw_shp
+    return raw_shp, par
