@@ -382,24 +382,41 @@ def gpri_raw_strides(nsamp, nchan, npat, itemsize):
     This function computes the array strides for 
     the gpri raw file format
     """
-    # The first stride jumps from one record to the
-    # next corresponding to the same pattern (AAA etc)
-    st_az = ((nsamp + 1) * nchan) * npat * itemsize
-    # The second stride, for the range samples
-    # jumps from one range sample to the next, they
-    # alternate between one channel and another
-    st_rg = itemsize * nchan
-    # The third stride, for the two receivers, from
-    # one channel to the other
+    #We start with the smallest stride, jumping
+    #from rx channel to the other
     st_chan = itemsize
-    # The final stride is for the polarimetric channels,
-    # they are in subsequent records
-    st_pol = ((nsamp + 1) * nchan) * itemsize
-    # The full strides
-    return (st_rg, st_az , st_chan, st_pol)
+    #The second smallest jumps from one range sample to the next
+    #so we have to jump to every nchan-th sample
+    st_rg = st_chan * nchan
+    #To move from one pattern to the next, we move to the next impulse
+    st_pat = (nsamp +1) * st_rg
+    #To move in azimuth to the subsequent record with the same
+    #pattern , we have to jump npat times a range record
+    st_az = st_pat * npat
+    # # The first stride jumps from one record to the
+    # # next corresponding to the same pattern (AAA etc)
+    # st_az = ((nsamp + 1) * nchan) * npat * itemsize
+    # # The second stride, for the range samples
+    # # jumps from one range sample to the next, they
+    # # alternate between one channel and another
+    # st_rg = st_chan * nchan
+    # # The third stride, for the two receivers, from
+    # # one channel to the other
+    # st_chan = itemsize
+    # # The final stride is for the polarimetric channels,
+    # # they are in subsequent records
+    # st_pol = ((nsamp + 1) * nchan) * itemsize
+    # # The full strides
+    return (st_rg, st_az , st_chan, st_pat)
 
 
 def load_raw(par_path, path):
+    """
+    This function loads a gamma raw dataset
+    :param the path to the raw_par file:
+    :param the path to the raw file:
+    :return:
+    """
     par = par_to_dict(par_path)
     nsamp = par['CHP_num_samp']
     nchan = 2
@@ -414,3 +431,40 @@ def load_raw(par_path, path):
     stride = gpri_raw_strides(nsamp, nchan, npat, itemsize)
     raw_shp = _ast(raw, shape=sh, strides=stride)
     return raw_shp, par
+
+
+
+class rawData(_np.ndarray):
+
+    def __array_finalize__(self, obj):
+        if obj is None: return
+        if hasattr(obj, '__dict__'):
+            self.__dict__ = _cp.deepcopy(obj.__dict__)
+
+    def __new__(cls, *args, **kwargs):
+        data, par_dict = load_raw(args[0], args[1])
+        obj = data.view(cls)
+        obj.__dict__ = _cp.deepcopy(par_dict)
+        #Duration of chirp
+        obj.tcycle = obj.shape[0] * 1/obj.ADC_sample_rate
+        return obj
+
+    def get_channel(self, name, ant):
+        chan_list = self.TX_RX_SEQ.split('-')
+        chan_idx = chan_list.index(name)
+        ant_map = {'u':0,'l':1}
+        return self[:,:,ant_map[ant],chan_idx]
+
+    def azspacing(self):
+        npat = len(self.TX_RX_SEQ.split('-'))
+        return self.tcycle * self.STP_rotation_speed * npat
+
+    def freqvec(self):
+        return self.RF_freq_min + _np.arange(self.CHP_num_samp, dtype=float) * self.RF_chirp_rate/self.ADC_sample_rate
+
+    az_spacing = property(azspacing)
+    freq_vec = property(freqvec)
+
+
+
+

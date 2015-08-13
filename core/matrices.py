@@ -92,7 +92,6 @@ def __general__setitem__(obj, sl_in, item):
 
 
 
- 
 
 class scatteringMatrix(gpri_files.gammaDataset):
     
