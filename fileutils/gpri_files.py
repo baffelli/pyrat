@@ -434,7 +434,10 @@ def load_raw(par_path, path):
 
 
 
+
+
 class rawData(_np.ndarray):
+
 
     def __array_finalize__(self, obj):
         if obj is None: return
@@ -449,11 +452,12 @@ class rawData(_np.ndarray):
         obj.tcycle = obj.shape[0] * 1/obj.ADC_sample_rate
         return obj
 
-    def get_channel(self, name, ant):
+    def channel_index(self, pat, ant):
         chan_list = self.TX_RX_SEQ.split('-')
-        chan_idx = chan_list.index(name)
+        chan_idx = chan_list.index(pat)
         ant_map = {'u':0,'l':1}
-        return self[:,:,ant_map[ant],chan_idx]
+        return [ant_map[ant], chan_idx]
+
 
     def azspacing(self):
         npat = len(self.TX_RX_SEQ.split('-'))

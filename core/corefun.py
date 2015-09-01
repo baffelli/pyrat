@@ -21,7 +21,7 @@ _os.environ['GEO_HOME']=_os.environ['GAMMA_HOME'] + '/GEO'
 _os.environ['LD_LIBRARY_PATH']=_os.environ['GAMMA_HOME'] +'/lib'
 _os.environ["PATH"] = _os.environ["PATH"] +  _os.pathsep + _os.environ['GAMMA_HOME'] + '/bin' + _os.pathsep + _os.environ['ISP_HOME'] + '/bin' + _os.pathsep + _os.environ['DIFF_HOME'] + '/bin'
 
-print _os.environ
+
 
 def outer_product(data,data1, large = False):
     """
