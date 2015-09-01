@@ -70,22 +70,26 @@ def correct_channel(arr, az_spacing):
 def main():
     #Read the arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('raw', nargs=1,
+    parser.add_argument('raw',
                 help="GPRI raw file")
-    parser.add_argument('raw_par', nargs=1,
+    parser.add_argument('raw_par',
                 help="GPRI raw file parameters")
-    parser.add_argument('raw_out', nargs=1, type=str,
+    parser.add_argument('raw_out', type=str,
                 help="Corrected GPRI raw file")
-    parser.add_argument('raw_par_out', nargs=1, type=str,
+    parser.add_argument('raw_par_out', type=str,
                 help="Parameters of the corrected GPRI raw file")
-    parser.add_argument('pat', nargs=1, type=str,
+    parser.add_argument('pat', type=str,
                 help="Pattern to process")
-    parser.add_argument('chan', nargs=1, type=str,
+    parser.add_argument('chan', type=str,
                 help="Channel to process")
     #Read arguments
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except:
+        print(parser.print_help())
+        sys.exit(-1)
     #Read raw dataqset
-    rawdata = gpf.rawData(args.raw_par, args.raw)
+    rawdata = _gpf.rawData(args.raw_par, args.raw)
     #Empty dataset
     rawdata_corr = _np.zeros_like(rawdata) + rawdata
     #Channel index
@@ -95,7 +99,13 @@ def main():
     #Apply interpolation
     chan_corr = correct_channel(chan, rawdata.az_spacing)
     #Write dataset
-    rawdata_corr[:,:, chan_idx[0], chan_idx[1]] = chan_corr
-    rawdata_corr.T.astype(gpf.type_mapping['SHORT INTEGER']).tofile(args.raw_out)
-    with open(args.raw_par, 'r') as ip, open(args.raw_par_out, 'w') as op:
+    with open(args.raw_out, 'wb') as of:
+        chan_corr.T.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
+    with open(args.raw_par, 'rt') as ip, open(args.raw_par_out, 'wt') as op:
         op.write(ip)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
