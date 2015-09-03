@@ -44,10 +44,11 @@ def correct_squint(arr, squint_vec, angle_vec):
     This function corrects the frequency dependent squint
     in the GPRI data
     """
-    arr = arr[1:,:]
-    assert len(squint_vec) == arr.shape[0]
+    #Add a no squint correction to the first sample
+    assert len(squint_vec) == arr.shape[0] - 1
+    squint_vec = _np.insert(squint_vec, 0,0)
     arr_int = _np.zeros_like(arr)
-    for idx in range(arr.shape[0]):
+    for idx in range(0, arr.shape[0]):
         if idx % 100 == 0:
             print("interp range:" + str(idx))
         az_new = angle_vec + squint_vec[idx]
@@ -90,6 +91,7 @@ def main():
         sys.exit(-1)
     #Read raw dataqset
     rawdata = _gpf.rawData(args.raw_par, args.raw)
+    print(rawdata.az_spacing)
     #Empty dataset
     rawdata_corr = _np.zeros_like(rawdata) + rawdata
     #Channel index
