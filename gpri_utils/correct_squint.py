@@ -57,13 +57,9 @@ def correct_squint(arr, squint_vec, angle_vec):
 
 
 
-
-
-
-def correct_channel(arr, az_spacing):
-
+def correct_channel(arr, freq_vec, az_spacing):
     ang_vec = _np.arange(arr.shape[1])
-    sq_ang = squint_angle(arr.freq_vec, KU_WIDTH, KU_DZ)
+    sq_ang = squint_angle(freq_vec, KU_WIDTH, KU_DZ)
     sq_vec = (sq_ang - sq_ang[sq_ang.shape[0]/2]) / az_spacing
     arr_corr = correct_squint(arr, sq_vec, ang_vec)
     return arr_corr
@@ -79,10 +75,6 @@ def main():
                 help="Corrected GPRI raw file")
     parser.add_argument('raw_par_out', type=str,
                 help="Parameters of the corrected GPRI raw file")
-    parser.add_argument('pat', type=str,
-                help="Pattern to process")
-    parser.add_argument('chan', type=str,
-                help="Channel to process")
     #Read arguments
     try:
         args = parser.parse_args()
@@ -90,21 +82,22 @@ def main():
         print(parser.print_help())
         sys.exit(-1)
     #Read raw dataqset
-    rawdata = _gpf.rawData(args.raw_par, args.raw)
-    print(rawdata.az_spacing)
+    raw_dict = _gpf.par_to_dict(args.raw_par)
+    #Compute parameters
+    raw_par = _gpf.rawParameters(raw_dict, args.raw)
+    #Compute shape
+    shape = [raw_par.block_length, raw_par.nl_tot]
+    chan = _np.fromfile(args.raw, dtype=raw_par.dt).reshape(shape[::-1]).T
+    #Azimuth spacing
+    azspacing = raw_par.ang_per_tcycle
     #Empty dataset
-    rawdata_corr = _np.zeros_like(rawdata) + rawdata
-    #Channel index
-    chan_idx = rawdata.channel_index(args.pat, args.chan)
-    #Select channel of interest
-    chan = rawdata[:,:, chan_idx[0], chan_idx[1]]
+    chan_corr = _np.zeros_like(chan) + chan
     #Apply interpolation
-    chan_corr = correct_channel(chan, rawdata.az_spacing)
+    chan_corr = correct_channel(chan, raw_par.freq_vec, azspacing)
     #Write dataset
     with open(args.raw_out, 'wb') as of:
         chan_corr.T.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
-    with open(args.raw_par, 'rt') as ip, open(args.raw_par_out, 'wt') as op:
-        op.write(ip)
+    _gpf.dict_to_par(raw_dict, args.raw_par_out)
 
 if __name__ == "__main__":
     try:

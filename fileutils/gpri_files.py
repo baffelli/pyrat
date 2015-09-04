@@ -8,18 +8,28 @@ This module contains classes and function to deal with Gamma file formats
 @author: baffelli
 """
 import os.path as _osp
+import os as _os
 from osgeo import osr as _osr
 import mmap as _mm
 import copy as _cp
 import numbers as _num
-
 import tempfile as _tf
+import scipy.signal as _sig
 
 import numpy as _np
 from numpy.lib.stride_tricks import as_strided as _ast
 import scipy as _sp
+from collections import namedtuple as _nt
 
 
+#Constants
+ra = 6378137.0000    #WGS-84 semi-major axis
+rb = 6356752.3141    #WGS-84 semi-minor axis
+
+C = 299792458.0    #speed of light m/s
+KU_WIDTH = 15.798e-3 #WG-62 Ku-Band waveguide width dimension
+KU_DZ = 10.682e-3   #Ku-Band Waveguide slot spacing
+RANGE_OFFSET= 3
 
 # This dict defines the mapping
 # between the gamma datasets and numpy
@@ -204,7 +214,7 @@ def par_to_dict(par_file):
     par_dict = {}
     with open(par_file, 'r') as fin:
         # Skip first line
-        fin.readline()
+        #fin.readline()
         for line in fin:
             if line:
                 split_array = line.split(':')
@@ -393,20 +403,6 @@ def gpri_raw_strides(nsamp, nchan, npat, itemsize):
     #To move in azimuth to the subsequent record with the same
     #pattern , we have to jump npat times a range record
     st_az = st_pat * npat
-    # # The first stride jumps from one record to the
-    # # next corresponding to the same pattern (AAA etc)
-    # st_az = ((nsamp + 1) * nchan) * npat * itemsize
-    # # The second stride, for the range samples
-    # # jumps from one range sample to the next, they
-    # # alternate between one channel and another
-    # st_rg = st_chan * nchan
-    # # The third stride, for the two receivers, from
-    # # one channel to the other
-    # st_chan = itemsize
-    # # The final stride is for the polarimetric channels,
-    # # they are in subsequent records
-    # st_pol = ((nsamp + 1) * nchan) * itemsize
-    # # The full strides
     return (st_rg, st_az , st_chan, st_pat)
 
 
@@ -433,8 +429,125 @@ def load_raw(par_path, path):
     return raw_shp, par
 
 
+def default_slc_dict():
+    """
+    This function creates a default dict for the slc parameters of the
+    gpri, that the user can then fill according to needs
+    :return:
+    """
+    par = {}
+    par['title'] = ''
+    par['sensor'] = 'GPRI 2'
+    par['date'] = [0, 0 ,0]
+    par['start_time'] = 0
+    par['center_time'] = 0
+    par['end_time'] = 0
+    par['azimuth_line_time'] = 0
+    par['line_header_size'] = 0
+    par['range_samples'] = 0
+    par['azimuth_samples'] = 0
+    par['range_looks'] = 1
+    par['azimuth_looks'] = 1
+    par['image_format'] = 'FCOMPLEX'
+    par['image_geometry'] = 'SLANT_RANGE'
+    par['range_scale_factor'] = 'SLANT_RANGE'
+    par['azimuth_scale_factor'] = 'SLANT_RANGE'
+    par['center_latitude'] = [0, 'degrees']
+    par['center_longitude'] = [0, 'degrees']
+    par['heading'] = [0, 'degrees']
+    par['range_pixel_spacing'] = [0, 'm']
+    par['azimuth_pixel_spacing'] = [0, 'm']
+    par['near_range_slc'] = [0, 'm']
+    par['center_range_slc'] = [0, 'm']
+    par['far_range_slc'] = [0, 'm']
+    par['first_slant_range_polynomial'] = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    par['center_slant_range_polynomial'] = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    par['last_slant_range_polynomial'] = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    par['incidence_angle'] = [0.0, 'degrees']
+    par['azimuth_deskew'] = 'OFF'
+    par['azimuth_angle'] = [0.0, 'degrees']
+    par['radar_frequency'] = [0.0, 'Hz']
+    par['adc_sampling_rate'] = [0.0, 'Hz']
+    par['chirp_bandwidth'] = [0.0, 'Hz']
+    par['prf'] = [0.0, 'Hz']
+    par['azimuth_proc_bandwidth'] = [0.0, 'Hz']
+    par['doppler_polynomial'] = [0.0, 0.0, 0.0, 0.0]
+    par['doppler_polynomial_dot'] = [0.0, 0.0, 0.0, 0.0]
+    par['doppler_polynomial_ddot'] = [0.0, 0.0, 0.0, 0.0]
+    par['receiver_gain'] = [0.0, 'dB']
+    par['calibration_gain'] = [0.0, 'dB']
+    par['sar_to_earth_center'] = [0.0, 'm']
+    par['earth_radius_below_sensor'] = [0.0, 'm']
+    par['earth_semi_major_axis'] = [ra, 'm']
+    par['earth_semi_major_axis'] = [rb, 'm']
+    par['number_of_state_vectors'] = 0
+    par['GPRI_TX_mode']= ''
+    par['GPRI_TX_antenna'] = ''
+    par['GPRI_az_start_angle'] = [0, 'degrees']
+    par['GPRI_az_angle_step'] = [0, 'degrees']
+    par['GPRI_ant_elev_angle'] = [0, 'degrees']
+    par['GPRI_ref_north'] = 0
+    par['GPRI_ref_alt'] = [0, 'm']
+    par['GPRI_geoid'] = [0, 'm']
+    par['GPRI_scan_heading'] = [0, 'degrees']
+    return par
 
+class rawParameters:
+    """
+    This class computes several raw parameters from
+    a raw_par file
+    """
+    def __init__(self, raw_dict, raw):
+        self.grp = _nt('GenericDict', raw_dict.keys())(**raw_dict)
+        self.nsamp = self.grp.CHP_num_samp
+        self.block_length = self.nsamp + 1
+        self.chirp_duration = self.block_length/self.grp.ADC_sample_rate
+        self.pn1 = _np.arange(self.nsamp/2 + 1) 		#list of slant range pixel numbers
+        self.rps = (self.grp.ADC_sample_rate/self.nsamp*C/2.)/self.grp.RF_chirp_rate #range pixel spacing
+        self.slr = (self.pn1 * self.grp.ADC_sample_rate/self.nsamp*C/2.)/self.grp.RF_chirp_rate  + RANGE_OFFSET  #slant range for each sample
+        self.scale = (abs(self.slr)/self.slr[self.nsamp/8])**1.5     #cubic range weighting in power
+        self.ns_max = int(round(0.90 * self.nsamp/2))	#default maximum number of range samples for this chirp
 
+        self.tcycle = (self.block_length)/self.grp.ADC_sample_rate    #time/cycle
+        self.dt = type_mapping['SHORT INTEGER']
+        self.sizeof_data = _np.dtype(_np.int16).itemsize
+        self.bytes_per_record = self.sizeof_data * self.block_length  #number of bytes per echo
+        #Get file size
+        self.filesize = _osp.getsize(raw)
+        #Number of lines
+        self.nl_tot = int(self.filesize/self.bytes_per_record)
+        #Stuff for angle
+        if self.grp.STP_antenna_end != self.grp.STP_antenna_start:
+            self.ang_acc = self.grp.TSC_acc_ramp_angle
+            rate_max = self.grp.TSC_rotation_speed
+            self.t_acc = self.grp.TSC_acc_ramp_time
+            self.ang_per_tcycle = self.tcycle * self.grp.TSC_rotation_speed	#angular sweep/transmit cycle
+        else:
+            self.t_acc = 0.0
+            self.ang_acc = 0.0
+            rate_max = 0.0
+            self.ang_per_tcycle = 0.0
+        if self.grp.ADC_capture_time == 0.0:
+            angc = abs(self.grp.antenna_end - self.grp.antenna_start) - 2 * self.ang_acc	#angular sweep of constant velocity
+            tc = abs(angc/rate_max)			#duration of constant motion
+            self.grp.capture_time = 2 * t_acc + tc 	#total time for scanner to complete scan
+       #Frequenct vector
+        self.freq_vec = self.grp.RF_freq_min + _np.arange(self.grp.CHP_num_samp, dtype=float) * self.grp.RF_chirp_rate/self.grp.ADC_sample_rate
+
+    def compute_slc_parameters(self, args):
+        self.rmax = self.ns_max * self.rps;		#default maximum slant range
+        self.win =  _sig.kaiser(self.nsamp, args.kbeta)
+        self.zero = args.zero
+        self.win2 = _sig.hanning(2*self.zero)		#window to remove transient at start of echo due to sawtooth frequency sweep
+        self.ns_min = int(round(args.r/self.rps))	#round to the nearest range sample
+        self.ns_out = (self.ns_max - self.ns_min) + 1
+        self.rmin = self.ns_min * self.rps
+        self.dec = args.d
+        self.nl_acc = int(self.t_acc/(self.tcycle*self.dec))
+        self.nl_tot = int(self.grp.ADC_capture_time/(self.tcycle))
+        self.nl_tot_dec = self.nl_tot / self.dec
+        self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
+        self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
 
 class rawData(_np.ndarray):
 
