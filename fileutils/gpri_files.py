@@ -20,6 +20,7 @@ import numpy as _np
 from numpy.lib.stride_tricks import as_strided as _ast
 import scipy as _sp
 from collections import namedtuple as _nt
+from collections import OrderedDict as _od
 
 
 #Constants
@@ -217,16 +218,19 @@ def par_to_dict(par_file):
         #fin.readline()
         for line in fin:
             if line:
-                split_array = line.split(':')
+                split_array = line.replace('\n','').split(':', 1)
                 if len(split_array) > 1:
                     key = split_array[0]
-                    l = []
-                    param = split_array[1].split()
-                    for p in param:
-                        try:
-                            l.append(float(p))
-                        except ValueError:
-                            l.append(p)
+                    if key == 'time_start':#The utc time string should not be split
+                        l = split_array[1:]
+                    else:
+                        l = []
+                        param = split_array[1].split()
+                        for p in param:
+                            try:
+                                l.append(float(p))
+                            except ValueError:
+                                l.append(p)
                 try:
                     if len(l) > 1:
                         par_dict[key] = l
@@ -255,9 +259,8 @@ def dict_to_par(par_dict, par_file):
                 out = out + par
             else:
                 try:
-
                     for p in par:
-                        out = out + '\t' + str(p)
+                        out = out + ' ' + str(p)
                 except TypeError:
                     out = out + str(par)
             fout.write(out + '\n')
@@ -435,7 +438,7 @@ def default_slc_dict():
     gpri, that the user can then fill according to needs
     :return:
     """
-    par = {}
+    par = _od()
     par['title'] = ''
     par['sensor'] = 'GPRI 2'
     par['date'] = [0, 0 ,0]
@@ -450,8 +453,8 @@ def default_slc_dict():
     par['azimuth_looks'] = 1
     par['image_format'] = 'FCOMPLEX'
     par['image_geometry'] = 'SLANT_RANGE'
-    par['range_scale_factor'] = 'SLANT_RANGE'
-    par['azimuth_scale_factor'] = 'SLANT_RANGE'
+    par['range_scale_factor'] = 0
+    par['azimuth_scale_factor'] = 0
     par['center_latitude'] = [0, 'degrees']
     par['center_longitude'] = [0, 'degrees']
     par['heading'] = [0, 'degrees']
@@ -472,8 +475,8 @@ def default_slc_dict():
     par['prf'] = [0.0, 'Hz']
     par['azimuth_proc_bandwidth'] = [0.0, 'Hz']
     par['doppler_polynomial'] = [0.0, 0.0, 0.0, 0.0]
-    par['doppler_polynomial_dot'] = [0.0, 0.0, 0.0, 0.0]
-    par['doppler_polynomial_ddot'] = [0.0, 0.0, 0.0, 0.0]
+    par['doppler_poly_dot'] = [0.0, 0.0, 0.0, 0.0]
+    par['doppler_poly_ddot'] = [0.0, 0.0, 0.0, 0.0]
     par['receiver_gain'] = [0.0, 'dB']
     par['calibration_gain'] = [0.0, 'dB']
     par['sar_to_earth_center'] = [0.0, 'm']
@@ -483,10 +486,12 @@ def default_slc_dict():
     par['number_of_state_vectors'] = 0
     par['GPRI_TX_mode']= ''
     par['GPRI_TX_antenna'] = ''
+    par['GPRI_RX_antenna'] = ''
     par['GPRI_az_start_angle'] = [0, 'degrees']
     par['GPRI_az_angle_step'] = [0, 'degrees']
     par['GPRI_ant_elev_angle'] = [0, 'degrees']
     par['GPRI_ref_north'] = 0
+    par['GPRI_ref_east'] = 0
     par['GPRI_ref_alt'] = [0, 'm']
     par['GPRI_geoid'] = [0, 'm']
     par['GPRI_scan_heading'] = [0, 'degrees']
@@ -507,7 +512,6 @@ class rawParameters:
         self.slr = (self.pn1 * self.grp.ADC_sample_rate/self.nsamp*C/2.)/self.grp.RF_chirp_rate  + RANGE_OFFSET  #slant range for each sample
         self.scale = (abs(self.slr)/self.slr[self.nsamp/8])**1.5     #cubic range weighting in power
         self.ns_max = int(round(0.90 * self.nsamp/2))	#default maximum number of range samples for this chirp
-
         self.tcycle = (self.block_length)/self.grp.ADC_sample_rate    #time/cycle
         self.dt = type_mapping['SHORT INTEGER']
         self.sizeof_data = _np.dtype(_np.int16).itemsize
@@ -530,7 +534,7 @@ class rawParameters:
         if self.grp.ADC_capture_time == 0.0:
             angc = abs(self.grp.antenna_end - self.grp.antenna_start) - 2 * self.ang_acc	#angular sweep of constant velocity
             tc = abs(angc/rate_max)			#duration of constant motion
-            self.grp.capture_time = 2 * t_acc + tc 	#total time for scanner to complete scan
+            self.grp.capture_time = 2 * self.t_acc + tc 	#total time for scanner to complete scan
        #Frequenct vector
         self.freq_vec = self.grp.RF_freq_min + _np.arange(self.grp.CHP_num_samp, dtype=float) * self.grp.RF_chirp_rate/self.grp.ADC_sample_rate
 
@@ -539,7 +543,7 @@ class rawParameters:
         self.win =  _sig.kaiser(self.nsamp, args.kbeta)
         self.zero = args.zero
         self.win2 = _sig.hanning(2*self.zero)		#window to remove transient at start of echo due to sawtooth frequency sweep
-        self.ns_min = int(round(args.r/self.rps))	#round to the nearest range sample
+        self.ns_min = int(round(args.rmin/self.rps))	#round to the nearest range sample
         self.ns_out = (self.ns_max - self.ns_min) + 1
         self.rmin = self.ns_min * self.rps
         self.dec = args.d
@@ -548,6 +552,20 @@ class rawParameters:
         self.nl_tot_dec = self.nl_tot / self.dec
         self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
         self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
+        if(args.rmax != 0.0):	#check if greater than maximum value for the selected chirp
+          if (int(round(args.rmax/self.rps)) <= self.ns_max):
+            self.ns_max = int(round(args.rmax/self.rps))
+            self.rmax = self.ns_max * self.rps;
+          else:
+            print 'ERROR: requested maximum slant range exceeds maximum possible value with this chirp: %.3f'%(self.rmax,)
+            raise SystemExit, 1
+
+        self.ns_out = (self.ns_max - self.ns_min) + 1	#number of output samples
+        #Compute antenna positions
+        if self.grp.STP_antenna_end > self.grp.STP_antenna_start: #clockwise rotation looking down the rotation axis
+            self.az_start = self.grp.STP_antenna_start + self.ang_acc	#offset to start of constant motion + center-freq squint
+        else:				#counter-clockwise
+            self.az_start = self.grp.STP_antenna_start - self.ang_acc
 
 class rawData(_np.ndarray):
 
