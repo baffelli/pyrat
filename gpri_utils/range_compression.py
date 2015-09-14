@@ -33,15 +33,19 @@ class gpriRangeProcessor:
         #For each azimuth
         for idx_az in range(self.raw_par.nl_tot_dec):
             #Decimated pulse
-            dec_pulse = _np.zeros(self.raw_par.block_length, dtype=_np.int16)
+            dec_pulse = _np.zeros(self.raw_par.block_length, dtype=_np.float32)
             for idx_dec in range(self.raw_par.dec):
                 current_idx = idx_az * self.raw_par.dec + idx_dec
-                current_idx_1 = idx_az + idx_dec *  self.raw_par.dec
-                print('The indices are %i,%i'%(current_idx, current_idx_1))
+                current_idx_1 = idx_az + idx_dec * self.raw_par.dec
+                if self.raw_par.dt is _np.dtype(_np.int16):
+                    current_data = self.rawdata[:, current_idx ] / 32768
+                else:
+                     current_data = self.rawdata[:, current_idx ]
+                print('The indices are %i,%i'%(current_idx, idx_az))
                 if current_idx % 1000 == 0:
                     print('Accessing azimuth index: ' + str(current_idx))
                 try:
-                    dec_pulse = dec_pulse + self.rawdata[:, current_idx ]
+                    dec_pulse = dec_pulse + current_data
                 except IndexError as err:
                     print(err.message)
                     break
@@ -50,7 +54,8 @@ class gpriRangeProcessor:
                 dec_pulse[-self.raw_par.zero:] = dec_pulse[-self.raw_par.zero:] * self.raw_par.win2[-self.raw_par.zero:]
             #Emilinate the first sample, as it is used to jump back to the start freq
             line_comp = _np.fft.rfft(dec_pulse[1::]/self.raw_par.dec * self.raw_par.win) * fshift
-            arr_compr[:, idx_az] = (line_comp[self.raw_par.ns_min:self.raw_par.ns_max + 1].conj() * self.raw_par.scale[self.raw_par.ns_min:self.raw_par.ns_max + 1]).astype('complex64')
+            arr_compr[:, idx_az] = (line_comp[self.raw_par.ns_min:self.raw_par.ns_max + 1].conj() * \
+                                    self.raw_par.scale[self.raw_par.ns_min:self.raw_par.ns_max + 1]).astype('complex64')
         #Remove lines used for rotational acceleration
         arr_compr = arr_compr[:, self.raw_par.nl_acc:-self.raw_par.nl_acc:]
         print(arr_compr.shape)

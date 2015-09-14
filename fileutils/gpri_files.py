@@ -558,7 +558,6 @@ class rawParameters:
             self.rmax = self.ns_max * self.rps;
           else:
             print 'ERROR: requested maximum slant range exceeds maximum possible value with this chirp: %.3f'%(self.rmax,)
-            raise SystemExit, 1
 
         self.ns_out = (self.ns_max - self.ns_min) + 1	#number of output samples
         #Compute antenna positions
