@@ -20,8 +20,8 @@ class gpriAzimuthProcessor:
 
     def __init__(self, args):
         #Load slc
-        self.slc = _gpf.gammaDataset(args.slc_par, args.slc)
-
+        self.slc = _gpf.gammaDataset(args.slc_par, args.slc).astype(_np.complex64)
+        self.args = args
 
 
 
@@ -29,14 +29,14 @@ class gpriAzimuthProcessor:
         #Filtered slc
         slc_filt = self.slc * 1
         #Construct range vector
-        r_vec = self.slc.near_range_SLC[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
+        r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
         #process each range line
-        theta = _np.arange(10) * _np.deg2rad(self.slc.GPRI_az_angle_step)
+        theta = _np.arange(-10,10) * _np.deg2rad(self.slc.GPRI_az_angle_step[0])
         for idx_r in range(self.slc.shape[0]):
             filt, dist = _cal.rep_2(self.args.r_ant, self.args.r_ph, r_vec[idx_r], theta, wrap=False)
-            slc_filt[idx_r, :] = _sig.fftconvolve(self.slc[idx_r, :], filt, mode='full')
+            slc_filt[idx_r, :] = _sig.fftconvolve(self.slc[idx_r, :], _np.exp(1j*filt), mode='same')
             if idx_r % 1000 == 0:
-                    print('Processing azimuth index: ' + str(idx_r))
+                    print('Processing range index: ' + str(idx_r))
         return slc_filt
 
 
@@ -64,8 +64,7 @@ def main():
     proc = gpriAzimuthProcessor(args)
     slc_corr = proc.correct()
     with open(args.slc_out, 'wb') as of:
-        slc.T.astype(_gpf.type_mapping['FCOMPLEX']).tofile(of)
-    _gpf.dict_to_par(slc_dict, args.slc_par_out)
+        slc_corr.T.astype(_gpf.type_mapping['FCOMPLEX']).tofile(of)
 
 if __name__ == "__main__":
     try:

@@ -54,8 +54,12 @@ class gpriRangeProcessor:
                 dec_pulse[-self.raw_par.zero:] = dec_pulse[-self.raw_par.zero:] * self.raw_par.win2[-self.raw_par.zero:]
             #Emilinate the first sample, as it is used to jump back to the start freq
             line_comp = _np.fft.rfft(dec_pulse[1::]/self.raw_par.dec * self.raw_par.win) * fshift
-            arr_compr[:, idx_az] = (line_comp[self.raw_par.ns_min:self.raw_par.ns_max + 1].conj() * \
-                                    self.raw_par.scale[self.raw_par.ns_min:self.raw_par.ns_max + 1]).astype('complex64')
+            #Decide if applying the range scale factor or not
+            if self.args.apply_scale:
+                scale_factor = self.raw_par.scale[self.raw_par.ns_min:self.raw_par.ns_max + 1]
+            else:
+                scale_factor = 1
+            arr_compr[:, idx_az] = (line_comp[self.raw_par.ns_min:self.raw_par.ns_max + 1].conj() * scale_factor).astype('complex64')
         #Remove lines used for rotational acceleration
         arr_compr = arr_compr[:, self.raw_par.nl_acc:-self.raw_par.nl_acc:]
         print(arr_compr.shape)
@@ -74,7 +78,7 @@ class gpriRangeProcessor:
         seq = self.raw_par.grp.TX_RX_SEQ
         slc_dict['title'] = ts
         slc_dict['range_samples'] = self.raw_par.ns_out
-        slc_dict['azimuth_samples'] = self.raw_par.nl_tot_dec
+        slc_dict['azimuth_lines'] = self.raw_par.nl_tot_dec - 2 * self.raw_par.nl_acc
         slc_dict['range_pixel_spacing'] = [self.raw_par.rps, 'm']
         slc_dict['azimuth_line_time'] = [self.raw_par.tcycle * self.raw_par.dec, 's']
         slc_dict['near_range_slc'] = [self.raw_par.rmin, 'm']
@@ -117,8 +121,10 @@ def main():
                 type=int, default=300)
     parser.add_argument("-k", type=float, default=3.00, dest='kbeta',
                       help="Kaiser Window beta parameter")
+    parser.add_argument("-s","--apply_scale", type=bool, default=True, dest='apply_scale')
     parser.add_argument('-r', help='Near range for the slc',dest='rmin', type=float, default=0)
     parser.add_argument('-R', help='Far range for the slc', dest='rmax',type=float, default=1000)
+
     #Read arguments
     try:
         args = parser.parse_args()
