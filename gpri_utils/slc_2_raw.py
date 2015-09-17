@@ -34,7 +34,7 @@ class gpriBackwardsProcessor:
         arr_transf = _np.zeros((self.slc.shape[0] * 2 + 1, self.slc.azimuth_lines))
         #First convert back
         for idx_az in range(self.slc.shape[1]):
-            arr_raw[self.ns_min:self.ns_max, idx_az] = _np.fft.irfft(self.slc[:, idx_az])
+            arr_raw[self.ns_min:self.ns_max, idx_az] = _np.fft.irfft(self.slc[:, idx_az] * 32768)
         return arr_raw
 
 

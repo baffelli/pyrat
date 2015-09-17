@@ -23,7 +23,7 @@ class gpriRangeProcessor:
         self.raw_par = _gpf.rawParameters(raw_dict, args.raw)
         self.raw_par.compute_slc_parameters(args)
         self.rawdata = _np.fromfile(args.raw, dtype=self.raw_par.dt).reshape([self.raw_par.block_length, self.raw_par.nl_tot][::-1]).T
-
+        self.apply_scale = args.apply_scale
 
     def compress(self):
         arr_compr = _np.zeros((self.raw_par.ns_max - self.raw_par.ns_min + 1, self.raw_par.nl_tot_dec) ,dtype=_np.complex64)
@@ -55,7 +55,7 @@ class gpriRangeProcessor:
             #Emilinate the first sample, as it is used to jump back to the start freq
             line_comp = _np.fft.rfft(dec_pulse[1::]/self.raw_par.dec * self.raw_par.win) * fshift
             #Decide if applying the range scale factor or not
-            if self.args.apply_scale:
+            if self.apply_scale:
                 scale_factor = self.raw_par.scale[self.raw_par.ns_min:self.raw_par.ns_max + 1]
             else:
                 scale_factor = 1
@@ -66,17 +66,24 @@ class gpriRangeProcessor:
         return arr_compr
 
     def fill_dict(self):
+        image_time = (self.raw_par.nl_image - 1) * (self.raw_par.tcycle * self.raw_par.dec)
         slc_dict = _gpf.default_slc_dict()
         ts = self.raw_par.grp.time_start
         ymd = (ts.split()[0]).split('-')
         hms_tz = (ts.split()[1]).split('+')    #split into HMS and time zone information
         hms = (hms_tz[0]).split(':')        #split HMS string using :
         sod = int(hms[0])*3600 + int(hms[1])*60 + float(hms[2])    #raw data starting time, seconds of day
-        # st0 = sod + self.nl_acc * self.tcycle * self.dec + (self.dec/2.0)*self.tcycle    #include time to center of decimation window
+        st0 = sod + self.raw_par.nl_acc * self.raw_par.tcycle * self.raw_par.dec + \
+              (self.raw_par.dec/2.0)*self.raw_par.tcycle    #include time to center of decimation window
         az_step = self.raw_par.ang_per_tcycle * self.raw_par.dec
         prf = abs(1.0/(self.raw_par.tcycle*self.raw_par.dec))
         seq = self.raw_par.grp.TX_RX_SEQ
+        fadc =  C/(2.*self.raw_par.rps)
         slc_dict['title'] = ts
+        slc_dict['date'] = [ymd[0], ymd[1], ymd[2]]
+        slc_dict['start_time'] = [st0, 's']
+        slc_dict['center_time'] = [st0 + image_time / 2 , 's']
+        slc_dict['end_time'] = [st0 + image_time , 's']
         slc_dict['range_samples'] = self.raw_par.ns_out
         slc_dict['azimuth_lines'] = self.raw_par.nl_tot_dec - 2 * self.raw_par.nl_acc
         slc_dict['range_pixel_spacing'] = [self.raw_par.rps, 'm']
@@ -85,7 +92,7 @@ class gpriRangeProcessor:
         slc_dict['center_range_slc'] = [(self.raw_par.rmin + self.raw_par.rmax)/2, 'm']
         slc_dict['far_range_slc'] = [self.raw_par.rmax, 'm']
         slc_dict['radar_frequency'] = [self.raw_par.grp.RF_center_freq, 'Hz']
-        slc_dict['adc_sampling_rate'] = [self.raw_par.grp.ADC_sample_rate, 'Hz']
+        slc_dict['adc_sampling_rate'] = [fadc, 'Hz']
         slc_dict['prf'] = [prf, 'Hz']
         slc_dict['chirp_bandwidth'] = self.raw_par.grp.RF_freq_max - self.raw_par.grp.RF_freq_min
         slc_dict['receiver_gain'] = [60 - self.raw_par.grp.IMA_atten_dB, 'dB']

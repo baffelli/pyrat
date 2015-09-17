@@ -448,7 +448,7 @@ def default_slc_dict():
     par['azimuth_line_time'] = 0
     par['line_header_size'] = 0
     par['range_samples'] = 0
-    par['azimuth_samples'] = 0
+    par['azimuth_lines'] = 0
     par['range_looks'] = 1
     par['azimuth_looks'] = 1
     par['image_format'] = 'FCOMPLEX'
@@ -482,7 +482,7 @@ def default_slc_dict():
     par['sar_to_earth_center'] = [0.0, 'm']
     par['earth_radius_below_sensor'] = [0.0, 'm']
     par['earth_semi_major_axis'] = [ra, 'm']
-    par['earth_semi_major_axis'] = [rb, 'm']
+    par['earth_semi_minor_axis'] = [rb, 'm']
     par['number_of_state_vectors'] = 0
     par['GPRI_TX_mode']= ''
     par['GPRI_TX_antenna'] = ''
