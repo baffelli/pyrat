@@ -49,6 +49,8 @@ def main():
                 help="Slc parameters")
     parser.add_argument('slc_out', type=str,
                 help="Output slc")
+    parser.add_argument('slc_par_out', type=str,
+                help="Output slc parameters")
     parser.add_argument('--r_ant', type=float, default=0.25,
                 help="Antenna rotation arm length")
     parser.add_argument('--r_ph',
@@ -68,7 +70,7 @@ def main():
     slc_corr = proc.correct()
     with open(args.slc_out, 'wb') as of:
         slc_corr.T.astype(_gpf.type_mapping['FCOMPLEX']).tofile(of)
-
+    _gpf.dict_to_par(proc.slc.__dict__, args.slc_par_out)
 if __name__ == "__main__":
     try:
         main()

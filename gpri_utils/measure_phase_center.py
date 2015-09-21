@@ -50,12 +50,12 @@ class gpriEstimator:
         res = _opt.minimize(cost_VV, [0,0])
         print(res.x[0])
         sim_ph, dist = _cal.rep_2(self.r_arm, res.x[0],  r_vec[self.ridx], az_vec, wrap=False)
-        plt.subplot(211)
-        plt.plot(az_vec,refl_amp)
-        plt.subplot(212)
-        plt.plot(az_vec,refl_ph)
-        plt.plot(az_vec,sim_ph - res.x[1])
-        plt.show()
+        # plt.subplot(211)
+        # plt.plot(az_vec,refl_amp)
+        # plt.subplot(212)
+        # plt.plot(az_vec,refl_ph)
+        # plt.plot(az_vec,sim_ph - res.x[1])
+        # plt.show()
 
 
 
@@ -73,7 +73,7 @@ def main():
     parser.add_argument('r_ant', type=float,
                 help="Antenna rotation arm length")
     parser.add_argument('-w', '--win_size', dest='ws', type=float, default=20,
-                help="Antenna rotation arm length")
+                help="Estimation window size")
     #Read arguments
     try:
         args = parser.parse_args()

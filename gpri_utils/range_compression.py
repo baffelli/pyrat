@@ -41,7 +41,6 @@ class gpriRangeProcessor:
                     current_data = self.rawdata[:, current_idx ] / 32768
                 else:
                      current_data = self.rawdata[:, current_idx ]
-                print('The indices are %i,%i'%(current_idx, idx_az))
                 if current_idx % 1000 == 0:
                     print('Accessing azimuth index: ' + str(current_idx))
                 try:
