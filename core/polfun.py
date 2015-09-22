@@ -70,7 +70,14 @@ def coherence(im1,im2,win, fun = None):
     array_like
         Coherency image
     """
-    return corefun.smooth(im1 * im2.conj(),win)/_np.sqrt(corefun.smooth(im1 * im1.conj(),win)*corefun.smooth(im2 * im2.conj(),win))
+    pw1 = corefun.smooth(_np.abs(im1)**2,win)
+    pw2 = corefun.smooth(_np.abs(im2)**2,win)
+    pw1[_np.isnan(pw1)] = 0
+    pw2[_np.isnan(pw2)] = 0
+    c = corefun.smooth(im1 * im2.conj(),win)/_np.sqrt( pw1 * pw2)
+    c[_np.isnan(c)] = 0
+    return c
+
 
 
 

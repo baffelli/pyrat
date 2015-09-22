@@ -68,7 +68,7 @@ def smooth(T, window, fun = _nd.filters.uniform_filter ):
     T1_out_real = fun(T1.real,window)
     T1_out_imag = fun(T1.imag,window)
     T1_out = T1_out_real  + 1j * T1_out_imag
-    T1_out[_np.isnan(T)] = _np.nan
+    T1_out[_np.isnan(T)] = 0
     return T.__array_wrap__(T1_out)
     
 
