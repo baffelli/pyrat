@@ -1216,11 +1216,40 @@ def scale_coherence(c):
     #    c_sc = _np.select(((_np.sin(c * _np.pi / 2)), 0.3), (c > 0.2, c<0.2))
     return _np.sin(c * _np.pi / 2)
 
+def dismph(data, min_val=-_np.pi,
+             max_val=_np.pi, k = 1):
+    #palette to scale phase
+    colors = (
+    (0,1,1),
+    (1,0,1),
+    (1,1,0),
+    (0,1,1)
+    )
+    pal = _mpl.colors.LinearSegmentedColormap.\
+        from_list('subs_colors', colors, N=255)
+    norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
+    #Extract amplitude and phase
+    ang = scale_array(_np.angle(data))
+    ampl = scale_array(_np.abs(data)**k)
+    #Convert angle to colors
+    rgb = pal(ang)
+    #Extract the hsv parameters
+    hsv = _mpl.colors.rgb_to_hsv(rgb)
+    #Add
+    hsv[:,:,2] = ampl
+    #Convert back to rgb
+    rgb = _mpl.colors.hsv_to_rgb(hsv)
+    return rgb[:,:,0:3], pal, norm
+
 
 def disp_mph(data, dt='amplitude', k=0.5, min_val=-_np.pi,
-             max_val=_np.pi, return_pal=False):
+             max_val=_np.pi, return_pal=False, return_im=True):
+
+
+
     H = scale_array(_np.angle(data), min_val=min_val, max_val=max_val)
-    S = _np.zeros_like(H) + 0.75
+    sat = 0.75
+    S = _np.zeros_like(H) + sat
     if dt == 'coherence':
         V = scale_coherence((_np.abs(data)))
     elif dt == 'amplitude':
@@ -1228,9 +1257,16 @@ def disp_mph(data, dt='amplitude', k=0.5, min_val=-_np.pi,
     elif dt == 'none':
         V = scale_array(_np.abs(data))
     RGB = _mpl.colors.hsv_to_rgb(_np.dstack((H, S, V)))
+    if return_im:
+        H_pal = scale_array(_np.linspace(min_val, max_val, 255))
+        V_pal = _np.linspace(0, 1, 255)
+        HH, VV = _np.meshgrid(H_pal, V_pal)
+        SS = _np.zeros_like(VV) + sat
+        im = _mpl.colors.hsv_to_rgb(_np.dstack((HH, SS, VV)))
+        return RGB, im
     if return_pal:
         H_pal = scale_array(_np.linspace(min_val, max_val, 255))
-        S_pal = H_pal * 0 + 0.8
+        S_pal = H_pal * 0 + sat
         V_pal = H_pal * 0 + 1
         pal = _mpl.colors.hsv_to_rgb(_np.dstack((H_pal, S_pal, V_pal))).squeeze()
         cmap = _mpl.colors.LinearSegmentedColormap.from_list('my_colormap', pal, 256)

@@ -74,7 +74,7 @@ def coherence(im1,im2,win, fun = None):
     pw2 = corefun.smooth(_np.abs(im2)**2,win)
     pw1[_np.isnan(pw1)] = 0
     pw2[_np.isnan(pw2)] = 0
-    c = corefun.smooth(im1 * im2.conj(),win)/_np.sqrt( pw1 * pw2)
+    c = corefun.smooth(im1 * im2.conj(),win)/_np.sqrt(pw1 * pw2)
     c[_np.isnan(c)] = 0
     return c
 
