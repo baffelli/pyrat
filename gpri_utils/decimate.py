@@ -28,7 +28,8 @@ class gpriDecimator:
             dec_pulse = _np.zeros(self.slc.shape[0] * 2 - 2, dtype=_np.float32)
             for idx_dec in range(self.dec):
                 current_idx = idx_az * self.dec + idx_dec
-                print('decimating line: ' + str(current_idx))
+                if current_idx % 1000 ==0 :
+                    print('decimating line: ' + str(current_idx))
                 dec_pulse += _np.fft.irfft(self.slc[:, current_idx])
             arr_dec[:, idx_az] = _np.fft.rfft(dec_pulse)
         return arr_dec

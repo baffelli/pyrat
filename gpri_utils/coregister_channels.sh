@@ -13,24 +13,24 @@ slave_mli=$slavename'.mli'
 #Offset parameters
 rpos=812
 azpos=7970
-thresh=0.25
-offrlks=1
-offazlks=1
+thresh=7
 #Mli parameter
 azlk=1
 rlk=1
 scl=1.2
-#Interferogram parameters
-intazlks=1
-intrlks=1
 #Multilook
-parname=${mastername}_${slavename}'.off_par'
-multi_look ${slave} ${slave_par} ${slave_mli} ${slave_mli}'.par' $rlk $azlk - - - $scl
-multi_look ${master} ${master_par} ${master_mli} ${master_mli}'.par' $rlk $azlk - - - $scl
-create_diff_par  ${master_mli}'.par' ${slave_mli}'.par' $rlks $azlks  $parname 1 0
+diffparname=${mastername}_${slavename}'.diff_par'
+multi_look ${slave} ${slave_par} ${slave_mli} ${slave_mli}'.par' $rlk $azlk - $nlines - $scl
+multi_look ${master} ${master_par} ${master_mli} ${master_mli}'.par' $rlk $azlk - $nlines - $scl
+create_diff_par ${master_mli}'.par' ${slave_mli}'.par' $diffparname 1 0
 #Compute initial offset
-patch=256
-init_offsetm ${master_mli} ${slave_mli} $parname $offrlks $offazlks $rpos $azpos - - $thresh $patch 1
-offset_pwrm ${master_mli} ${slave_mli} $parname offs snr - - - - - - $thresh -
-offset_fitm offs snr $parname
-interp_cpx $slave $parname $resampled
+patch=128
+init_offsetm ${master_mli} ${slave_mli} $diffparname - - $rpos $azpos - - $thresh $patch 1
+rwin=32
+azwin=32
+nr=20
+naz=50
+offset_pwrm ${master_mli} ${slave_mli} $diffparname offs snr $rwin $azwin offsets - $nr $naz $thresh - 1 -
+#Use offset tracking
+offset_fitm offs snr $diffparname - - - 1
+interp_cpx $slave $diffparname $resampled

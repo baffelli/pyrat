@@ -29,13 +29,13 @@ do
 	#Extract the channels
 	chan_name=${chanpath}"/"${dsname}"_"$chan
 	echo ${chan_name}
-	extract_channel.py $rawpath $rawpath'_par' ${chan_name}".raw" ${chan_name}".raw_par" $chan
+	#~ extract_channel.py $rawpath $rawpath'_par' ${chan_name}".raw" ${chan_name}".raw_par" $chan
 	#Correct the squint
 	corr_name=${corrpath}"/"${dsname}"_"$chan
-	correct_squint.py ${chan_name}".raw" ${chan_name}".raw_par" ${corr_name}".raw" ${corr_name}".raw_par"
+	#~ correct_squint.py ${chan_name}".raw" ${chan_name}".raw_par" ${corr_name}".raw" ${corr_name}".raw_par"
 	#Compress
 	slc_name=${slcpath}"/"${dsname}"_"$chan
-	range_compression.py ${corr_name}".raw" ${corr_name}".raw_par"  ${slc_name}".slc" ${slc_name}".slc.par"  -z 500 -d 1 -k 14 -r 50 -R 3000
+	#~ range_compression.py ${corr_name}".raw" ${corr_name}".raw_par"  ${slc_name}".slc" ${slc_name}".slc.par"  -z 500 -d 1 -k 14 -r 50 -R 3000
 	#Get distortion parameters
 	r_ph=$(measure_phase_center.py ${slc_name}'.slc' ${slc_name}'.slc.par' $ridx $azidx 0.25 -w 100)
 	#Correct
