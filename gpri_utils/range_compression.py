@@ -60,7 +60,7 @@ class gpriRangeProcessor:
                 scale_factor = 1
             arr_compr[:, idx_az] = (line_comp[self.raw_par.ns_min:self.raw_par.ns_max + 1].conj() * scale_factor).astype('complex64')
         #Remove lines used for rotational acceleration
-        arr_compr = arr_compr[:, self.raw_par.nl_acc:-self.raw_par.nl_acc:]
+        arr_compr = arr_compr[:, self.raw_par.nl_acc:self.raw_par.nl_image + self.raw_par.nl_acc:]
         print(arr_compr.shape)
         return arr_compr
 

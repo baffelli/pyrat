@@ -52,6 +52,7 @@ def main():
     raw_dict['ADC_capture_time'] = float(raw_dict['ADC_capture_time'] / npats)
     raw_dict['TSC_rotation_speed'] = raw_dict['TSC_rotation_speed'] * npats
     raw_dict['STP_rotation_speed'] = raw_dict['STP_rotation_speed'] * npats
+    raw_dict['TSC_acc_ramp_time'] = raw_dict['TSC_acc_ramp_time'] / npats
     raw_dict['TX_mode'] = None
     raw_dict['TX_RX_SEQ'] = args.pat
     _gpf.dict_to_par(raw_dict, args.raw_par_out)
