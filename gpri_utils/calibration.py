@@ -361,7 +361,7 @@ def rep_2(r_ant, r_ph, r_t, theta, wrap = True):
     This function computes the phase caused by a shifted 
     phase center in the antenna
     """
-    lam = (3e8) /17.1e9
+    lam = (3e8) /17.2e9
     ant_angle = _np.arctan2(r_ph, r_ant)
     r_arm = _np.sqrt(r_ant**2 + r_ph**2)
     #Chord length
@@ -369,6 +369,6 @@ def rep_2(r_ant, r_ph, r_t, theta, wrap = True):
     mixed_term = 2 * c * r_t * _np.cos(_np.pi/2 - ant_angle - theta/2)
     dist = _np.sqrt(c**2 + r_t**2 - mixed_term)
     if wrap is True :
-        return _np.mod(4 * _np.pi * dist/lam, 2 * _np.pi), dist
+        return _np.mod(-4 * _np.pi * dist/lam, 2 * _np.pi), dist
     else:
-        return (4 * _np.pi * dist/lam), dist
+        return (-4 * _np.pi * dist/lam), dist

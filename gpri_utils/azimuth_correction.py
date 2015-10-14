@@ -27,16 +27,22 @@ class gpriAzimuthProcessor:
 
     def correct(self):
         #Filtered slc
+        seq = -1
         slc_filt = self.slc * 1
         #Construct range vector
         r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
         #process each range line
         theta = _np.arange(-self.args.ws/2, self.args.ws/2) * _np.deg2rad(self.slc.GPRI_az_angle_step[0])
+        theta_1 = _np.arange(-self.slc.shape[1]/2, self.slc.shape[1]/2) * _np.deg2rad(self.slc.GPRI_az_angle_step[0])
         for idx_r in range(self.slc.shape[0]):
             filt, dist = _cal.rep_2(self.args.r_ant, self.args.r_ph, r_vec[idx_r], theta, wrap=False)
-            slc_filt[idx_r, :] = _sig.fftconvolve(self.slc[idx_r, :], _np.exp(-1j*filt), mode='same')
+            lam = (3e8) /17.2e9
+            mf = _np.exp(-4j * _np.pi * dist/lam)
+            slc_filt[idx_r, :] = _sig.fftconvolve(self.slc[idx_r, :], mf , mode='same')
+            # slc_filt[idx_r, :] = self.slc[idx_r, :] *  mf * seq
             if idx_r % 1000 == 0:
                     print('Processing range index: ' + str(idx_r))
+            seq = seq * -1
         return slc_filt
 
 

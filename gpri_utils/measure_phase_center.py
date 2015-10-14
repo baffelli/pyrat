@@ -21,6 +21,7 @@ class gpriEstimator:
 
     def __init__(self, args):
         self.slc = _gpf.gammaDataset(args.slc_par, args.slc)
+        self.u = args.u
         self.r_arm = args.r_ant
         self.ridx = args.ridx
         self.azidx = args.azidx
@@ -30,7 +31,7 @@ class gpriEstimator:
     def determine(self):
         def cf(r_arm, r_ph, r, az_vec, off, meas_phase):
             sim_phase, dist = _cal.rep_2(r_arm, r_ph, r, az_vec, wrap = False)
-            cost = _np.mean(_np.abs(sim_phase - (meas_phase + off))**2)
+            cost = _np.mean(_np.abs(sim_phase  + off - meas_phase)**2)
             return cost
         #Slice the slc
         slc_sl = (self.ridx, slice(self.azidx - self.ws / 2, self.azidx + self.ws))
@@ -44,18 +45,21 @@ class gpriEstimator:
         #Determine parameters
         r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
         az_vec = _np.deg2rad(self.slc.GPRI_az_angle_step[0]) * _np.arange(-len(reflector_slice)/2 ,len(reflector_slice)/2)
-        refl_ph = _np.unwrap(_np.angle(reflector_slice))
+        if self.u:
+            refl_ph = _np.unwrap(_np.angle(reflector_slice))
+        else:
+            refl_ph = _np.angle(reflector_slice)
         refl_amp = (_np.abs(reflector_slice))
         cost_VV = lambda par_vec: cf(self.r_arm, par_vec[0], r_vec[self.ridx], az_vec, par_vec[1], refl_ph)
         res = _opt.minimize(cost_VV, [0,0])
         print(res.x[0])
         sim_ph, dist = _cal.rep_2(self.r_arm, res.x[0],  r_vec[self.ridx], az_vec, wrap=False)
-        # plt.subplot(211)
-        # plt.plot(az_vec,refl_amp)
-        # plt.subplot(212)
-        # plt.plot(az_vec,refl_ph)
-        # plt.plot(az_vec,sim_ph - res.x[1])
-        # plt.show()
+        plt.subplot(211)
+        plt.plot(az_vec,refl_amp)
+        plt.subplot(212)
+        plt.plot(az_vec,refl_ph)
+        plt.plot(az_vec,sim_ph + res.x[1])
+        plt.show()
 
 
 
@@ -74,6 +78,8 @@ def main():
                 help="Antenna rotation arm length")
     parser.add_argument('-w', '--win_size', dest='ws', type=float, default=20,
                 help="Estimation window size")
+    parser.add_argument('-u', '--unwrap', dest='u', default=False, action='store_true',
+                help="Toggles phase unwrapping for the estimation")
     #Read arguments
     try:
         args = parser.parse_args()
