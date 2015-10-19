@@ -26,7 +26,7 @@ class gpriEstimator:
         self.ridx = args.ridx
         self.azidx = args.azidx
         self.ws = args.ws
-
+        self.figpath = args.fig_path
 
     def determine(self):
         def cf(r_arm, r_ph, r, az_vec, off, meas_phase):
@@ -54,12 +54,15 @@ class gpriEstimator:
         res = _opt.minimize(cost_VV, [0,0])
         print(res.x[0])
         sim_ph, dist = _cal.rep_2(self.r_arm, res.x[0],  r_vec[self.ridx], az_vec, wrap=False)
+        f = plt.figure()
         plt.subplot(211)
         plt.plot(az_vec,refl_amp)
         plt.subplot(212)
         plt.plot(az_vec,refl_ph)
         plt.plot(az_vec,sim_ph + res.x[1])
         plt.show()
+        f.savefig(self.figpath)
+        plt.close(f)
 
 
 
@@ -76,6 +79,8 @@ def main():
                 help="Point target azimuth location")
     parser.add_argument('r_ant', type=float,
                 help="Antenna rotation arm length")
+    parser.add_argument('fig_path',
+                help="Path to save the graphical output", type=str)
     parser.add_argument('-w', '--win_size', dest='ws', type=float, default=20,
                 help="Estimation window size")
     parser.add_argument('-u', '--unwrap', dest='u', default=False, action='store_true',

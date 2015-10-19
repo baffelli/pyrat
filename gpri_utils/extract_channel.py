@@ -41,7 +41,7 @@ def main():
     #Empty dataset
     rawdata_out = chan
     #Write dataset
-    with open(args.raw_out, 'wb') as of:
+    with open(os.path.expanduser(args.raw_out), 'wb') as of:
         chan.T.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
     raw_dict = _gpf.par_to_dict(args.raw_par)
     if raw_dict['TX_mode'] == 'TX_RX_SEQ':

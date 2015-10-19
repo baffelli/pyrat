@@ -32,6 +32,8 @@ KU_WIDTH = 15.798e-3 #WG-62 Ku-Band waveguide width dimension
 KU_DZ = 10.682e-3   #Ku-Band Waveguide slot spacing
 RANGE_OFFSET= 3
 
+
+
 # This dict defines the mapping
 # between the gamma datasets and numpy
 type_mapping = {
@@ -602,4 +604,29 @@ class rawData(_np.ndarray):
 
 
 
+
+def lamg(freq, w):
+    """
+    This function computes the wavelength in waveguide for the TE10 mode
+    """
+    la = lam(freq)
+    return la / _np.sqrt(1.0 - (la / (2 * w))**2)	#wavelength in WG-62 waveguide
+
+#lambda in freespace
+def lam(freq):
+    """
+    This function computes the wavelength in freespace
+    """
+    return C/freq
+
+def squint_angle(freq, w, s):
+    """
+    This function computes the direction of the main lobe of a slotted
+    waveguide antenna as a function of the frequency, the size and the slot spacing.
+    It supposes a waveguide for the TE10 mode
+    """
+    sq_ang = _np.arccos(lam(freq) / lamg(freq, w) -  lam(freq) / (2 * s))
+    dphi = _np.pi *(2.*s/lamg(freq, w) - 1.0)				#antenna phase taper to generate squint
+    sq_ang_1 = _np.rad2deg(_np.arcsin(lam(freq) *dphi /(2.*_np.pi*s)))	#azimuth beam squint angle
+    return sq_ang_1
 

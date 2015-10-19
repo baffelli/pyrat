@@ -39,7 +39,6 @@ class gpriAzimuthProcessor:
             lam = (3e8) /17.2e9
             mf = _np.exp(-4j * _np.pi * dist/lam)
             slc_filt[idx_r, :] = _sig.fftconvolve(self.slc[idx_r, :], mf , mode='same')
-            # slc_filt[idx_r, :] = self.slc[idx_r, :] *  mf * seq
             if idx_r % 1000 == 0:
                     print('Processing range index: ' + str(idx_r))
             seq = seq * -1

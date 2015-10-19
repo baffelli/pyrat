@@ -42,7 +42,7 @@ class gpriRangeProcessor:
                 else:
                      current_data = self.rawdata[:, current_idx ]
                 if current_idx % 1000 == 0:
-                    print('Accessing azimuth index: ' + str(current_idx))
+                    print('Accessing azimuth index: {} '.format(current_idx))
                 try:
                     dec_pulse = dec_pulse + current_data
                 except IndexError as err:
