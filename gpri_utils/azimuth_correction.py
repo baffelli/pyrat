@@ -15,6 +15,24 @@ import pyrat.fileutils.gpri_files as _gpf
 import pyrat.gpri_utils.calibration as _cal
 from collections import namedtuple as _nt
 import scipy.signal as _sig
+import scipy.ndimage as _ndim
+import matplotlib.pyplot as _plt
+import pyrat.visualization.visfun as _vf
+
+
+def first_derivative(r_arm, r_ph, r_sl):
+    r_ant = _np.sqrt(r_arm**2 + r_ph**2)
+    denom = r_sl
+    alpha = _np.arctan(r_arm / r_ph)
+    num = 2 * r_ant * r_sl * _np.cos(alpha)
+    return num/denom
+
+def second_derivative(r_arm, r_ph, r_sl):
+    r_ant = _np.sqrt(r_arm**2 + r_ph**2)
+    denom = r_sl**(3/2) * 4
+    num = r_ant**2 * 2 * r_sl - first_derivative(r_arm, r_ph, r_sl)
+    return num/denom
+
 
 class gpriAzimuthProcessor:
 
@@ -33,12 +51,14 @@ class gpriAzimuthProcessor:
         r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
         #process each range line
         theta = _np.arange(-self.args.ws/2, self.args.ws/2) * _np.deg2rad(self.slc.GPRI_az_angle_step[0])
-        theta_1 = _np.arange(-self.slc.shape[1]/2, self.slc.shape[1]/2) * _np.deg2rad(self.slc.GPRI_az_angle_step[0])
         for idx_r in range(self.slc.shape[0]):
             filt, dist = _cal.rep_2(self.args.r_ant, self.args.r_ph, r_vec[idx_r], theta, wrap=False)
+            dist_1 = first_derivative(self.args.r_ant, self.args.r_ph, r_vec[idx_r])
+            dist_2 = second_derivative(self.args.r_ant, self.args.r_ph, r_vec[idx_r])
             lam = (3e8) /17.2e9
-            mf = _np.exp(-4j * _np.pi * dist/lam)
-            slc_filt[idx_r, :] = _sig.fftconvolve(self.slc[idx_r, :], mf , mode='same')
+            mf = _np.exp(4j * _np.pi * 1/lam * (dist_1 * theta + dist_2 * theta**2))
+            mf_1 = _np.exp(4j * _np.pi * dist/lam)
+            slc_filt[idx_r, :] = _sig.fftconvolve(self.slc[idx_r, :], mf_1, mode='same')
             if idx_r % 1000 == 0:
                     print('Processing range index: ' + str(idx_r))
             seq = seq * -1
