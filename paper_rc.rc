@@ -1,7 +1,7 @@
 # Style for paper using the IEEtran, two columns style
 font.family     : serif
 font.serif      : Times
-font.sans-serif       : Helvetica
+font.sans-serif : Helvetica
 font.size       : 15
 text.usetex     : True  # use latex for all text handling
 axes.unicode_minus  : True
@@ -9,5 +9,5 @@ savefig.format  : pdf
 savefig.bbox    : tight
 image.aspect : equal             # equal | auto | a number
 image.interpolation  : none  # see help(imshow) for options
-#figure.figsize : 3.166943406669434, 1.9572786657690908
-figure.figsize : 1.26, 0.78
+figure.figsize : 3.166943406669434, 1.9572786657690908
+#figure.figsize : 1.26, 0.78
