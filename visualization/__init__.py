@@ -1,1 +1,1 @@
-from visfun import *
+__all__ = ['visfun']

@@ -11,8 +11,8 @@ slavename=$(basename $slave .slc)
 master_mli=$mastername'.mli'
 slave_mli=$slavename'.mli'
 #Offset parameters
-rpos=812
-azpos=7970
+rpos=469
+azpos=6265
 thresh=7
 #Mli parameter
 azlk=1

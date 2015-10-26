@@ -38,7 +38,7 @@ RANGE_OFFSET= 3
 # between the gamma datasets and numpy
 type_mapping = {
     'FCOMPLEX': _np.dtype('>c8'),
-    'SCOMPLEX': _np.dtype('>c4'),
+    #'SCOMPLEX': _np.dtype('>c4'),
     'FLOAT': _np.dtype('>f4'),
     'SHORT INTEGER': _np.dtype('>i2'),
     'INTEGER*2': _np.dtype('<i2'),

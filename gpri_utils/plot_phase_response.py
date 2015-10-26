@@ -12,10 +12,13 @@ import scipy as _sp
 import scipy.signal as _sig
 sys.path.append(os.path.expanduser('~/PhD/trunk/Code/'))
 import pyrat.fileutils.gpri_files as _gpf
-import pyrat.gpri_utils.calibration as _cal
 from collections import namedtuple as _nt
 import scipy.optimize as _opt
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as _plt
+import matplotlib as _mpl
+from matplotlib import style as _sty
+_sty.use('/home/baffelli/PhD_work/Code/paper_rc.rc')
+
 
 class gpriPlotter:
 
@@ -25,37 +28,38 @@ class gpriPlotter:
         self.azidx = args.azidx
         self.ws = args.ws
         self.figpath = args.figpath
+        self.phase_limits = args.phase_limits
+        self.step_size = args.step_size
 
     def plot(self):
         #Slice the slc
-        slc_sl = (self.ridx, slice(self.azidx - self.ws / 2, self.azidx + self.ws))
+        slc_sl = (self.ridx, slice(self.azidx - self.ws / 2, self.azidx + self.ws/2))
         #Determine true maximum
         max_idx = _np.argmax(_np.abs(self.slc[slc_sl]))
         #Determine half power beamwidth
         reflector_slice = self.slc[slc_sl]
-        half_pwr_idx = _np.nonzero(_np.abs(reflector_slice) > _np.abs(reflector_slice[max_idx]) * 0.5)
+        # half_pwr_idx = _np.nonzero(_np.abs(reflector_slice) >
+        #                            _np.abs(reflector_slice[max_idx]) * 0.5)
         max_phase = _np.angle(reflector_slice[max_idx])
         #Slice slc
-        reflector_slice = reflector_slice[half_pwr_idx]
-        #Determine parameters
-        r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
-        az_vec = _np.deg2rad(self.slc.GPRI_az_angle_step[0]) * _np.arange(-len(reflector_slice)/2 ,len(reflector_slice)/2)
+        #Azimuth angle vector for plot
+        az_vec = self.slc.GPRI_az_angle_step[0] * _np.arange(-len(reflector_slice)/2
+                                                                          ,len(reflector_slice)/2)
         refl_ph = _np.angle(reflector_slice)
         refl_amp = (_np.abs(reflector_slice))
-        f = plt.figure()
-        # plt.subplot(211)
-        # plt.plot(az_vec,refl_amp)
-        # plt.ylabel(r'Amplitude')
-        # plt.xlabel(r'azimuth angle from maximum [deg]')
-        # plt.subplot(212)
-        plt.plot(az_vec,_np.rad2deg(refl_ph - max_phase))
-        plt.ylabel(r'Phase [deg]')
-        plt.xlabel(r'azimuth angle from maximum [deg]')
-        plt.ylim([-180,180])
-        plt.show()
+        f = _plt.figure()
+        _plt.plot(az_vec,_np.rad2deg(refl_ph - max_phase))
+        #Plot line for beamwidth
+        _plt.axvline(0.2, color='red', ls='--')
+        _plt.axvline(-0.2, color='red', ls='--')
+        _plt.ylabel(r'Phase [deg]')
+        _plt.xlabel(r'azimuth angle from maximum [deg]')
+        _plt.ylim([self.phase_limits[0], self.phase_limits[1]])
+        _plt.yticks(_np.arange(self.phase_limits[0], self.phase_limits[1], self.step_size ))
+        _plt.grid()
+        _plt.show()
         f.savefig(self.figpath)
-        plt.close(f)
-
+        _plt.close(f)
 
 
 def main():
@@ -73,6 +77,11 @@ def main():
                 help="Path to save the plots")
     parser.add_argument('-w', '--win_size', dest='ws', type=float, default=20,
                 help="Estimation window size")
+    parser.add_argument('-p', '--phase_limits', dest='phase_limits', type=float, nargs=2, default=[-180, 180],
+                help="Estimation window size")
+    parser.add_argument('-s', '--step_size', dest='step_size', type=float, default=10,
+                help="Plot y axis step size")
+
     #Read arguments
     try:
         args = parser.parse_args()

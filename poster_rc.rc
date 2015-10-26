@@ -1,0 +1,12 @@
+# Style for poster
+font.family     : sans-serif
+font.serif      : computer modern roman
+font.sans-serif : computer modern sans serif
+font.size       : 28
+text.usetex     : True  # use latex for all text handling
+axes.unicode_minus  : True
+savefig.format  : pdf
+savefig.bbox    : tight
+image.aspect : equal             # equal | auto | a number
+image.interpolation  : none  # see help(imshow) for options
+figure.figsize : 18.42519692818597, 11.387397951029085

@@ -45,7 +45,6 @@ class gpriAzimuthProcessor:
 
     def correct(self):
         #Filtered slc
-        seq = -1
         slc_filt = self.slc * 1
         #Construct range vector
         r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
@@ -61,7 +60,6 @@ class gpriAzimuthProcessor:
             slc_filt[idx_r, :] = _sig.fftconvolve(self.slc[idx_r, :], mf_1, mode='same')
             if idx_r % 1000 == 0:
                     print('Processing range index: ' + str(idx_r))
-            seq = seq * -1
         return slc_filt
 
 
