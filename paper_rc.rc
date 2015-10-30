@@ -9,5 +9,7 @@ savefig.format  : pdf
 savefig.bbox    : tight
 image.aspect : equal             # equal | auto | a number
 image.interpolation  : none  # see help(imshow) for options
-figure.figsize : 3.166943406669434, 1.9572786657690908
-#figure.figsize : 1.26, 0.78
+#figure.figsize : 3.166943406669434, 1.9572786657690908
+figure.figsize : 1.26, 0.78
+savefig.dpi : 900
+#figure.figsize: 6.333886813338868, 3.9145573315381816

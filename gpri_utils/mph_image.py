@@ -19,9 +19,7 @@ class dismphPlotter:
 
     def __init__(self, args):
         #Determine how many bits to load
-        fc = os.path.getsize(args.image) / _gpf.type_mapping['FCOMPLEX'].itemsize
-        shape = [args.width, int(fc / (args.width))]
-        print(shape)
+        shape = _gpf.get_image_size(args.image, args.width, 'FCOMPLEX')
         #Number of elements
         #Load image
         self.image = _np.fromfile(args.image, dtype= _gpf.type_mapping['FCOMPLEX']).reshape(shape[::-1]).T
@@ -60,7 +58,7 @@ class dismphPlotter:
             _plt.imshow(RGB, cmap=pal, interpolation='none')
             if self.args.cb:
                 cbar = _plt.colorbar(orientation='horizontal', ticks=[0,0.5,1], \
-                                     fraction=0.1, shrink=0.5)
+                                     fraction=0.1, shrink=0.8)
                 cbar.set_label('Phase [rad]')
                 cbar.ax.set_xticklabels([r'$-\pi$',
                                          '0',r'$\pi$'])
@@ -68,6 +66,7 @@ class dismphPlotter:
             if self.args.no_axis:
                 _plt.axis('off')
             _plt.show()
+            f.set_size_inches(self.args.fig_size)
             f.savefig(self.args.figpath)
 
 def main():
@@ -95,6 +94,8 @@ def main():
                         help="Plot colorbar", default=False, action='store_true')
     parser.add_argument('-n', '--no_axis', dest='no_axis',
                         help="Hide axis label", default=True)
+    parser.add_argument('--fig_size', default=[3.166943406669434, 3.166943406669434], type=float,
+                        nargs=2)
     #Read arguments
     try:
         args = parser.parse_args()

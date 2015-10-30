@@ -16,6 +16,9 @@ import pyrat.gpri_utils.calibration as _cal
 from collections import namedtuple as _nt
 import scipy.optimize as _opt
 import matplotlib.pyplot as plt
+from matplotlib import style as _sty
+_sty.use('/home/baffelli/PhD_work/Code/paper_rc.rc')
+
 
 class gpriEstimator:
 
@@ -30,7 +33,7 @@ class gpriEstimator:
 
     def determine(self):
         def cf(r_arm, r_ph, r, az_vec, off, meas_phase):
-            sim_phase, dist = _cal.rep_2(r_arm, r_ph, r, az_vec, wrap = False)
+            sim_phase, dist = _cal.distance_from_phase_center(r_arm, r_ph, r, az_vec, wrap = False)
             cost = _np.mean(_np.abs(sim_phase  + off - meas_phase)**2)
             return cost
         #Slice the slc
@@ -50,16 +53,18 @@ class gpriEstimator:
         else:
             refl_ph = _np.angle(reflector_slice)
         refl_amp = (_np.abs(reflector_slice))
+        r_sl = r_vec[self.ridx]
         cost_VV = lambda par_vec: cf(self.r_arm, par_vec[0], r_vec[self.ridx], az_vec, par_vec[1], refl_ph)
-        res = _opt.minimize(cost_VV, [0,0])
+        res = _opt.minimize(cost_VV, [0,0], bounds=((-2,2),(None,None)))
         print(res.x[0])
-        sim_ph, dist = _cal.rep_2(self.r_arm, res.x[0],  r_vec[self.ridx], az_vec, wrap=False)
+        sim_ph, dist = _cal.distance_from_phase_center(self.r_arm, res.x[0],  r_sl, az_vec, wrap=False)
         f = plt.figure()
-        plt.subplot(211)
-        plt.plot(az_vec,refl_amp)
-        plt.subplot(212)
-        plt.plot(az_vec,refl_ph)
-        plt.plot(az_vec,sim_ph + res.x[1])
+        plt.plot(_np.rad2deg(az_vec),_np.rad2deg(refl_ph), label=r'Measured')
+        plt.plot(_np.rad2deg(az_vec),_np.rad2deg(sim_ph + res.x[1]), label=r'Model')
+        plt.grid()
+        plt.ylabel(r'Phase [deg]')
+        plt.xlabel(r'azimuth angle from maximum [deg]')
+        plt.legend()
         plt.show()
         f.savefig(self.figpath)
         plt.close(f)

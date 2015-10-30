@@ -26,6 +26,8 @@ def main():
                 help="GPRI raw parameter file corresponding to the extracted channel")
     parser.add_argument('pat', type=str,
                 help="Pattern to extract")
+    parser.add_argument('channel_mapping', type=str,
+                help="File contanining the channel mapping informations. Format: TXA: pos, TXB: pos etc")
     #Read arguments
     try:
         args = parser.parse_args()
@@ -35,7 +37,10 @@ def main():
     #Read raw dataqset
     rawdata = _gpf.rawData(args.raw_par, args.raw)
     #Channel index
-    chan_idx = rawdata.channel_index(args.pat[0:3],args.pat[3])
+    try:
+        chan_idx = rawdata.channel_index(args.pat[0:3],args.pat[3])
+    except IndexError:
+        Warning("This channel does not exist in the dataset")
     #Select channel of interest
     chan = rawdata[:,:, chan_idx[0], chan_idx[1]]
     #Empty dataset
@@ -49,6 +54,14 @@ def main():
         npats = len(pats)
     else:
         npats = 1
+    #Load channel mapping dictionary
+    chan_mapping_dict = _gpf.par_to_dict(args.channel_mapping)
+    #Construct keyword for antenna position dict
+    tx_keyw = 'TX_{}_position'.format(args.pat[0])
+    rx_keyw = 'RX_{}_position'.format(args.pat[2:4])
+    #Extract antenna position
+    raw_dict['GPRI_TX_antenna_position'] = chan_mapping_dict[tx_keyw]
+    raw_dict['GPRI_RX_antenna_position'] = chan_mapping_dict[rx_keyw]
     raw_dict['ADC_capture_time'] = float(raw_dict['ADC_capture_time'] / npats)
     raw_dict['TSC_rotation_speed'] = raw_dict['TSC_rotation_speed'] * npats
     raw_dict['STP_rotation_speed'] = raw_dict['STP_rotation_speed'] * npats

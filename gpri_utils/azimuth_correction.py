@@ -51,13 +51,10 @@ class gpriAzimuthProcessor:
         #process each range line
         theta = _np.arange(-self.args.ws/2, self.args.ws/2) * _np.deg2rad(self.slc.GPRI_az_angle_step[0])
         for idx_r in range(self.slc.shape[0]):
-            filt, dist = _cal.rep_2(self.args.r_ant, self.args.r_ph, r_vec[idx_r], theta, wrap=False)
-            dist_1 = first_derivative(self.args.r_ant, self.args.r_ph, r_vec[idx_r])
-            dist_2 = second_derivative(self.args.r_ant, self.args.r_ph, r_vec[idx_r])
+            filt, dist = _cal.distance_from_phase_center(self.args.r_ant, self.args.r_ph, r_vec[idx_r], theta, wrap=False)
             lam = (3e8) /17.2e9
-            mf = _np.exp(4j * _np.pi * 1/lam * (dist_1 * theta + dist_2 * theta**2))
             mf_1 = _np.exp(4j * _np.pi * dist/lam)
-            slc_filt[idx_r, :] = _sig.fftconvolve(self.slc[idx_r, :], mf_1, mode='same')
+            slc_filt[idx_r, :] = 1/float(self.args.ws) * _sig.fftconvolve(self.slc[idx_r, :], mf_1, mode='same')
             if idx_r % 1000 == 0:
                     print('Processing range index: ' + str(idx_r))
         return slc_filt

@@ -24,6 +24,7 @@ def calibrate_from_r_and_t(S, R,T):
     return S_cal
 
 
+
 def remove_window(S):
     spectrum = _np.mean(_np.abs((_fftp.fft(S,axis = 1))),axis = 0)
     spectrum = corefun.smooth(spectrum,5)
@@ -365,14 +366,28 @@ def rep_2(r_arm, r_ph, r_sl, theta, wrap = True):
     ant_angle = _np.arctan2(r_ph, r_arm)
     r_ant = _np.sqrt(r_arm**2 + r_ph**2)
     # #angle beta
-    # beta = theta - ant_angle
-    # #Distance
-    # dist = _np.sqrt(r_ant**2 + r_sl**2 + 2 * r_ant * r_sl * _np.cos(beta))
     #Chord length
     c = 2 * r_ant * _np.sin(theta/2)
     mixed_term = 2 * c * r_sl * _np.cos(_np.pi/2 - ant_angle - theta/2)
     dist = _np.sqrt(c**2 + r_sl**2 - mixed_term)
 
+    if wrap is True :
+        return _np.mod(-4 * _np.pi * dist/lam, 2 * _np.pi), dist
+    else:
+        return (-4 * _np.pi * dist/lam), dist
+
+def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=True):
+    """
+    This function computes the phase caused by a shifted
+    phase center in the antenna
+    """
+    lam = (3e8) /17.2e9
+    ant_angle = _np.arctan2(r_ph, r_arm)
+    r_ant = _np.sqrt(r_arm**2 + r_ph**2)
+    #Chord length
+    c = r_ant + r_sl
+    mixed_term = 2 * c * r_ant * _np.cos(theta - ant_angle)
+    dist = _np.sqrt(c**2 + r_ant**2 - mixed_term)
     if wrap is True :
         return _np.mod(-4 * _np.pi * dist/lam, 2 * _np.pi), dist
     else:

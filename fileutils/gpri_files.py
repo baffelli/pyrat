@@ -54,6 +54,19 @@ channel_dict = {
     'VV': (1, 1),
 }
 
+def get_image_size(path, width, type_name):
+    """
+    This function gets the shape of an image given the witdh
+    and the datatype
+    :param path:
+    :param width:
+    :param type:
+    :return:
+    """
+    import os as _os
+    fc = _os.path.getsize(path) / type_mapping[type_name].itemsize
+    shape = [width, int(fc / (width))]
+    return shape
 
 def temp_dataset():
     """
