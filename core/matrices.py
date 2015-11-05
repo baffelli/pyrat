@@ -10,7 +10,6 @@ from . import corefun
 from ..visualization import visfun
 import numbers as _num
 import copy as _cp
-import h5py as _h5py
 #Range correction factor to
 #compensate for the cable delay
 rcf = 5
