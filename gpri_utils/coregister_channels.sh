@@ -41,7 +41,7 @@ else
 	#Use offset tracking
 	offset_fitm offs snr $diffparname - - - 1
 	interp_cpx $slave $diffparname $resampled
-	cp ${master_par} ${resampled_par}
+	cp ${slave_par} ${resampled_par}
 	rm ${master_mli}
 	rm ${slave_mli}
 fi

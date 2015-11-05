@@ -54,6 +54,7 @@ class gpriAzimuthProcessor:
             filt, dist = _cal.distance_from_phase_center(self.args.r_ant, self.args.r_ph, r_vec[idx_r], theta, wrap=False)
             lam = (3e8) /17.2e9
             mf_1 = _np.exp(4j * _np.pi * dist/lam)
+            mf_1 = mf_1
             slc_filt[idx_r, :] = 1/float(self.args.ws) * _sig.fftconvolve(self.slc[idx_r, :], mf_1, mode='same')
             if idx_r % 1000 == 0:
                     print('Processing range index: ' + str(idx_r))
@@ -79,6 +80,9 @@ def main():
     parser.add_argument('-w','--win_size', dest='ws',
                 help="Convolution window size",
                 type=int, default=10)
+    parser.add_argument('-k','--kbeta', dest='kbeta',
+                help="Kaiser beta parameter",
+                type=int, default=3)
     #Read arguments
     try:
         args = parser.parse_args()

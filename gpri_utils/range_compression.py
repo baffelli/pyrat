@@ -97,9 +97,9 @@ class gpriRangeProcessor:
         slc_dict['receiver_gain'] = [60 - self.raw_par.grp.IMA_atten_dB, 'dB']
         slc_dict['GPRI_TX_mode'] = self.raw_par.grp.TX_mode
         slc_dict['GPRI_TX_antenna'] = seq[0]
-        slc_dict['GPRI_RX_antenna'] = seq[1]
-        slc_dict['GPRI_TX_antenna_position'] = self.raw_par.grp.GPRI_TX_antenna_position
-        slc_dict['GPRI_RX_antenna_position'] = self.raw_par.grp.GPRI_RX_antenna_position
+        slc_dict['GPRI_RX_antenna'] = seq[1] + seq[3]
+        slc_dict['GPRI_TX_antenna_position'] = [self.raw_par.grp.GPRI_TX_antenna_position, 'm']
+        slc_dict['GPRI_RX_antenna_position'] = [self.raw_par.grp.GPRI_RX_antenna_position, 'm']
         slc_dict['GPRI_az_start_angle'] = [self.raw_par.az_start, 'degrees']
         slc_dict['GPRI_az_angle_step'] = [az_step, 'degrees']
         slc_dict['GPRI_ant_elev_angle'] = [self.raw_par.grp.antenna_elevation, 'degrees']

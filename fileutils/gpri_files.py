@@ -21,7 +21,7 @@ from numpy.lib.stride_tricks import as_strided as _ast
 import scipy as _sp
 from collections import namedtuple as _nt
 from collections import OrderedDict as _od
-
+import re as _re
 
 #Constants
 ra = 6378137.0000    #WGS-84 semi-major axis
@@ -88,6 +88,8 @@ def temp_binary(suffix=''):
 def to_bitmap(dataset, filename):
     fmt = 'bmp'
     _sp.misc.imsave(filename, dataset, format=fmt)
+
+
 
 
 class gammaDataset(_np.ndarray):
@@ -216,6 +218,8 @@ class gammaDataset(_np.ndarray):
 
     r_vec = property(rvec)
     az_vec = property(azvec)
+
+
 
 
 def par_to_dict(par_file):
@@ -613,9 +617,6 @@ class rawData(_np.ndarray):
 
     az_spacing = property(azspacing)
     freq_vec = property(freqvec)
-
-
-
 
 
 def lamg(freq, w):

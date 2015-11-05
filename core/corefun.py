@@ -226,7 +226,40 @@ def window_idx(arr, idx, zs):
         mx = _np.clip(current_idx + current_size, 0, arr.shape[cnt])
         sl = slice(mi, mx)
         indices.append(sl)
-    return indices 
+    return indices
+
+def maximum_around(arr, idx, ws):
+    """
+    Finds the maximum of an array around a given index for a given
+    search window size
+    Parameters
+    ----------
+    arr : ndarray
+        The array where to find the maximum
+    idx : iterable of int or int
+        The index around which to find the maximum
+    ws  : iterable of int or int
+        The window size where to search for the maximum
+
+    Returns
+    -------
+        iterable of int or int
+
+    """
+    #Get indices to slice the array
+    indices = window_idx(arr, idx, ws)
+    #Slice the array
+    arr_section = arr[indices]
+    #Find the argmax
+    max_idx = _np.argmax(arr_section)
+    #Now that we have the indices, we convert it
+    #to tuple
+    max_idx = _np.unravel_index(max_idx, arr_section.shape)
+    #We have now to convert it into the "coordinates" of the big array
+    final_idx = [local_idx + global_idx - current_size for
+                 local_idx, global_idx, current_size in zip(max_idx, idx, ws)]
+    return final_idx
+
     
 
 

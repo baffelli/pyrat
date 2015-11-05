@@ -64,7 +64,8 @@ class gpriPlotter:
 
 def main():
     #Read the arguments
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    description='Plot azimuth phase response at a given location')
     parser.add_argument('slc', type=str,
                 help="SLC channel file")
     parser.add_argument('slc_par', type=str,
