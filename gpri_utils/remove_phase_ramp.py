@@ -33,7 +33,7 @@ image = _np.fromfile(args.image, dtype= _gpf.type_mapping['FCOMPLEX']).reshape(s
 phase = _np.fromfile(args.phase, dtype= _gpf.type_mapping['FCOMPLEX']).reshape(shape[::-1]).T
 
 
-out_image = image * _np.exp(-1j*_np.angle(phase) * args.baseline_ratio)
+out_image = image * _np.exp(1j*_np.angle(phase) * args.baseline_ratio)
 
 with open(args.out, 'wb+') as of:
     out_image.astype(_gpf.type_mapping['FCOMPLEX']).T.tofile(of)
