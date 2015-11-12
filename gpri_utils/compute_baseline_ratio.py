@@ -32,7 +32,7 @@ def main():
     par2 = _gpf.par_to_dict(args.par[1])
     ph_center_1 = (par1['GPRI_TX_antenna_position'][0] + par1['GPRI_RX_antenna_position'][0])/2.0
     ph_center_2 = (par2['GPRI_TX_antenna_position'][0] + par2['GPRI_RX_antenna_position'][0])/2.0
-    print(ph_center_2 - ph_center_1)
+    print(ph_center_1 - ph_center_2)
 if __name__ == "__main__":
     try:
         main()

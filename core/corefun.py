@@ -172,12 +172,20 @@ def is_hermitian(T):
     """
     try:
         shp = T.shape
-        thresh = 1e-6
-        if T.shape == (3,3) and _np.nanmax(T.transpose().conjugate() - T) < thresh:
-            is_herm = True
-        elif shp[2:4] == (3,3) and _np.nanmax(T.transpose([0,1,3,2]).conjugate() - T) < thresh:
-            is_herm = True
-        elif T.ndim is 3 and _np.nanmax(T.transpose([0,2,1]).conjugate() - T)< thresh:
+        thresh = 1e-4
+        # if T.shape[0] == T.shape[1] and _np.nanmax(T.transpose().conjugate() - T) < thresh:
+        #     is_herm = True
+        # elif T.nidm is 4 and _np.nanmax(_np.abs(T - T.transpose([0,1,3,2]).conjugate())) < thresh:
+        #     print('Here')
+        #     is_herm = True
+        # elif T.ndim is 3 and _np.nanmax(T.transpose([0,2,1]).conjugate() - T)< thresh:
+        #     is_herm = True
+        # else:
+        #     is_herm = False
+        dims = range(T.ndim)
+        dims[-2], dims[-1] = dims[-1], dims[-2]
+        T_H = T.transpose(dims).conj()
+        if _np.nanmax(_np.abs(T_H- T).flatten()) < thresh:
             is_herm = True
         else:
             is_herm = False

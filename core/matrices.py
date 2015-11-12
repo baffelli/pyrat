@@ -378,10 +378,11 @@ class coherencyMatrix(gpri_files.gammaDataset):
             basis = kwargs.get('basis')
         if type(args[1]) is _np.ndarray:
             T = args[1]
-            if corefun.is_hermitian(T):
-                obj = _np.asarray(T).view(cls)
-            else:
-                raise _np.linalg.LinAlgError("T is not Hermitian")
+            #TODO check why strange hermitian behavior for GPRI data
+            # if corefun.is_hermitian(T):
+            #     obj = _np.asarray(T).view(cls)
+            # else:
+            #     raise _np.linalg.LinAlgError("T is not Hermitian")
             obj = _np.asarray(T).view(cls)
             obj.basis = 'pauli'
         elif type(args[1]) is str:

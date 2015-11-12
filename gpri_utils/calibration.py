@@ -202,20 +202,20 @@ def  simple_calibration(C_tri,C_distributed):
     slice_distributed  : tuple
         A tuple of slices identifinyg a region of distributed targets
     """
-    if isinstance(C_tri, core.matrices.coherencyMatrix) and C_tri.basis == 'lexicographic':
-        #Determine cochannel imbalance
-        f_mag = (_np.abs(C_tri[3,3]) / (_np.abs(C_tri[0,0])))**0.25
-        f_phase = 1/2.0 * _np.angle(C_tri[3,0])
-        #Determine for distributed targets
-        C_d = C_distributed
-        g_mag = _np.mean(_np.abs(C_d[2,2])) / _np.mean((_np.abs(C_d[1,1])))
+    # if isinstance(C_tri, core.matrices.coherencyMatrix) and C_tri.basis == 'lexicographic':
+    #Determine cochannel imbalance
+    f_mag = (_np.abs(C_tri[3,3]) / (_np.abs(C_tri[0,0])))**0.25
+    f_phase = 1/2.0 * _np.angle(C_tri[3,0])
+    #Determine for distributed targets
+    C_d = C_distributed
+    g_mag = _np.mean(_np.abs(C_d[2,2])) / _np.mean((_np.abs(C_d[1,1])))
 #        g_mag = (_np.mean(_np.abs(S_d['VH'])**2) / _np.mean((_np.abs(S_d['HV'])**2)))**0.5
 #        g_phase =  _np.mean(_np.angle(S_d['HV'].conj() *  S_d['VH'])) 
-        g_phase =  _np.mean(_np.angle(C_d[2,1]))
-        f = f_mag * _np.exp(1j * f_phase)
-        g = g_mag * _np.exp(1j * g_phase)
-        #Determine imbalance on natural targets
-        return f, g
+    g_phase =  _np.mean(_np.angle(C_d[2,1]))
+    f = f_mag * _np.exp(1j * f_phase)
+    g = g_mag * _np.exp(1j * g_phase)
+    #Determine imbalance on natural targets
+    return f, g
     
 
 #def gct(exact_targets,measured_targets):
