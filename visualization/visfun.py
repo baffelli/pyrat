@@ -1074,7 +1074,7 @@ def geocode_image(image, pixel_size, *args):
     return gc, x_vec, y_vec
 
 
-def pauli_rgb(scattering_vector, normalized=False, pl=True, gamma=1, sf=2.5):
+def pauli_rgb(scattering_vector, normalized=False, k=1, sf = 1):
     """
         This function produces a rgb image from a scattering vector.
         
@@ -1088,35 +1088,22 @@ def pauli_rgb(scattering_vector, normalized=False, pl=True, gamma=1, sf=2.5):
             set to True to display the channels in logarithmic form.
         """
     if not normalized:
-        if pl:
-            data_diagonal = _np.abs(scattering_vector)
-            sp = _np.sum(data_diagonal, axis=2)
-            #                m = _np.nanmean(sp, axis = (0,1)) * sf
-            #                m = _np.nanmax(sp, axis = (0,1)) * sf
-            sp[_np.isnan(sp)] = 0
-            min_perc = []
-            max_perc = []
-            for idx in range(3):
-                min_perc.append(_np.percentile(sp / 3, 5))
-                max_perc.append(_np.percentile(sp / 3, 99.5))
-            #                mx = _np.nanmax(data_diagonal, axis = (0,1))
-            #                m = _np.minimum(m,mx)
-            data_diagonal[:, :, 0] = scale_array(data_diagonal[:, :, 0],
-                                                 min_val=min_perc[0], max_val=max_perc[0])
-            data_diagonal[:, :, 1] = scale_array(data_diagonal[:, :, 1],
-                                                 min_val=min_perc[1], max_val=max_perc[1])
-            data_diagonal[:, :, 2] = scale_array(data_diagonal[:, :, 2],
-                                                 min_val=min_perc[2], max_val=max_perc[2])
-            data_diagonal = (((data_diagonal) ** (gamma)))
-            data_diagonal[:, :, 0] = scale_array(data_diagonal[:, :, 0])
-            data_diagonal[:, :, 1] = scale_array(data_diagonal[:, :, 1])
-            data_diagonal[:, :, 2] = scale_array(data_diagonal[:, :, 2])
-        else:
-            R = data_diagonal[:, :, 0] / _np.nanmax(data_diagonal[:, :, 0])
-            G = data_diagonal[:, :, 1] / _np.nanmax(data_diagonal[:, :, 1])
-            B = data_diagonal[:, :, 2] / _np.nanmax(data_diagonal[:, :, 2])
-            out = 1 - _np.exp(- data_diagonal * _np.array(k)[None, None, :])
-            return out
+        data_diagonal = _np.abs(scattering_vector)
+        # sp = data_diagonal[:,:,0]
+        # min_perc = _np.percentile(sp, 5)
+        # max_perc = _np.percentile(sp, 99.5)
+        # min_perc = _np.nanmin(sp)
+        # max_perc = _np.nanmax(sp)
+        # data_diagonal[:, :, 0] = scale_array(data_diagonal[:, :, 0],
+        #                                      min_val=min_perc, max_val=max_perc)
+        # data_diagonal[:, :, 1] = scale_array(data_diagonal[:, :, 1],
+        #                                      min_val=min_perc, max_val=max_perc)
+        # data_diagonal[:, :, 2] = scale_array(data_diagonal[:, :, 2],
+        #                                      min_val=min_perc, max_val=max_perc)
+        data_diagonal = (sf * ((data_diagonal) ** (k)))
+        data_diagonal[:, :, 0] = scale_array(data_diagonal[:, :, 0])
+        data_diagonal[:, :, 1] = scale_array(data_diagonal[:, :, 1])
+        data_diagonal[:, :, 2] = scale_array(data_diagonal[:, :, 2])
         R = data_diagonal[:, :, 0]
         G = data_diagonal[:, :, 1]
         B = data_diagonal[:, :, 2]
@@ -1217,7 +1204,7 @@ def scale_coherence(c):
     return _np.sin(c * _np.pi / 2)
 
 def dismph(data, min_val=-_np.pi,
-             max_val=_np.pi, k = 1):
+             max_val=_np.pi, k = 1, N=24):
     #palette to scale phase
     colors = (
     (0,1,1),
@@ -1226,7 +1213,7 @@ def dismph(data, min_val=-_np.pi,
     (0,1,1)
     )
     pal = _mpl.colors.LinearSegmentedColormap.\
-        from_list('subs_colors', colors, N=24)
+        from_list('subs_colors', colors, N=N)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     #Extract amplitude and phase
     ang = scale_array(_np.angle(data))
