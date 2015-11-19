@@ -32,9 +32,9 @@ dem_par = _gpf.par_to_dict(args.dem_par)
 #Read coordinates
 coord = LUT[args.idx[0], args.idx[1]]
 #Convert into geographical coord
-x = dem_par['corner_north'][0] + _np.real(coord)*dem_par['post_north'][0]
-y = dem_par['corner_east'][0] + _np.imag(coord)*dem_par['post_east'][0]
+x = dem_par['corner_east'][0] + _np.real(coord)*dem_par['post_east'][0]
+y = dem_par['corner_north'][0] + _np.imag(coord)*dem_par['post_north'][0]
 
 
 
-print("{} {}".format(y,x))
+print("{} {}".format(x,y))
