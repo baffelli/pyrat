@@ -29,12 +29,16 @@ class gpriBackwardsProcessor:
         self.ns_max = int(round(args.rmax/rps)) *  2 + 1
 
 
-    def decompress(self):
-        arr_raw = _np.zeros((self.range_samples, self.slc.azimuth_lines), dtype=_np.int16)
+    def decompress(self, of):
+        arr_raw = _np.zeros(self.range_samples, dtype=_np.int16)
         arr_transf = _np.zeros((self.slc.shape[0] * 2 + 1, self.slc.azimuth_lines))
         #First convert back
         for idx_az in range(self.slc.shape[1]):
-            arr_raw[self.ns_min:self.ns_max, idx_az] = _np.fft.irfft(self.slc[:, idx_az] * 32768)
+            if idx_az % 1000 == 0:
+                out_str = "processing line {}".format(idx_az)
+                print(out_str)
+            arr_raw[self.ns_min:self.ns_max] = _np.fft.irfft(self.slc[:, idx_az] * 32768)
+            arr_raw.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
         return arr_raw
 
 
@@ -69,9 +73,9 @@ def main():
         sys.exit(-1)
     #Create processor object
     proc = gpriBackwardsProcessor(args)
-    raw = proc.decompress()
     with open(args.raw_out, 'wb') as of:
-        raw.T.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
+        raw = proc.decompress(of)
+        #raw.T.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
 
 if __name__ == "__main__":
     try:
