@@ -21,25 +21,36 @@ class gpriBackwardsProcessor:
 
     def __init__(self, args):
         #Load slc
-        self.slc = _gpf.gammaDataset(args.slc_par, args.slc).astype(_np.complex64)
+        # self.slc = _gpf.gammaDataset(args.slc_par, args.slc).astype(_np.complex64)
+        self.slc_par = _gpf.par_to_dict(args.slc_par)
         self.args = args
-        self.range_samples = self.args.t * ADCSR
-        rps = (ADCSR/self.range_samples*C/2.)/RF_CHIRP_RATE
+        #Compute tcycle (supposing the decimation factor is known)
+        self.tcycle = 1/(self.slc_par['prf'][0])/self.args.dec
+        #Supposing a fixed ADC rate, the block length and the number of samples are easiyl computed
+        self.block_length = int(self.tcycle * ADCSR) + 1
+        self.nsamp = self.block_length - 1
+        #We have to compute the chirp rate
+        self.chirp_rate = self.slc_par['chirp_bandwidth'] / self.tcycle
+        rps = (ADCSR/self.nsamp*C/2.)/self.chirp_rate
         self.ns_min = int(round(args.rmin/rps)) * 2 + 1
         self.ns_max = int(round(args.rmax/rps)) *  2 + 1
-
+        self.dt = _gpf.type_mapping[self.slc_par['image_format']]
 
     def decompress(self, of):
-        arr_raw = _np.zeros(self.range_samples, dtype=_np.int16)
-        arr_transf = _np.zeros((self.slc.shape[0] * 2 + 1, self.slc.azimuth_lines))
+        arr_raw = _np.zeros(self.block_length, dtype=_np.int16)
+        print(arr_raw.shape)
+       # arr_transf = _np.zeros((self.slc.shape[0] * 2 + 1, self.slc.azimuth_lines))
         #First convert back
-        for idx_az in range(self.slc.shape[1]):
-            if idx_az % 1000 == 0:
-                out_str = "processing line {}".format(idx_az)
-                print(out_str)
-            arr_raw[self.ns_min:self.ns_max] = _np.fft.irfft(self.slc[:, idx_az] * 32768)
-            arr_raw.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
-        return arr_raw
+        with open(self.args.slc, 'rb') as inf:
+            for idx_az in range(int(self.slc_par['azimuth_lines'])):
+                line = _np.fromfile(inf,dtype=self.dt, count=int(self.slc_par['range_samples']))
+                if idx_az % 1000 == 0:
+                    out_str = "processing line {}".format(idx_az)
+                    print(out_str)
+                    print(line)
+                arr_raw[1::] = _np.fft.irfft(line, n=self.nsamp)
+                arr_raw.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
+        #return arr_raw
 
 
 
@@ -54,7 +65,7 @@ def main():
                 help="Output raw")
     parser.add_argument('raw_par_out', type=str,
                 help="raw parameter file")
-    parser.add_argument('-d', type=int, default=5,
+    parser.add_argument('-d', type=int, default=1, dest='dec',
                 help="Decimation factor")
     parser.add_argument('-z',
                 help="Number of samples to zero at the beginning of each pulse",dest='zero',
@@ -64,7 +75,6 @@ def main():
     parser.add_argument("-s","--apply_scale", type=bool, default=True, dest='apply_scale')
     parser.add_argument('-r', help='Near range for the slc',dest='rmin', type=float, default=0)
     parser.add_argument('-R', help='Far range for the slc', dest='rmax',type=float, default=1000)
-    parser.add_argument('-t', help='Chirp duration of the original data [s]', type=float, default=4e-3)
     #Read arguments
     try:
         args = parser.parse_args()
@@ -74,7 +84,7 @@ def main():
     #Create processor object
     proc = gpriBackwardsProcessor(args)
     with open(args.raw_out, 'wb') as of:
-        raw = proc.decompress(of)
+        proc.decompress(of)
         #raw.T.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
 
 if __name__ == "__main__":
