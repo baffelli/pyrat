@@ -428,7 +428,7 @@ def gpri_raw_strides(nsamp, nchan, npat, itemsize):
     return (st_rg, st_az , st_chan, st_pat)
 
 
-def load_raw(par_path, path):
+def load_raw(par_path, path, nchan=1):
     """
     This function loads a gamma raw dataset
     :param the path to the raw_par file:
@@ -437,7 +437,7 @@ def load_raw(par_path, path):
     """
     par = par_to_dict(par_path)
     nsamp = par['CHP_num_samp']
-    nchan = 2
+    nchan = nchan
     npat = len(par['TX_RX_SEQ'].split('-'))
     itemsize = _np.int16(1).itemsize
     bytes_per_record = (nsamp + 1) * 2 * itemsize
@@ -447,7 +447,7 @@ def load_raw(par_path, path):
     sh = (nsamp + 1, nl_tot / npat, \
           nchan, npat)
     stride = gpri_raw_strides(nsamp, nchan, npat, itemsize)
-    raw_shp = _ast(raw, shape=sh, strides=stride)
+    raw_shp = _ast(raw, shape=sh, strides=stride).squeeze()
     return raw_shp, par
 
 
@@ -644,3 +644,19 @@ def squint_angle(freq, w, s):
     sq_ang_1 = _np.rad2deg(_np.arcsin(lam(freq) *dphi /(2.*_np.pi*s)))	#azimuth beam squint angle
     return sq_ang_1
 
+def load_segment(file, shape, xmin, xmax, ymin, ymax):
+    """
+    This function load a segment from a file
+    Parameters
+    ----------
+    file
+    shape
+    xmin
+    xmax
+    ymin
+    ymax
+
+    Returns
+    -------
+
+    """

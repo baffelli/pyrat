@@ -35,6 +35,18 @@ class gpriBackwardsProcessor:
         self.ns_min = int(round(args.rmin/rps)) * 2 + 1
         self.ns_max = int(round(args.rmax/rps)) *  2 + 1
         self.dt = _gpf.type_mapping[self.slc_par['image_format']]
+        #Scale factor
+        self.rps = (ADCSR/self.nsamp*C/2.)/self.chirp_rate #range pixel spacing
+        self.pn1 = _np.arange(self.nsamp/2 + 1) 		#list of slant range pixel numbers
+        self.slr = (self.pn1 * ADCSR/self.nsamp*C/2.)/self.chirp_rate  + RANGE_OFFSET  #slant range for each sample
+        self.scale = (abs(self.slr)/self.slr[self.nsamp/8])**1.5     #cubic range weighting in power
+        self.ns_min = int(round(args.rmin/self.rps))	#round to the nearest range sample
+        if(args.rmax != 0.0):	#check if greater than maximum value for the selected chirp
+          if (int(round(args.rmax/self.rps)) <= self.ns_max):
+            self.ns_max = int(round(args.rmax/self.rps))
+        else:
+            self.ns_max = int(round(0.90 * self.nsamp/2))
+
 
     def decompress(self, of):
         arr_raw = _np.zeros(self.block_length, dtype=_np.int16)
@@ -48,7 +60,7 @@ class gpriBackwardsProcessor:
                     out_str = "processing line {}".format(idx_az)
                     print(out_str)
                     print(line)
-                arr_raw[1::] = _np.fft.irfft(line, n=self.nsamp)
+                arr_raw[1::] = _np.fft.irfft(line * self.scale[self.ns_min:self.ns_max + 1][::-1], n=self.nsamp)
                 arr_raw.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
         #return arr_raw
 

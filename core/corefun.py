@@ -268,7 +268,25 @@ def maximum_around(arr, idx, ws):
                  local_idx, global_idx, current_size in zip(max_idx, idx, ws)]
     return final_idx
 
-    
+
+def split_equal(A, split_size, axis=0):
+    """
+    Splits a n-dimensional array into sub-arrays of equal size.
+    Parameters
+    ----------
+    A   : ndarray
+        The array to be split into blocks
+    split_size : int
+        The number of blocks
+    axis : int, optional
+        The axis along which to split
+    Returns
+        list of ndarrays
+    -------
+    padding = (a.shape[axis])%split_size
+    return np.split(np.concatenate((A,np.zeros(padding))),split_size)
+
+    """
 
 
 def block_view(A, block= (3, 3)):
