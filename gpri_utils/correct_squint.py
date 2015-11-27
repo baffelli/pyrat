@@ -8,7 +8,7 @@ import numpy as _np
 import argparse
 sys.path.append(os.path.expanduser('~/PhD/trunk/Code/'))
 import pyrat.fileutils.gpri_files as _gpf
-
+import matplotlib.pyplot as _plt
 
 
 class squintCorrector():
@@ -20,11 +20,13 @@ class squintCorrector():
     def correct_squint(self, raw_channel, squint_function):
         #We require a function to compute the squint angle
         squint_vec = squint_function(self.raw_par.freq_vec)
+        squint_vec = squint_vec / self.raw_par.ang_per_tcycle
         squint_vec = squint_vec - squint_vec[self.raw_par.freq_vec.shape[0]/2]
+        # _plt.figure()
+        # _plt.plot(squint_vec)
+        # _plt.show()
         #Normal angle vector
-        angle_vec = self.raw_par.grp.STP_antenna_start +\
-                    _np.arange(raw_channel.shape[1]) * self.raw_par.ang_per_tcycle
-        print(raw_channel.shape)
+        angle_vec =_np.arange(raw_channel.shape[1])
         #We do not correct the squint of the first sample
         squint_vec = _np.insert(squint_vec, 0,0)
         #Interpolated raw channel
@@ -38,7 +40,7 @@ class squintCorrector():
 #These function take a vector of frequencies and
 #return a vector of squint angles in degrees
 def model_squint(freq_vec):
-    sq_ang = _gpf.squint_angle(freq_vec, _gpf.KU_WIDTH, _gpf.KU_DZ)
+    return _gpf.squint_angle(freq_vec, _gpf.KU_WIDTH, _gpf.KU_DZ)
 
 def linear_squint(freq_vec, sq_rate, center_squint):
     return sq_rate * freq_vec + center_squint
@@ -54,8 +56,8 @@ def main():
                 help="Corrected GPRI raw file")
     parser.add_argument('raw_par_out', type=str,
                 help="Parameters of the corrected GPRI raw file")
-    parser.add_argument('sq_rate', nargs=1, help='Squint rate in deg/Hz', type=float)
-    parser.add_argument('center_squint', nargs=1, help='Squint at the center frequency in degrees', type=float)
+    parser.add_argument('sq_rate', help='Squint rate in deg/Hz', type=float)
+    parser.add_argument('center_squint', help='Squint at the center frequency in degrees', type=float)
     #Read arguments
     try:
         args = parser.parse_args()
