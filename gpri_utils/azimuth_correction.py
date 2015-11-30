@@ -44,18 +44,29 @@ class gpriAzimuthProcessor:
 
 
     def correct(self):
-        #Filtered slc
-        slc_filt = self.slc * 1
         #Construct range vector
         r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
+        #Compute integration window size in samples
+        ws_samp = int(self.args.ws / self.slc.GPRI_az_angle_step[0])
+        #Filtered slc has different sizes depending
+        #if we keep all the samples after filtering
+        if not self.args.discard_samples:
+            slc_filt = self.slc * 1
+        else:
+            slc_filt = self.slc[:,::ws_samp] * 1
         #process each range line
-        theta = _np.arange(-self.args.ws/2, self.args.ws/2) * _np.deg2rad(self.slc.GPRI_az_angle_step[0])
+        theta = _np.arange(-ws_samp/2, ws_samp/2) * _np.deg2rad(self.slc.GPRI_az_angle_step[0])
         for idx_r in range(self.slc.shape[0]):
             filt, dist = _cal.distance_from_phase_center(self.args.r_ant, self.args.r_ph, r_vec[idx_r], theta, wrap=False)
             lam = (3e8) /17.2e9
-            mf_1 = _np.exp(4j * _np.pi * dist/lam)
-            mf_1 = mf_1
-            slc_filt[idx_r, :] = 1/float(self.args.ws) * _sig.fftconvolve(self.slc[idx_r, :], mf_1, mode='same')
+            matched_filter = _np.exp(4j * _np.pi * dist/lam)
+            filter_output = 1/float(ws_samp) * _sig.fftconvolve(self.slc[idx_r, :], matched_filter, mode='same')
+            if self.args.discard_samples:
+                filter_output = filter_output[::ws_samp]
+                slc_filt.GPRI_az_angle_step[0] = self.slc.GPRI_az_angle_step[0]/ws_samp
+            else:
+                pass
+            slc_filt[idx_r, :] = filter_output
             if idx_r % 1000 == 0:
                     print('Processing range index: ' + str(idx_r))
         return slc_filt
@@ -78,11 +89,11 @@ def main():
                 help="Antenna phase center horizontal displacement",
                 type=float, default=0.15)
     parser.add_argument('-w','--win_size', dest='ws',
-                help="Convolution window size",
-                type=int, default=10)
-    parser.add_argument('-k','--kbeta', dest='kbeta',
-                help="Kaiser beta parameter",
-                type=int, default=3)
+                help="Convolution window size in degrees",
+                type=float, default=0.4)
+    parser.add_argument('-d','--discard-samples', dest='discard_samples',
+                help="Discard samples after convolution",
+                action='store_true')
     #Read arguments
     try:
         args = parser.parse_args()
@@ -94,7 +105,7 @@ def main():
     slc_corr = proc.correct()
     with open(args.slc_out, 'wb') as of:
         slc_corr.T.astype(_gpf.type_mapping['FCOMPLEX']).tofile(of)
-    _gpf.dict_to_par(proc.slc.__dict__, args.slc_par_out)
+    _gpf.dict_to_par(slc_corr.__dict__, args.slc_par_out)
 if __name__ == "__main__":
     try:
         main()
