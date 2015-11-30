@@ -63,7 +63,8 @@ class gpriAzimuthProcessor:
             filter_output = 1/float(ws_samp) * _sig.fftconvolve(self.slc[idx_r, :], matched_filter, mode='same')
             if self.args.discard_samples:
                 filter_output = filter_output[::ws_samp]
-                slc_filt.GPRI_az_angle_step[0] = self.slc.GPRI_az_angle_step[0]/ws_samp
+                slc_filt.GPRI_az_angle_step[0] = self.slc.GPRI_az_angle_step[0]*ws_samp
+                slc_filt.azimuth_lines = filter_output.shape[0]
             else:
                 pass
             slc_filt[idx_r, :] = filter_output
