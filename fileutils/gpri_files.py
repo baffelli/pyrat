@@ -41,8 +41,8 @@ type_mapping = {
     #'SCOMPLEX': _np.dtype('>c4'),
     'FLOAT': _np.dtype('>f4'),
     'SHORT INTEGER': _np.dtype('>i2'),
-    'INTEGER*2': _np.dtype('<i2'),
-    'REAL*4': _np.dtype('<f4')
+    'INTEGER*2': _np.dtype('>i2'),
+    'REAL*4': _np.dtype('>f4')
 }
 
 # This dict defines the mapping
@@ -406,7 +406,7 @@ def geotif_to_dem(gt, par_path, bin_path):
     d['center_longitude'] = srs.GetProjParm('longitude_of_center')
     d['center_latitude'] = srs.GetProjParm('latitude_of_center')
     out_type = type_mapping[d['data_format']]
-    write_dataset(DEM, d, par_path, bin_path)
+    write_dataset(DEM.T.astype(out_type), d, par_path, bin_path)
 
 
 def gpri_raw_strides(nsamp, nchan, npat, itemsize):
@@ -472,8 +472,8 @@ def default_slc_dict():
     par['azimuth_looks'] = 1
     par['image_format'] = 'FCOMPLEX'
     par['image_geometry'] = 'SLANT_RANGE'
-    par['range_scale_factor'] = 0
-    par['azimuth_scale_factor'] = 0
+    par['range_scale_factor'] = 1
+    par['azimuth_scale_factor'] = 1
     par['center_latitude'] = [0, 'degrees']
     par['center_longitude'] = [0, 'degrees']
     par['heading'] = [0, 'degrees']

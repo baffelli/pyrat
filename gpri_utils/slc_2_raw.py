@@ -16,6 +16,7 @@ import scipy.signal as _sig
 sys.path.append(os.path.expanduser('~/PhD/trunk/Code/'))
 import pyrat.fileutils.gpri_files as _gpf
 from collections import namedtuple as _nt
+import matplotlib.pyplot as _plt
 
 class gpriBackwardsProcessor:
 
@@ -41,6 +42,7 @@ class gpriBackwardsProcessor:
         self.slr = (self.pn1 * ADCSR/self.nsamp*C/2.)/self.chirp_rate  + RANGE_OFFSET  #slant range for each sample
         self.scale = (abs(self.slr)/self.slr[self.nsamp/8])**1.5     #cubic range weighting in power
         self.ns_min = int(round(args.rmin/self.rps))	#round to the nearest range sample
+        self.win =  _sig.kaiser(self.nsamp, args.kbeta)
         if(args.rmax != 0.0):	#check if greater than maximum value for the selected chirp
           if (int(round(args.rmax/self.rps)) <= self.ns_max):
             self.ns_max = int(round(args.rmax/self.rps))
@@ -49,20 +51,31 @@ class gpriBackwardsProcessor:
 
 
     def decompress(self, of):
-        arr_raw = _np.zeros(self.block_length, dtype=_np.int16)
+        arr_raw = _np.zeros((self.block_length,int(self.slc_par['azimuth_lines'])), dtype=_np.float32)
         print(arr_raw.shape)
-       # arr_transf = _np.zeros((self.slc.shape[0] * 2 + 1, self.slc.azimuth_lines))
+        fshift = _np.ones(self.nsamp/2 + 1)
+        fshift[0::2] = -1
+        #Temporary "full" slc line
+        full_line = _np.zeros(self.nsamp/2 + 1, dtype=_np.complex64)
         #First convert back
         with open(self.args.slc, 'rb') as inf:
             for idx_az in range(int(self.slc_par['azimuth_lines'])):
-                line = _np.fromfile(inf,dtype=self.dt, count=int(self.slc_par['range_samples']))
+                load_line = _np.fromfile(inf,dtype=self.dt, count=int(self.slc_par['range_samples'])) * \
+                1/self.scale[self.ns_min:self.ns_max + 1]
+                full_line[self.ns_min:self.ns_max + 1] = load_line
+                arr_raw[1::, idx_az] = _np.fft.irfft(full_line * fshift, n=self.nsamp)/self.win
                 if idx_az % 1000 == 0:
                     out_str = "processing line {}".format(idx_az)
                     print(out_str)
-                    print(line)
-                arr_raw[1::] = _np.fft.irfft(line * self.scale[self.ns_min:self.ns_max + 1][::-1], n=self.nsamp)
-                arr_raw.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
+                    print(full_line.shape)
+                    print(arr_raw.shape)
+                (arr_raw[::,idx_az].astype(_gpf.type_mapping['SHORT INTEGER']) * 32768).T.tofile(of)
         #return arr_raw
+        #Compute azimuth spectrum
+        _plt.figure()
+        _plt.imshow((arr_raw[::5,::]))
+        _plt.grid()
+        _plt.show()
 
 
 
