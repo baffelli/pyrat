@@ -428,7 +428,7 @@ def gpri_raw_strides(nsamp, nchan, npat, itemsize):
     return (st_rg, st_az , st_chan, st_pat)
 
 
-def load_raw(par_path, path, nchan=1):
+def load_raw(par_path, path, nchan=2):
     """
     This function loads a gamma raw dataset
     :param the path to the raw_par file:
