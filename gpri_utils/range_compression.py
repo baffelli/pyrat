@@ -22,6 +22,7 @@ class gpriRangeProcessor:
         raw_dict = _gpf.par_to_dict(args.raw_par)
         self.raw_par = _gpf.rawParameters(raw_dict, args.raw)
         self.raw_par.compute_slc_parameters(args)
+        print("{},{}".format(self.raw_par.block_length, self.raw_par.nl_tot))
         self.rawdata = _np.fromfile(args.raw, dtype=self.raw_par.dt).reshape([self.raw_par.block_length, self.raw_par.nl_tot][::-1]).T
         self.apply_scale = args.apply_scale
 
@@ -31,7 +32,7 @@ class gpriRangeProcessor:
         fshift = _np.ones(self.raw_par.nsamp/ 2 +1)
         fshift[1::2] = -1
         #For each azimuth
-        for idx_az in range(self.raw_par.nl_tot_dec):
+        for idx_az in range(0,self.raw_par.nl_tot_dec):
             #Decimated pulse
             dec_pulse = _np.zeros(self.raw_par.block_length, dtype=_np.float32)
             for idx_dec in range(self.raw_par.dec):

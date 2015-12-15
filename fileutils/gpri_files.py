@@ -66,6 +66,8 @@ def get_image_size(path, width, type_name):
     import os as _os
     fc = _os.path.getsize(path) / type_mapping[type_name].itemsize
     shape = [width, int(fc / (width))]
+    computed_size = shape[0]*shape[1]*type_mapping[type_name].itemsize
+    measured_size = _os.path.getsize(path)
     return shape
 
 def temp_dataset():
@@ -536,9 +538,9 @@ class rawParameters:
         self.sizeof_data = _np.dtype(_np.int16).itemsize
         self.bytes_per_record = self.sizeof_data * self.block_length  #number of bytes per echo
         #Get file size
-        self.filesize = _osp.getsize(raw)
+        self.filesize = _os.path.getsize(raw)
         #Number of lines
-        self.nl_tot = int(self.filesize/self.bytes_per_record)
+        self.nl_tot = int(self.filesize/(self.sizeof_data * self.block_length))
         #Stuff for angle
         if self.grp.STP_antenna_end != self.grp.STP_antenna_start:
             self.ang_acc = self.grp.TSC_acc_ramp_angle
@@ -567,7 +569,7 @@ class rawParameters:
         self.rmin = self.ns_min * self.rps
         self.dec = args.d
         self.nl_acc = int(self.t_acc/(self.tcycle*self.dec))
-        self.nl_tot = int(self.grp.ADC_capture_time/(self.tcycle))
+        # self.nl_tot = int(self.grp.ADC_capture_time/(self.tcycle))
         self.nl_tot_dec = self.nl_tot / self.dec
         self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
         self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
