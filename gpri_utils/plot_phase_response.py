@@ -10,7 +10,6 @@ import numpy as _np
 import argparse
 import scipy as _sp
 import scipy.signal as _sig
-sys.path.append(os.path.expanduser('~/PhD/trunk/Code/'))
 import pyrat.fileutils.gpri_files as _gpf
 from collections import namedtuple as _nt
 import scipy.optimize as _opt

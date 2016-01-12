@@ -1,8 +1,6 @@
 #!/usr/bin/python
 import sys, os
 import argparse
-sys.path.append(os.path.expanduser('~/PhD/trunk/Code/'))
-import pyrat.fileutils.gpri_files as _gpf
 from osgeo import gdal
 
 

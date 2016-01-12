@@ -6,7 +6,6 @@ import sys, os
 import shutil as _shutil
 import numpy as _np
 import argparse
-sys.path.append(os.path.expanduser('~/PhD/trunk/Code/'))
 import pyrat.fileutils.gpri_files as _gpf
 import matplotlib.pyplot as _plt
 
@@ -42,8 +41,8 @@ class squintCorrector():
 def model_squint(freq_vec):
     return _gpf.squint_angle(freq_vec, _gpf.KU_WIDTH, _gpf.KU_DZ)
 
-def linear_squint(freq_vec, sq_rate, center_squint):
-    return sq_rate * freq_vec + center_squint
+def linear_squint(freq_vec, sq_parameters):
+    return _np.polynomial.polynomial.polyval(freq_vec, sq_parameters)
 
 def main():
     #Read the arguments

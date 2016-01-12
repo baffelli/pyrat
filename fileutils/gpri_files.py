@@ -659,11 +659,11 @@ def load_segment(file, shape, xmin, xmax, ymin, ymax, dtype=type_mapping['FCOMPL
     xmin : int
         The starting x location of the window to extract
     xmax : int
-        The ending x location of the window to extract
+        The ending x location of the window to extract (-1 for until end)
     ymin : int
         The starting y location of the window to extract
     ymax : int
-        The ending y location of the window to extract
+        The ending y location of the window to extract (-1 for unntil end)
     dtype : dtype
         The type of the data which is to be loaded
 

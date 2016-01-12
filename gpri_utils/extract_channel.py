@@ -8,7 +8,6 @@ RANGE_OFFSET= 3
 import sys, os
 import numpy as _np
 import argparse
-sys.path.append(os.path.expanduser('~/PhD/trunk/Code/'))
 import pyrat.fileutils.gpri_files as _gpf
 
 
