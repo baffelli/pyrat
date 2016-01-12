@@ -646,19 +646,44 @@ def squint_angle(freq, w, s):
     sq_ang_1 = _np.rad2deg(_np.arcsin(lam(freq) *dphi /(2.*_np.pi*s)))	#azimuth beam squint angle
     return sq_ang_1
 
-def load_segment(file, shape, xmin, xmax, ymin, ymax):
+def load_segment(file, shape, xmin, xmax, ymin, ymax, dtype=type_mapping['FCOMPLEX']):
     """
-    This function load a segment from a file
+    This function load a segment from a file that represents
+    a 2D array (image)
     Parameters
     ----------
-    file
-    shape
-    xmin
-    xmax
-    ymin
-    ymax
+    file : string, file
+        The file to load from
+    shape : iterable
+        The shape of the file
+    xmin : int
+        The starting x location of the window to extract
+    xmax : int
+        The ending x location of the window to extract
+    ymin : int
+        The starting y location of the window to extract
+    ymax : int
+        The ending y location of the window to extract
+    dtype : dtype
+        The type of the data which is to be loaded
 
     Returns
     -------
+    A 2d numpy array of values with the type `dtype`
 
     """
+
+    #x corresponds to range, y to azimuth
+    #Seek before starting memmap (seek as many records as ymin)
+    inital_seek = int(ymin * shape[0] * dtype.itemsize)
+    #How many records to load
+    nrecords =  int(shape[0] * (ymax - ymin))
+    with open(file, 'rb') as input_file:
+        input_file.seek(inital_seek)
+        #Load the desired records (this automagically provides y slicing
+        selected_records = _np.fromfile(input_file, dtype=dtype, count=nrecords)
+        #Reshape with the record length
+        output_shape = ((ymax - ymin), shape[0])
+        selected_records = selected_records.reshape(output_shape).T
+        output_slice = selected_records[xmin:xmax,:]
+        return output_slice

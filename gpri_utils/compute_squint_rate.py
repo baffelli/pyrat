@@ -1,21 +1,18 @@
 #!/usr/bin/python
 __author__ = 'baffelli'
-C = 299792458.0    #speed of light m/s
-KU_WIDTH = 15.798e-3 #WG-62 Ku-Band waveguide width dimension
-KU_DZ = 10.682e-3   #Ku-Band Waveguide slot spacing
-RANGE_OFFSET= 3
-ADCSR=6250000.0
-RF_CHIRP_RATE=49942173063.8
 
-
-import sys, os
-import numpy as _np
 import argparse
+import os
+import sys
+
+import numpy as _np
 import scipy as _sp
 import scipy.signal as _sig
+
+from gpri_utils import simulate_squint as sq
+
 sys.path.append(os.path.expanduser('~/PhD/trunk/Code/'))
 import pyrat.fileutils.gpri_files as _gpf
-from collections import namedtuple as _nt
 import matplotlib.pyplot as _plt
 class rawTracker:
 
@@ -41,17 +38,24 @@ class rawTracker:
 
 
     def track_maximum(self):
-        self.open_raw()
+        self.raw_data = _gpf.load_segment(self.args.raw,
+                                          (self.grp.block_length, self.grp.nl_tot)
+                                          ,0, self.grp.block_length,
+                                          self.args.aztarg - self.args.search_window/2,
+                                          self.args.aztarg + self.args.search_window/2,
+                                          dtype=_gpf.type_mapping['SHORT INTEGER'])
         #First we compute the range spectrum
         range_spectrum = _np.fft.rfft(self.raw_data,axis=0) * self.fshift[:,None] * self.grp.scale[:,None]
         #From the range spectrum we can obtain the maximum
-        mean_spectrum = _np.mean(_np.abs(range_spectrum),axis=1)
+        # mean_spectrum = _np.mean(_np.abs(range_spectrum),axis=1)
         #From the maximum energy we determine the dominant target frequency
-        max_idx = _np.argmax(mean_spectrum[1:])
-        freq_vec = _np.fft.rfftfreq(mean_spectrum.shape[0])
-        ws = 100
-        freq_filter = _np.zeros(mean_spectrum.shape)
-        freq_filter[max_idx-ws/2:max_idx+ws/2] = _np.hamming(ws)
+        max_idx = _np.argmax(range_spectrum[1:,:])
+        range_spectrum_shape = [range_spectrum.shape[0]- 1, range_spectrum.shape[1]]
+        max_r, max_az = _np.unravel_index(max_idx,range_spectrum_shape)
+        freq_vec = _np.fft.rfftfreq(range_spectrum.shape[0])
+        ws = 200
+        freq_filter = _np.zeros(range_spectrum_shape[0] + 1)
+        freq_filter[max_r-ws/2:max_r+ws/2] = _np.hamming(ws)
         #Filter spectrum to extract only range of interest
         filt_data = _np.fft.irfft(range_spectrum * freq_filter[:,None] * -self.fshift[:,None],axis=0)
         #COmpute its envelope
@@ -64,12 +68,29 @@ class rawTracker:
         #Convert indices in degrees
         squint_vec = squint_vec * self.grp.ang_per_tcycle
         #Fit a polynomial
-        pars = _sp.polyfit(self.grp.freq_vec,squint_vec,1)
+        start_idx = 100
+        pars = _sp.polyfit(self.grp.freq_vec[start_idx:-start_idx],squint_vec[start_idx:-start_idx],1)
         print(pars)
+        #Compute squint with simulation
+        squint_vec_sim = sq.squint_angle(self.grp.freq_vec, sq.KU_WIDTH, sq.KU_DZ)
+        squint_vec_sim - squint_vec_sim[squint_vec_sim.shape[0]/2]#subtract squint at the center frequency
         #Computed fitted data
-        _plt.figure()
-        _plt.imshow(_np.abs(filt_data))
+        f = _plt.figure()
+        _plt.plot(self.grp.freq_vec[start_idx:-start_idx],squint_vec[start_idx:-start_idx], label='measured')
+        _plt.plot(self.grp.freq_vec,self.grp.freq_vec*pars[0] + pars[1], label=' Linear model')
+        _plt.plot(self.grp.freq_vec,squint_vec_sim, label=' Exact Formula')
+        _plt.xlabel('Chirp Frequency [Hz]')
+        _plt.ylabel('Azimuth Offset [deg]')
+        _plt.grid()
+        _plt.legend()
         _plt.show()
+        f.savefig(self.args.squint_plot)
+         #Computed fitted data
+        _plt.figure()
+        _plt.imshow(_np.abs(filt_env))
+        _plt.show()
+        f.savefig(self.args.squint_image)
+
         #fitted_squint = pars[0] * self.grp.freq_vec + pars[1]
         return _np.transpose([self.grp.freq_vec,squint_vec]), pars
 
@@ -89,6 +110,9 @@ def main():
     parser.add_argument('squint_fit', type=str,
                 help="Linear squint parameters (text)")
     parser.add_argument('--search-window', dest='search_window', default=200, type=int, )
+    parser.add_argument('--squint_plot', default='', type=str, )
+    parser.add_argument('--squint_image', default='', type=str, )
+
     #Read arguments
     try:
         args = parser.parse_args()
