@@ -58,9 +58,11 @@ class rawTracker:
         squint_vec_fit = _np.polynomial.polynomial.polyval(self.grp.freq_vec, pars[::-1])
         print(pars)
         #Compute squint with simulation
-        squint_vec_sim = pars[-1] + sq.squint_angle(self.grp.freq_vec, chan='V')
-        # squint_vec_sim = squint_vec_sim - squint_vec_sim[squint_vec_sim.shape[0]/2]#subtract squint at the center frequency
+        squint_vec_sim = sq.squint_angle(self.grp.freq_vec, chan='H')
+        #Add the location of estimated squint at 0
+        squint_vec_sim = pars[-1] + squint_vec_sim - squint_vec_sim[squint_vec_sim.shape[0]/2]
         #Computed fitted data
+        #Use specified style sheet for the plots
         if self.args.style is not '':
             sty = 'classic'
         else:
@@ -78,14 +80,17 @@ class rawTracker:
             f.savefig(self.args.squint_plot)
              #Computed fitted data
             f, ax  = _plt.subplots()
+            #line width
+            lw = 3
             # ax.plot(squint_vec[start_idx:-start_idx], self.grp.freq_vec[start_idx:-start_idx], label='measured')
-            ax.plot(squint_vec_fit,self.grp.freq_vec, label=r' Linear model')
-            ax.plot(squint_vec_sim,self.grp.freq_vec, label=r' Exact model')
+            freq_vec_plot = self.grp.freq_vec / 1e9
+            ax.plot(squint_vec_fit,freq_vec_plot, label=r' Linear model', lw=lw)
+            ax.plot(squint_vec_sim,freq_vec_plot, label=r' Exact model', lw=lw)
             ax.imshow(_np.abs(filt_env)**0.3,
-                        extent=[az_vec[0], az_vec[-1],self.grp.freq_vec[0],self.grp.freq_vec[-1],],
-                      aspect=10e-9, alpha=0.8, origin='lower', interpolation='none')
+                        extent=[az_vec[0], az_vec[-1],freq_vec_plot[0],freq_vec_plot[-1],],
+                      aspect=1e2, alpha=0.8, origin='lower', interpolation='none')
 
-            _plt.ylabel(r'Chirp Frequency [Hz]')
+            _plt.ylabel(r'Chirp Frequency [GHz]')
             _plt.xlabel(r'Azimuth Angle [deg]')
             _plt.title(r'Squint parameters: ${:3.2e}f + {:3.2e}$'.format(*pars), fontsize=15)
             _plt.grid()

@@ -16,8 +16,8 @@ def lam(freq):
     return C/freq
 
 
-def squint_angle(freq, chan='V'):
-    #sq_ang = _np.arccos(lam(freq) / lamg(freq, w) - k / (s/lam(freq)))
+def squint_angle(freq, chan='V',k=0):
+    sq_ang = _np.arccos(lam(freq) / lamg(freq, KU_WIDTH) - k / (KU_DZ[chan]/lam(freq)))
     dphi = _np.pi * (2. * KU_DZ[chan] / lamg(freq, KU_WIDTH) - 1.0)				#antenna phase taper to generate squint
     sq_ang_1 = (_np.arcsin(lam(freq) * dphi / (2. * _np.pi * KU_DZ[chan])))	#azimuth beam squint angle
     return _np.rad2deg(sq_ang_1)
