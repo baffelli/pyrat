@@ -50,13 +50,17 @@ class rawTracker:
         #COmpute its envelope
         filt_env = _sig.hilbert(filt_data,axis=0)
         #Track the maximum and convert the indices into angles
-        squint_vec = az_vec[_np.array( [_np.argmax(_np.abs(filt_env[idx,:]))
-                                 for idx in range(filt_env.shape[0])])]
+        max_vec = _np.array( [_np.argmax(_np.abs(filt_env[idx,:]))
+                                 for idx in range(filt_env.shape[0])])
+        # squint_vec = az_vec[max_vec]
+        az_vec_plot = az_vec - az_vec[max_vec[max_vec.shape[0]/2]]
+        squint_vec = az_vec_plot[max_vec]
         #Fit a polynomial
         start_idx = 300
         pars = _sp.polyfit(self.grp.freq_vec[start_idx:-start_idx],squint_vec[start_idx:-start_idx],1)
         squint_vec_fit = _np.polynomial.polynomial.polyval(self.grp.freq_vec, pars[::-1])
         print(pars)
+        pars[-1] = 0
         #Compute squint with simulation
         squint_vec_sim = sq.squint_angle(self.grp.freq_vec, chan='H')
         #Add the location of estimated squint at 0
@@ -87,12 +91,12 @@ class rawTracker:
             ax.plot(squint_vec_fit,freq_vec_plot, label=r' Linear model', lw=lw)
             ax.plot(squint_vec_sim,freq_vec_plot, label=r' Exact model', lw=lw)
             ax.imshow(_np.abs(filt_env)**0.3,
-                        extent=[az_vec[0], az_vec[-1],freq_vec_plot[0],freq_vec_plot[-1],],
+                        extent=[az_vec_plot[0], az_vec_plot[-1],freq_vec_plot[0],freq_vec_plot[-1],],
                       aspect=1e2, alpha=0.8, origin='lower', interpolation='none')
 
             _plt.ylabel(r'Chirp Frequency [GHz]')
-            _plt.xlabel(r'Azimuth Angle [deg]')
-            _plt.title(r'Squint parameters: ${:3.2e}f + {:3.2e}$'.format(*pars), fontsize=15)
+            _plt.xlabel(r'Angle from Antenna Pointing At $f_{c}$[deg]')
+            _plt.title(r'Squint parameters: ${:3.2e}f$'.format(*pars), fontsize=15)
             _plt.grid()
             _plt.legend()
             f.tight_layout()
