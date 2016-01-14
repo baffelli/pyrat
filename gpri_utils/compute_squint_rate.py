@@ -6,7 +6,7 @@ import os
 import numpy as _np
 import scipy as _sp
 import scipy.signal as _sig
-import simulate_squint as sq
+import simulate_squint as _sq
 import pyrat.fileutils.gpri_files as _gpf
 import matplotlib.pyplot as _plt
 class rawTracker:
@@ -62,7 +62,7 @@ class rawTracker:
         print(pars)
         pars[-1] = 0
         #Compute squint with simulation
-        squint_vec_sim = sq.squint_angle(self.grp.freq_vec, chan='H')
+        squint_vec_sim = _sq.squint_angle(self.grp.freq_vec, chan='H')
         #Add the location of estimated squint at 0
         squint_vec_sim = pars[-1] + squint_vec_sim - squint_vec_sim[squint_vec_sim.shape[0]/2]
         #Computed fitted data
@@ -102,7 +102,12 @@ class rawTracker:
             f.tight_layout()
             _plt.show()
             f.savefig(self.args.squint_image)
-
+        #Print squint at fc for VV and HH
+        fc = self.grp.freq_vec[self.grp.freq_vec.shape[0]/2]
+        #Modeled squint for HH and VV
+        squint_VV = _sq.squint_angle(fc,chan='V', k=1.0/2.0)
+        squint_HH = _sq.squint_angle(fc,chan='H', k=1.0/2.0)
+        print('HH initial squint: {} \n VV initial squint: {}'.format(squint_HH,squint_VV))
         #fitted_squint = pars[0] * self.grp.freq_vec + pars[1]
         return _np.transpose([self.grp.freq_vec,squint_vec]), pars
 
