@@ -21,9 +21,6 @@ class squintCorrector():
         squint_vec = squint_function(self.raw_par.freq_vec)
         squint_vec = squint_vec / self.raw_par.ang_per_tcycle
         squint_vec = squint_vec - squint_vec[self.raw_par.freq_vec.shape[0]/2]
-        # _plt.figure()
-        # _plt.plot(squint_vec)
-        # _plt.show()
         #Normal angle vector
         angle_vec =_np.arange(raw_channel.shape[1])
         #We do not correct the squint of the first sample
@@ -69,10 +66,16 @@ def main():
     raw_par = _gpf.rawParameters(raw_dict, args.raw)
     raw_data = _np.fromfile(args.raw, dtype=raw_par.dt).reshape([raw_par.nl_tot,
                                                                 raw_par.block_length]).T
+    raw_data = _gpf.load_segment(args.raw,
+                                        (raw_par.block_length, raw_par.nl_tot)
+                                          ,0, raw_par.block_length,0,
+                                          raw_par.nl_tot,
+                                          dtype=_gpf.type_mapping['SHORT INTEGER'])
+    print(raw_data.shape)
     #Create squint corrector object
     squint_processor = squintCorrector(args, raw_par)
     #Squint correction function
-    sf = lambda freq_vec: linear_squint(freq_vec, args.sq_rate, args.center_squint)
+    sf = lambda freq_vec: linear_squint(freq_vec, [args.center_squint, args.sq_rate])
     #Call processor
     raw_data_corr = squint_processor.correct_squint(raw_data, sf)
 

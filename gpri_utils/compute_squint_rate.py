@@ -8,7 +8,17 @@ import scipy as _sp
 import scipy.signal as _sig
 import simulate_squint as _sq
 import pyrat.fileutils.gpri_files as _gpf
+import pyrat.visualization.visfun as _vf
 import matplotlib.pyplot as _plt
+
+
+def stft(x, fftsize=4096, overlap=10):
+    hop = fftsize / overlap
+    w = _sp.hanning(fftsize+1)[:-1]      # better reconstruction with this trick +1)[:-1]
+    fshift = _np.ones(fftsize)
+    fshift[1::2] = -1
+    return _np.array([_np.fft.rfft(w[:,None]*fshift[:,None]*x[i:i+fftsize,:],axis=0) for i in range(0, x.shape[0]-fftsize, hop)])
+
 class rawTracker:
 
     def __init__(self, args):
@@ -32,8 +42,6 @@ class rawTracker:
                                           _np.clip(self.args.aztarg + self.args.search_window/2,0,self.grp.nl_tot),
                                           dtype=_gpf.type_mapping['SHORT INTEGER'])
         az_min = self.grp.grp.STP_antenna_start + self.grp.ang_per_tcycle * az_start_idx
-        #azimuth indices
-        az_vec = az_min + self.grp.ang_per_tcycle * _np.arange(self.raw_data.shape[1])
         #First we compute the range spectrum
         range_spectrum = _np.fft.rfft(self.raw_data,axis=0) * self.fshift[:,None] * self.grp.scale[:,None]
         #From the range spectrum we can obtain the maximum
@@ -42,8 +50,26 @@ class rawTracker:
         range_spectrum_shape = [range_spectrum.shape[0]- 1, range_spectrum.shape[1]]
         max_r, max_az = _np.unravel_index(max_idx,range_spectrum_shape)
         freq_vec = _np.fft.rfftfreq(range_spectrum.shape[0])
-        ws = 100
+        data_cube = stft(self.raw_data)
+        print(data_cube.shape)
+        _plt.figure()
+        ax = _plt.gca()
+        ph_vec = []
+        for idx in range(1,data_cube.shape[0]):
+            phase_amp, pal, norm = _vf.dismph(data_cube[idx,:,:])
+            _plt.subplot(5,5,idx,sharex=ax, sharey=ax)
+            _plt.imshow(phase_amp,interpolation='none')
+        _plt.figure()
+        _plt.imshow(_np.angle(data_cube[0,:,:] * data_cube[2,:,:].conj()))
+        #Cut the data around the maxium in azimuth
+        range_spectrum = range_spectrum[:, max_az - self.args.analysis_window/2:max_az + self.args.analysis_window/2]
+        #azimuth indices
+        az_vec = (max_az - self.args.analysis_window/2) * self.grp.ang_per_tcycle + az_min + self.grp.ang_per_tcycle * _np.arange(range_spectrum.shape[1])
+        #Window size for the filter
+        ws = 10
+        ws_plot = 10 #window size for plotting
         freq_filter = _np.zeros(range_spectrum_shape[0] + 1)
+        #Window position
         freq_filter[max_r-ws/2:max_r+ws/2] = _np.hamming(ws)
         #Filter spectrum to extract only range of interest
         filt_data = _np.fft.irfft(range_spectrum * freq_filter[:,None] * -self.fshift[:,None],axis=0)
@@ -52,6 +78,8 @@ class rawTracker:
         #Track the maximum and convert the indices into angles
         max_vec = _np.array( [_np.argmax(_np.abs(filt_env[idx,:]))
                                  for idx in range(filt_env.shape[0])])
+        #Extract the envelope at the position of the maximum
+        phase_response =_np.array( [filt_env[idx,max_vec[idx]] for idx in range(filt_env.shape[0])])
         # squint_vec = az_vec[max_vec]
         az_vec_plot = az_vec - az_vec[max_vec[max_vec.shape[0]/2]]
         squint_vec = az_vec_plot[max_vec]
@@ -65,7 +93,9 @@ class rawTracker:
         squint_vec_sim = _sq.squint_angle(self.grp.freq_vec, chan='H')
         #Add the location of estimated squint at 0
         squint_vec_sim = pars[-1] + squint_vec_sim - squint_vec_sim[squint_vec_sim.shape[0]/2]
-        #Computed fitted data
+        #Compress the filtered spectrum to obtain image around reflector
+        compressed_spectrum = _np.fft.rfft(filt_data,axis=0)* self.fshift[:,None] * self.grp.scale[:,None]
+
         #Use specified style sheet for the plots
         if self.args.style is not '':
             sty = 'classic'
@@ -73,14 +103,17 @@ class rawTracker:
             sty = self.args.style
         with _plt.style.context(sty):
             f = _plt.figure()
-            _plt.plot(self.grp.freq_vec[start_idx:-start_idx],squint_vec[start_idx:-start_idx], label=r'measured')
-            _plt.plot(self.grp.freq_vec, squint_vec_fit, label=r' Linear model')
-            # _plt.plot(self.grp.freq_vec,squint_vec_sim, label=r' Exact Formula')
-            _plt.xlabel(r'Chirp Frequency [Hz]')
-            _plt.ylabel(r'Azimuth Offset [deg]')
-            _plt.grid()
-            _plt.legend()
-            _plt.show()
+            _plt.plot((_np.abs(phase_response)))
+            f = _plt.figure()
+            # _plt.plot(self.grp.freq_vec[start_idx:-start_idx],squint_vec[start_idx:-start_idx], label=r'measured')
+            # _plt.plot(self.grp.freq_vec, squint_vec_fit, label=r' Linear model')
+            # # _plt.plot(self.grp.freq_vec,squint_vec_sim, label=r' Exact Formula')
+            # _plt.xlabel(r'Chirp Frequency [Hz]')
+            # _plt.ylabel(r'Azimuth Offset [deg]')
+            # _plt.grid()
+            # _plt.legend()
+            # _plt.show()
+            _plt.imshow(_np.abs(compressed_spectrum[max_r-ws_plot/2:max_r+ws_plot/2,:])**0.3, interpolation='none')
             f.savefig(self.args.squint_plot)
              #Computed fitted data
             f, ax  = _plt.subplots()
@@ -88,17 +121,17 @@ class rawTracker:
             lw = 3
             # ax.plot(squint_vec[start_idx:-start_idx], self.grp.freq_vec[start_idx:-start_idx], label='measured')
             freq_vec_plot = self.grp.freq_vec / 1e9
-            ax.plot(squint_vec_fit,freq_vec_plot, label=r' Linear model', lw=lw)
-            ax.plot(squint_vec_sim,freq_vec_plot, label=r' Exact model', lw=lw)
-            ax.imshow(_np.abs(filt_env)**0.3,
-                        extent=[az_vec_plot[0], az_vec_plot[-1],freq_vec_plot[0],freq_vec_plot[-1],],
-                      aspect=1e2, alpha=0.8, origin='lower', interpolation='none')
-
-            _plt.ylabel(r'Chirp Frequency [GHz]')
-            _plt.xlabel(r'Angle from Antenna Pointing At $f_{c}$[deg]')
+            ax.plot(freq_vec_plot,squint_vec_fit, label=r' Linear model', lw=lw)
+            ax.plot(freq_vec_plot,squint_vec_sim, label=r' Exact model', lw=lw)
+            phase_amp, pal, norm = _vf.dismph(filt_env.T)
+            ax.imshow(phase_amp,
+                        extent=[freq_vec_plot[0],freq_vec_plot[-1],az_vec_plot[0], az_vec_plot[-1]],
+                      aspect=1/50.0, alpha=0.8, origin='lower', interpolation='none')
+            _plt.xlabel(r'Chirp Frequency [GHz]')
+            _plt.ylabel(r'Angle from Antenna Pointing At $f_{c}$[deg]')
             _plt.title(r'Squint parameters: ${:3.2e}f$'.format(*pars), fontsize=15)
             _plt.grid()
-            _plt.legend()
+            _plt.legend(loc=3)
             f.tight_layout()
             _plt.show()
             f.savefig(self.args.squint_image)
@@ -126,7 +159,8 @@ def main():
                 help="Output squint profile (text)")
     parser.add_argument('squint_fit', type=str,
                 help="Linear squint parameters (text)")
-    parser.add_argument('--search-window', dest='search_window', default=200, type=int, )
+    parser.add_argument('--search-window', dest='search_window', default=200, type=int, help='Search window to look for the maxium response' )
+    parser.add_argument('--analysis-window', dest='analysis_window', default=50, type=int, )
     parser.add_argument('--squint_plot', default='', type=str, )
     parser.add_argument('--squint_image', default='', type=str, )
     parser.add_argument('--style', default='', type=str, help='Matplotlib Style file')
