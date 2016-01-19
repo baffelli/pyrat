@@ -381,7 +381,7 @@ def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=True):
     This function computes the phase caused by a shifted
     phase center in the antenna
     """
-    lam = (3e8) /17.2e9
+    lam = (299792458) /17.2e9
     ant_angle = _np.arctan2(r_ph, r_arm)
     r_ant = _np.sqrt(r_arm**2 + r_ph**2)
     #Chord length

@@ -12,12 +12,12 @@ import pyrat.visualization.visfun as _vf
 import matplotlib.pyplot as _plt
 
 
-def stft(x, fftsize=4096, overlap=10):
+def stft(x, fftsize=4096, overlap=50):
     hop = fftsize / overlap
     w = _sp.hanning(fftsize+1)[:-1]      # better reconstruction with this trick +1)[:-1]
-    fshift = _np.ones(fftsize)
+    fshift = _np.ones(fftsize/2+1)
     fshift[1::2] = -1
-    return _np.array([_np.fft.rfft(w[:,None]*fshift[:,None]*x[i:i+fftsize,:],axis=0) for i in range(0, x.shape[0]-fftsize, hop)])
+    return _np.array([_np.fft.rfft(w[:,None]*x[i:i+fftsize,1:],axis=0)*fshift[:,None] for i in range(0, x.shape[0]-fftsize, hop)])
 
 
 class rawTracker:
@@ -42,8 +42,6 @@ class rawTracker:
                                           az_start_idx,
                                           _np.clip(self.args.aztarg + self.args.search_window/2,0,self.grp.nl_tot),
                                           dtype=_gpf.type_mapping['SHORT INTEGER'])
-        #STFT
-        data_cube = stft(self.raw_data, overlap=20)
         az_min = self.grp.grp.STP_antenna_start + self.grp.ang_per_tcycle * az_start_idx
         #First we compute the range spectrum
         range_spectrum = _np.fft.rfft(self.raw_data,axis=0) * self.fshift[:,None] * self.grp.scale[:,None]
@@ -99,24 +97,9 @@ class rawTracker:
         else:
             sty = self.args.style
         with _plt.style.context(sty):
-            # f = _plt.figure()
-            # _plt.plot((_np.angle(phase_response)))
-            # # f = _plt.figure()
-            # # _plt.plot(self.grp.freq_vec[start_idx:-start_idx],squint_vec[start_idx:-start_idx], label=r'measured')
-            # # _plt.plot(self.grp.freq_vec, squint_vec_fit, label=r' Linear model')
-            # # # _plt.plot(self.grp.freq_vec,squint_vec_sim, label=r' Exact Formula')
-            # # _plt.xlabel(r'Chirp Frequency [Hz]')
-            # # _plt.ylabel(r'Azimuth Offset [deg]')
-            # # _plt.grid()
-            # # _plt.legend()
-            # # _plt.show()
-            # # _plt.imshow(_np.abs(compressed_spectrum[max_r-ws_plot/2:max_r+ws_plot/2,:])**0.3, interpolation='none')
-            # # f.savefig(self.args.squint_plot)
-            #  #Computed fitted data
             f, ax  = _plt.subplots()
             #line width
             lw = 3
-            # ax.plot(squint_vec[start_idx:-start_idx], self.grp.freq_vec[start_idx:-start_idx], label='measured')
             freq_vec_plot = self.grp.freq_vec / 1e9
             ax.plot(freq_vec_plot,squint_vec_fit, label=r' Linear model', lw=lw)
             ax.plot(freq_vec_plot,squint_vec_sim, label=r' Exact model', lw=lw)
