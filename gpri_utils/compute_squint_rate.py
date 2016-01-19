@@ -85,7 +85,7 @@ class rawTracker:
         print(pars)
         pars[-1] = 0
         #Compute squint with simulation
-        squint_vec_sim = _sq.squint_angle(self.grp.freq_vec, chan='H')
+        squint_vec_sim = _sq.squint_angle(self.grp.freq_vec, chan='H', k=1/2.0)
         #Add the location of estimated squint at 0
         squint_vec_sim = pars[-1] + squint_vec_sim - squint_vec_sim[squint_vec_sim.shape[0]/2]
         #Compress the filtered spectrum to obtain image around reflector
@@ -118,9 +118,11 @@ class rawTracker:
         #Print squint at fc for VV and HH
         fc = self.grp.freq_vec[self.grp.freq_vec.shape[0]/2]
         #Modeled squint for HH and VV
-        squint_VV = _sq.squint_angle(fc,chan='V', k=1.0/2.0)
-        squint_HH = _sq.squint_angle(fc,chan='H', k=1.0/2.0)
+        squint_VV = _sq.squint_angle(fc,chan='V', k=1/2.0)
+        squint_HH = _sq.squint_angle(fc,chan='V', k=1/2.0)
         print('HH initial squint: {} \n VV initial squint: {}'.format(squint_HH,squint_VV))
+        print(_sq.KU_DZ['V']/_sq.lam(17.2e9))
+        print(_sq.lamg(17.2e9, _sq.KU_WIDTH))
         #fitted_squint = pars[0] * self.grp.freq_vec + pars[1]
         return _np.transpose([self.grp.freq_vec,squint_vec]), pars
 
