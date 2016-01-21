@@ -22,6 +22,7 @@ _sty.use('/home/baffelli/PhD_work/Code/paper_rc.rc')
 class gpriPlotter:
 
     def __init__(self, args):
+        self.args = args
         self.slc = _gpf.gammaDataset(args.slc_par, args.slc)
         self.ridx = args.ridx
         self.azidx = args.azidx
@@ -39,12 +40,17 @@ class gpriPlotter:
         reflector_slice = self.slc[slc_sl]
         # half_pwr_idx = _np.nonzero(_np.abs(reflector_slice) >
         #                            _np.abs(reflector_slice[max_idx]) * 0.5)
-        max_phase = _np.angle(reflector_slice[max_idx])
         #Slice slc
         #Azimuth angle vector for plot
         az_vec = self.slc.GPRI_az_angle_step[0] * _np.arange(-len(reflector_slice)/2
                                                                           ,len(reflector_slice)/2)
-        refl_ph = _np.angle(reflector_slice)
+        if self.args.unwrap:
+            refl_ph = _np.unwrap(_np.angle(reflector_slice))
+        else:
+            refl_ph =_np.angle(reflector_slice)
+
+        max_phase = refl_ph[max_idx]
+
         refl_amp = (_np.abs(reflector_slice))
         f = _plt.figure()
         _plt.plot(az_vec,_np.rad2deg(refl_ph - max_phase))
@@ -81,6 +87,8 @@ def main():
                 help="Estimation window size")
     parser.add_argument('-s', '--step_size', dest='step_size', type=float, default=10,
                 help="Plot y axis step size")
+    parser.add_argument( '--unwrap', default=True, action='store_true',
+                help="Unwrap the data when plotting")
 
     #Read arguments
     try:

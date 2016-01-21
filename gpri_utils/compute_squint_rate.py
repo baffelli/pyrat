@@ -101,8 +101,9 @@ class rawTracker:
             #line width
             lw = 3
             freq_vec_plot = self.grp.freq_vec / 1e9
-            ax.plot(freq_vec_plot,squint_vec_fit, label=r' Linear model', lw=lw)
-            ax.plot(freq_vec_plot,squint_vec_sim, label=r' Exact model', lw=lw)
+            ax.plot(freq_vec_plot,squint_vec_fit, label=r' Linear fit $\phi = \alpha f$', lw=lw)
+            if self.args.plot_model:
+                ax.plot(freq_vec_plot,squint_vec_sim, label=r' Theoretical model', lw=lw)
             phase_amp, pal, norm = _vf.dismph(filt_env.T,k=1.2)
             ax.imshow(_np.abs(filt_env.T),
                         extent=[freq_vec_plot[0],freq_vec_plot[-1],az_vec_plot[0], az_vec_plot[-1]],
@@ -147,6 +148,7 @@ def main():
     parser.add_argument('--squint_plot', default='', type=str, )
     parser.add_argument('--squint_image', default='', type=str, )
     parser.add_argument('--style', default='', type=str, help='Matplotlib Style file')
+    parser.add_argument('--plot_model', default=False, action='store_true', help='Plot curve obtained from model?')
 
     #Read arguments
     try:
