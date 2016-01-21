@@ -32,28 +32,30 @@ class gpriPlotter:
         self.step_size = args.step_size
 
     def plot(self):
-        #Slice the slc
-        slc_sl = (self.ridx, slice(self.azidx - self.ws / 2, self.azidx + self.ws/2))
-        #Determine true maximum
-        max_idx = _np.argmax(_np.abs(self.slc[slc_sl]))
-        #Determine half power beamwidth
-        reflector_slice = self.slc[slc_sl]
-        # half_pwr_idx = _np.nonzero(_np.abs(reflector_slice) >
-        #                            _np.abs(reflector_slice[max_idx]) * 0.5)
-        #Slice slc
-        #Azimuth angle vector for plot
-        az_vec = self.slc.GPRI_az_angle_step[0] * _np.arange(-len(reflector_slice)/2
-                                                                          ,len(reflector_slice)/2)
-        if self.args.unwrap:
-            refl_ph = _np.unwrap(_np.angle(reflector_slice))
-        else:
-            refl_ph =_np.angle(reflector_slice)
-
-        max_phase = refl_ph[max_idx]
-
-        refl_amp = (_np.abs(reflector_slice))
         f = _plt.figure()
-        _plt.plot(az_vec,_np.rad2deg(refl_ph - max_phase))
+        ax = _plt.gca()
+        for ridx, azidx in zip(self.args.ridx, self.args.azidx):
+            #Slice the slc
+            slc_sl = (ridx, slice(azidx - self.ws / 2, azidx + self.ws/2))
+            #Determine true maximum
+            max_idx = _np.argmax(_np.abs(self.slc[slc_sl]))
+            #Determine half power beamwidth
+            reflector_slice = self.slc[slc_sl]
+            # half_pwr_idx = _np.nonzero(_np.abs(reflector_slice) >
+            #                            _np.abs(reflector_slice[max_idx]) * 0.5)
+            #Slice slc
+            #Azimuth angle vector for plot
+            az_vec = self.slc.GPRI_az_angle_step[0] * _np.arange(-len(reflector_slice)/2
+                                                                              ,len(reflector_slice)/2)
+            if self.args.unwrap:
+                refl_ph = _np.unwrap(_np.angle(reflector_slice))
+            else:
+                refl_ph =_np.angle(reflector_slice)
+
+            max_phase = refl_ph[max_idx]
+
+            refl_amp = (_np.abs(reflector_slice))
+            ax.plot(az_vec,_np.rad2deg(refl_ph - max_phase))
         #Plot line for beamwidth
         _plt.axvline(0.2, color='red', ls='--')
         _plt.axvline(-0.2, color='red', ls='--')
@@ -75,10 +77,10 @@ def main():
                 help="SLC channel file")
     parser.add_argument('slc_par', type=str,
                 help="SLC channel file parameters")
-    parser.add_argument('ridx', type=float,
-                help="Point target range location")
-    parser.add_argument('azidx', type=float,
-                help="Point target azimuth location")
+    parser.add_argument('--ridx', type=float, nargs='+',
+                help="Point target range locations")
+    parser.add_argument('--azidx', type=float,
+                help="Point target azimuth locations", nargs='+')
     parser.add_argument('figpath', type=str,
                 help="Path to save the plots")
     parser.add_argument('-w', '--win_size', dest='ws', type=float, default=20,
