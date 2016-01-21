@@ -12,7 +12,7 @@ import scipy as _sp
 import scipy.signal as _sig
 import pyrat.fileutils.gpri_files as _gpf
 from collections import namedtuple as _nt
-
+#
 class gpriRangeProcessor:
 
     def __init__(self, args):
@@ -37,10 +37,10 @@ class gpriRangeProcessor:
             for idx_dec in range(self.raw_par.dec):
                 current_idx = idx_az * self.raw_par.dec + idx_dec
                 current_idx_1 = idx_az + idx_dec * self.raw_par.dec
-                if self.raw_par.dt is _np.dtype(_np.int16):
-                    current_data = self.rawdata[:, current_idx ] / 32768
+                if self.raw_par.dt is _np.dtype(_np.int16) or _gpf.type_mapping['SHORT INTEGER']:
+                    current_data = self.rawdata[:, current_idx ].astype(_np.float32) / 32768
                 else:
-                     current_data = self.rawdata[:, current_idx ]
+                     current_data = self.rawdata[:, current_idx ].astype(_np.float32)
                 if current_idx % 1000 == 0:
                     print('Accessing azimuth index: {} '.format(current_idx))
                 try:
@@ -61,7 +61,6 @@ class gpriRangeProcessor:
             arr_compr[:, idx_az] = (line_comp[self.raw_par.ns_min:self.raw_par.ns_max + 1].conj() * scale_factor).astype('complex64')
         #Remove lines used for rotational acceleration
         arr_compr = arr_compr[:, self.raw_par.nl_acc:self.raw_par.nl_image + self.raw_par.nl_acc:]
-        print(arr_compr.shape)
         return arr_compr
 
     def fill_dict(self):

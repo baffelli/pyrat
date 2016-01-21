@@ -108,13 +108,13 @@ class rawTracker:
                         extent=[freq_vec_plot[0],freq_vec_plot[-1],az_vec_plot[0], az_vec_plot[-1]],
                       aspect=1/50.0, alpha=0.8, origin='lower', interpolation='none')
             _plt.xlabel(r'Chirp Frequency [GHz]')
-            _plt.ylabel(r'Angle from Antenna Pointing At $f_{c}$[deg]')
+            _plt.ylabel(r'Offset from pointing at $f_{c}$[deg]')
             _plt.title(r'Squint parameters: ${:3.2e}f$'.format(*pars), fontsize=15)
             _plt.grid()
-            _plt.legend(loc=3)
+            _plt.legend(loc=0)
             f.tight_layout()
             _plt.show()
-            f.savefig(self.args.squint_image)
+            f.savefig(self.args.squint_image,bbox_inches='tight')
         #Print squint at fc for VV and HH
         fc = self.grp.freq_vec[self.grp.freq_vec.shape[0]/2]
         #Modeled squint for HH and VV
