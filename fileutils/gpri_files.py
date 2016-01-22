@@ -23,14 +23,19 @@ from collections import namedtuple as _nt
 from collections import OrderedDict as _od
 import re as _re
 
-#Constants
+#Constants for gpri
 ra = 6378137.0000    #WGS-84 semi-major axis
 rb = 6356752.3141    #WGS-84 semi-minor axis
-
 C = 299792458.0    #speed of light m/s
 KU_WIDTH = 15.798e-3 #WG-62 Ku-Band waveguide width dimension
 KU_DZ = 10.682e-3   #Ku-Band Waveguide slot spacing
 RANGE_OFFSET= 3
+xoff = 0.112         #140mm X offset to the antenna holder rotation axis
+ant_radius = 0.1115   #99.2mm radial arm length. This is the rotation radius of the antenna holder
+#Z coordinates of antennas W.R.T the top transmitting antenna, down is +Z
+tx_dz = {'A':0, 'B':0.125}
+rx1_dz = {'A':0.475, 'B':0.6}
+rx2_dz = {'A':0.725 , 'B':0.125}
 
 
 

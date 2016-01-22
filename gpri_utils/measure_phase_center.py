@@ -24,7 +24,7 @@ class gpriEstimator:
     def __init__(self, args):
         self.slc = _gpf.gammaDataset(args.slc_par, args.slc)
         self.u = args.u
-        self.r_arm = args.r_ant
+        self.r_arm = _gpf.xoff + _np.cos(_np.deg2rad(self.slc.GPRI_ant_elev_angle[0])) * _gpf.ant_radius
         self.ridx = args.ridx
         self.azidx = args.azidx
         self.ws = args.ws

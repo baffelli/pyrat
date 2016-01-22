@@ -39,7 +39,7 @@ class gpriAzimuthProcessor:
         #Load slc
         self.slc = _gpf.gammaDataset(args.slc_par, args.slc).astype(_np.complex64)
         self.args = args
-
+        self.r_ant =_gpf.xoff + _np.cos(_np.deg2rad(self.slc.GPRI_ant_elev_angle[0])) * _gpf.ant_radius
 
 
     def correct(self):
@@ -56,7 +56,7 @@ class gpriAzimuthProcessor:
         #process each range line
         theta = _np.arange(-ws_samp/2, ws_samp/2) * _np.deg2rad(self.slc.GPRI_az_angle_step[0])
         for idx_r in range(self.slc.shape[0]):
-            filt, dist = _cal.distance_from_phase_center(self.args.r_ant, self.args.r_ph, r_vec[idx_r], theta, wrap=False)
+            filt, dist = _cal.distance_from_phase_center(self.r_ant, self.args.r_ph, r_vec[idx_r], theta, wrap=False)
             lam = (3e8) /17.2e9
             matched_filter = _np.exp(4j * _np.pi * dist/lam)
             filter_output = 1/float(ws_samp) * _sig.fftconvolve(self.slc[idx_r, :], matched_filter, mode='same')

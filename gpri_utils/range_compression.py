@@ -2,7 +2,8 @@
 __author__ = 'baffelli'
 C = 299792458.0    #speed of light m/s
 KU_WIDTH = 15.798e-3 #WG-62 Ku-Band waveguide width dimension
-KU_DZ = 10.682e-3   #Ku-Band Waveguide slot spacing
+KU_DZ = 10.682e-3   #Ku-Band Waveguide slot spacing VV
+
 RANGE_OFFSET= 3
 
 import sys, os
@@ -77,7 +78,27 @@ class gpriRangeProcessor:
         prf = abs(1.0/(self.raw_par.tcycle*self.raw_par.dec))
         seq = self.raw_par.grp.TX_RX_SEQ
         fadc =  C/(2.*self.raw_par.rps)
-        slc_dict['title'] = ts
+        #Antenna elevation angle
+        ant_elev = _np.deg2rad(self.raw_par.grp.antenna_elevation)
+        #Compute antenna position
+        rx1_coord = [0., 0., 0.]
+        rx2_coord = [0., 0., 0.]
+        tx_coord =  [0., 0., 0.]
+        #Topsome receiver
+        rx1_coord[0] = _gpf.xoff + _gpf.ant_radius * _np.cos(ant_elev) #local coordinates of the tower: x,y,z, boresight is along +X axis, +Z is down
+        rx1_coord[1] = 0.0				 #+Y is to the right when looking in the direction of +X
+        rx1_coord[2] = _gpf.rx1_dz[seq[2]] - _gpf.ant_radius * _np.sin(ant_elev)	 #up is -Z, all antennas have the same elevation angle!
+
+        rx2_coord[0] = _gpf.xoff + _gpf.ant_radius * _np.cos(ant_elev)
+        rx2_coord[1] = 0.0
+        rx2_coord[2] = _gpf.rx2_dz[seq[1]] - _gpf.ant_radius * _np.sin(ant_elev)
+
+        tx_coord[0] = _gpf.xoff + _gpf.ant_radius * _np.cos(ant_elev)
+        tx_coord[1] = 0.0
+        tx_coord[2] = _gpf.tx_dz[seq[0]] - _gpf.ant_radius * _np.sin(ant_elev)
+        print(tx_coord)
+        chan_name= 'CH1 lower' if seq[3] == 'l' else 'CH2 upper'
+        slc_dict['title'] = ts + ' '  + chan_name
         slc_dict['date'] = [ymd[0], ymd[1], ymd[2]]
         slc_dict['start_time'] = [st0, 's']
         slc_dict['center_time'] = [st0 + image_time / 2 , 's']
@@ -97,8 +118,9 @@ class gpriRangeProcessor:
         slc_dict['GPRI_TX_mode'] = self.raw_par.grp.TX_mode
         slc_dict['GPRI_TX_antenna'] = seq[0]
         slc_dict['GPRI_RX_antenna'] = seq[1] + seq[3]
-        slc_dict['GPRI_TX_antenna_position'] = [self.raw_par.grp.GPRI_TX_antenna_position, 'm']
-        slc_dict['GPRI_RX_antenna_position'] = [self.raw_par.grp.GPRI_RX_antenna_position, 'm']
+        slc_dict['GPRI_tx_coord'] = [tx_coord[0],tx_coord[1], tx_coord[2] , 'm', 'm', 'm']
+        slc_dict['GPRI_rx1_coord'] = [rx1_coord[0],rx1_coord[1], rx1_coord[2] , 'm', 'm', 'm']
+        slc_dict['GPRI_rx2_coord'] =  [rx2_coord[0],rx2_coord[1], rx2_coord[2] , 'm', 'm', 'm']
         slc_dict['GPRI_az_start_angle'] = [self.raw_par.az_start, 'degrees']
         slc_dict['GPRI_az_angle_step'] = [az_step, 'degrees']
         slc_dict['GPRI_ant_elev_angle'] = [self.raw_par.grp.antenna_elevation, 'degrees']
