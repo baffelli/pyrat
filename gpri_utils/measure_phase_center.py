@@ -63,6 +63,7 @@ class gpriEstimator:
         plt.grid()
         plt.ylabel(r'Phase [deg]')
         plt.xlabel(r'azimuth angle from maximum [deg]')
+        plt.ylim(-0,360)
         plt.legend()
         plt.show()
         f.savefig(self.figpath)

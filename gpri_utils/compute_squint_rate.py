@@ -34,22 +34,27 @@ class rawTracker:
 
     def track_maximum(self):
         #Start record between zero and the total number of lines
-        az_start_idx =  _np.clip(self.args.aztarg - self.args.search_window/2,
+        az_start_idx =  _np.clip(self.args.aztarg - self.args.search_window/2.0,
                                  0,self.grp.nl_tot)
+        az_stop_idx = _np.clip(self.args.aztarg + self.args.search_window/2.0,0,self.grp.nl_tot)
         self.raw_data = _gpf.load_segment(self.args.raw,
                                           (self.grp.block_length, self.grp.nl_tot)
                                           ,0, self.grp.block_length,
-                                          az_start_idx,
-                                          _np.clip(self.args.aztarg + self.args.search_window/2,0,self.grp.nl_tot),
+                                          az_start_idx, az_stop_idx,
                                           dtype=_gpf.type_mapping['SHORT INTEGER'])
         az_min = self.grp.grp.STP_antenna_start + self.grp.ang_per_tcycle * az_start_idx
-        #First we compute the range spectrum
+        #First we compress to a mini-slc
         range_spectrum = _np.fft.rfft(self.raw_data,axis=0) * self.fshift[:,None] * self.grp.scale[:,None]
+        #range_spectrum *=  _np.hamming(range_spectrum.shape[1])[None,:]
         #From the range spectrum we can obtain the maximum
         #From the maximum energy we determine the dominant target frequency
-        max_idx = _np.argmax(range_spectrum[1:,:])
+        max_idx = _np.argmax(_np.abs(range_spectrum[1:,:]))
         range_spectrum_shape = [range_spectrum.shape[0]- 1, range_spectrum.shape[1]]
         max_r, max_az = _np.unravel_index(max_idx,range_spectrum_shape)
+        _plt.figure()
+        _plt.imshow(_np.abs(range_spectrum))
+        _plt.plot(max_az,max_r,'ro')
+        _plt.show()
         #We compute the corresponding filter, that is the beat frequency corresponding to
         #the range of the reflector
         r_max = self.grp.slr[max_r]
@@ -90,32 +95,32 @@ class rawTracker:
         squint_vec_sim = pars[-1] + squint_vec_sim - squint_vec_sim[squint_vec_sim.shape[0]/2]
         #Compress the filtered spectrum to obtain image around reflector
         compressed_spectrum = _np.fft.rfft(filt_data,axis=0)* self.fshift[:,None] * self.grp.scale[:,None]
-
-        #Use specified style sheet for the plots
-        if self.args.style is not '':
-            sty = 'classic'
-        else:
-            sty = self.args.style
-        with _plt.style.context(sty):
-            f, ax  = _plt.subplots()
-            #line width
-            lw = 3
-            freq_vec_plot = self.grp.freq_vec / 1e9
-            ax.plot(freq_vec_plot,squint_vec_fit, label=r' Linear fit $\phi = \alpha f$', lw=lw)
-            if self.args.plot_model:
-                ax.plot(freq_vec_plot,squint_vec_sim, label=r' Theoretical model', lw=lw)
-            phase_amp, pal, norm = _vf.dismph(filt_env.T,k=1.2)
-            ax.imshow(_np.abs(filt_env.T),
-                        extent=[freq_vec_plot[0],freq_vec_plot[-1],az_vec_plot[0], az_vec_plot[-1]],
-                      aspect=1/50.0, alpha=0.8, origin='lower', interpolation='none')
-            _plt.xlabel(r'Chirp Frequency [GHz]')
-            _plt.ylabel(r'Offset from pointing at $f_{c}$[deg]')
-            _plt.title(r'Squint parameters: ${:3.2e}f$'.format(*pars), fontsize=15)
-            _plt.grid()
-            _plt.legend(loc=0)
-            f.tight_layout()
-            _plt.show()
-            f.savefig(self.args.squint_image,bbox_inches='tight')
+        if self.args.squint_image:
+            #Use specified style sheet for the plots
+            if self.args.style is '':
+                sty = 'classic'
+            else:
+                sty = self.args.style
+            with _plt.style.context(sty):
+                f, ax  = _plt.subplots()
+                #line width
+                lw = 3
+                freq_vec_plot = self.grp.freq_vec / 1e9
+                ax.plot(freq_vec_plot,squint_vec_fit, label=r' Linear fit $\phi = \alpha f$', lw=lw)
+                if self.args.plot_model:
+                    ax.plot(freq_vec_plot,squint_vec_sim, label=r' Theoretical model', lw=lw)
+                phase_amp, pal, norm = _vf.dismph(filt_env.T,k=1.2)
+                ax.imshow(_np.abs(filt_env.T),
+                            extent=[freq_vec_plot[0],freq_vec_plot[-1],az_vec_plot[0], az_vec_plot[-1]],
+                          aspect=1/50.0, alpha=0.8, origin='lower', interpolation='none')
+                _plt.xlabel(r'Chirp Frequency [GHz]')
+                _plt.ylabel(r'Offset from pointing at $f_{c}$[deg]')
+                _plt.title(r'Squint parameters: ${:3.2e}f$'.format(*pars), fontsize=15)
+                _plt.grid()
+                _plt.legend(loc=0)
+                #f.tight_layout()
+                _plt.show()
+                f.savefig(self.args.squint_image,bbox_inches='tight')
         #Print squint at fc for VV and HH
         fc = self.grp.freq_vec[self.grp.freq_vec.shape[0]/2]
         #Modeled squint for HH and VV
