@@ -5,6 +5,10 @@ Created on Thu May 15 14:00:59 2014
 @author: baffelli
 """
 import numpy as _np
+from collections import OrderedDict as _od
+from osgeo import osr as _osr
+from osgeo import gdal as _gdal
+import gpri_files as _gpf
 
 def load_dat(path):
     """
@@ -52,18 +56,73 @@ def load_shapefile(path, mode=0):
     else:
         return dataSource
 
-  
+#TODO make it work for other cuntries
 def gdal_to_dict(ds):
+    #Mapping from wkt to parameters
+    """
+     * [0]  Spheroid semi major axis
+     * [1]  Spheroid semi minor axis
+     * [2]  Reference Longitude
+     * [3]  Reference Latitude
+     * [4]  First Standard Parallel
+     * [5]  Second Standard Parallel
+     * [6]  False Easting
+     * [7]  False Northing
+     * [8]  Scale Factor
+    """
+    #Get projection information from wkt
     wkt = ds.GetProjection()
-    d = wkt_to_dict(wkt)
-    d['width'] = ds.RasterXSize
-    d['nlines'] = ds.RasterYSize
-    gt = new_to_old_gt(ds.GetGeoTransform())
-    d['corner_east'] = gt[0]
-    d['corner_north'] = gt[3]
-    d['post_north'] = gt[5]
-    d['post_east'] = gt[1]
-    return d
+    srs = _osr.SpatialReference()
+    srs.ImportFromWkt(wkt)
+    proj_arr = srs.ExportToPCI()
+    #Array for the ellipsoid
+    ell_arr = proj_arr[2]
+    #Create new dict
+    proj_dict = _od()
+    #Part 1: General Parameters
+    proj_dict['title'] = 'DEM'
+    proj_dict['DEM_projection'] = 'OMCH'
+    #Set the type according to the dem type
+    tp = _gdal.GetDataTypeName(ds.GetRasterBand(1).DataType)
+    if tp == 'Float32':
+        proj_dict['data_format'] = 'REAL*4'
+    if tp == 'Int32':
+        proj_dict['data_format'] = 'INTEGER*2'
+    proj_dict['DEM_hgt_offset'] = 0
+    proj_dict['DEM_scale'] = 1.0
+    proj_dict['width'] = ds.RasterXSize
+    proj_dict['nlines'] = ds.RasterYSize
+    gt = ds.GetGeoTransform()
+    proj_dict['corner_east'] = [gt[0], 'm']
+    proj_dict['corner_north'] = [gt[3], 'm']
+    proj_dict['post_north'] = [gt[5], 'm']
+    proj_dict['post_east'] = [gt[1], 'm']
+    #TODO allow using other ellipsods
+    #Part 2: Ellipsoid Parameters
+    proj_dict['ellipsoid_name'] = 'Bessel 1841'
+    proj_dict['ellipsoid_ra'] = [ell_arr[0], 'm']
+    rf = ell_arr[0] / (ell_arr[0] - ell_arr[1])
+    proj_dict['ellipsoid_reciprocal_flattening'] = rf
+    #TODO allow using other datums
+    #Part 3: Datum Parameters
+    proj_dict['datum_name'] = 'SWiss National 3PAR'
+    proj_dict['datum_shift_dx'] = [679.396, 'm']
+    proj_dict['datum_shift_dy'] = [-0.095, 'm']
+    proj_dict['datum_shift_dz'] = [406.471, 'm']
+    proj_dict['datum_scale_m'] = 0.0
+    proj_dict['datum_rotation_alpha'] = [0.0, 'arc-sec']
+    proj_dict['datum_rotation_beta'] = [0.0, 'arc-sec']
+    proj_dict['datum_rotation_gamma'] = [0.0, 'arc-sec']
+    #Part 4: Projection Parameters for UTM, TM, OMCH, LCC, PS, PC, AEAC, LCC2, OM, HOM coordinates
+    proj_dict['projection_name'] = 'OM - Switzerland'
+    if proj_dict['DEM_projection'] in ['UTM', "TM", "OMCH", "LCC", "PS", "PC", "AEAC", "LCC2", "OM", "HOM"]:
+        proj_dict['center_latitude'] = ell_arr[2]
+        proj_dict['center_longitude'] = ell_arr[3]
+        proj_dict['projection_k0'] = ell_arr[8]
+        proj_dict['false_easting'] = ell_arr[6]
+        proj_dict['false_northing'] = ell_arr[7]
+
+    return proj_dict
 
 def new_to_old_gt(gt):
     """
@@ -121,7 +180,7 @@ def wkt_to_dict(wkt):
     srs = osr.SpatialReference()
     srs.ImportFromWkt(wkt)
     proj_arr = srs.ExportToPCI()
-    proj_dict = dict()
+    proj_dict = _od()
     #TODO fix dem projection to be flexible
     proj_dict['DEM_projection'] = 'OMCH'
     ell_arr = proj_arr[2]

@@ -6,7 +6,9 @@ import sys, os
 import numpy as _np
 import argparse
 import pyrat.fileutils.gpri_files as _gpf
+import pyrat.fileutils.other_files as _of
 import osgeo.gdal as _gdal
+import pyrat.geo.geofun as _geo
 
 
 
@@ -28,6 +30,11 @@ def main():
         sys.exit(-1)
     #Open the data set
     DS = _gdal.Open(args.dem)
+    #Convert
+    dem_dic = _of.gdal_to_dict(DS)
+    _gpf.dict_to_par(dem_dic, args.output_dem_par)
+    dem = DS.ReadAsArray()
+    dem.astype(_gpf.type_mapping[dem_dic['data_format']]).tofile(args.output_dem)
 
 
 

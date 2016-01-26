@@ -1,6 +1,6 @@
 import numpy as _np
 
-from visualization.visfun import bilinear_interpolate
+from pyrat.visualization.visfun import bilinear_interpolate
 
 
 def copy_and_modify_gt(RAS, gt):

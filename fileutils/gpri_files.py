@@ -43,12 +43,14 @@ rx2_dz = {'A':0.725 , 'B':0.125}
 # between the gamma datasets and numpy
 type_mapping = {
     'FCOMPLEX': _np.dtype('>c8'),
-    #'SCOMPLEX': _np.dtype('>c4'),
+    #'SCOMPLEX': _np.dtype('>c2'),
     'FLOAT': _np.dtype('>f4'),
     'SHORT INTEGER': _np.dtype('>i2'),
     'INTEGER*2': _np.dtype('>i2'),
     'REAL*4': _np.dtype('>f4')
 }
+
+
 
 # This dict defines the mapping
 # between channels in the file name and the matrix
