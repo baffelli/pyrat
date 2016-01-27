@@ -33,6 +33,11 @@ class gpriDecimator:
             arr_dec[:, idx_az] = _np.fft.rfft(dec_pulse)
         return arr_dec
 
+    def decimate_by_discarding(self):
+        # arr_dec = _np.zeros((self.slc.shape[0], int(self.slc.shape[1]/self.dec)) ,dtype=_np.complex64)
+        arr_dec = self.slc[:,::self.dec]
+        return arr_dec
+
 
 
 def main():
@@ -48,6 +53,7 @@ def main():
                 help="Output slc parameters")
     parser.add_argument('dec', type=int,
                 help="Slc decimation factor")
+    parser.add_argument('mode', type=int, default=0,help='Decimation mode: 0 (default) adding  n samples, 1 discarding every nth-sample')
     #Read arguments
     try:
         args = parser.parse_args()
@@ -56,7 +62,10 @@ def main():
         sys.exit(-1)
     #Create processor object
     proc = gpriDecimator(args)
-    slc_dec = proc.decimate()
+    if args.mode == 0:
+        slc_dec = proc.decimate()
+    else:
+        slc_dec = proc.decimate_by_discarding()
     slc_par = _gpf.par_to_dict(args.slc_par)
     slc_par['GPRI_az_angle_step'][0] = slc_par['GPRI_az_angle_step'][0] * args.dec
     slc_par['azimuth_lines'] = slc_dec.shape[1]
