@@ -39,7 +39,11 @@ class gpriAzimuthProcessor:
         #Load slc
         self.slc = _gpf.gammaDataset(args.slc_par, args.slc).astype(_np.complex64)
         self.args = args
-        self.r_ant =_gpf.xoff + _np.cos(_np.deg2rad(self.slc.GPRI_ant_elev_angle[0])) * _gpf.ant_radius
+        #Rotation arm is computed from the parameter file if not specified
+        if not hasattr(args, 'r_ant'):
+            self.r_ant =_gpf.xoff + _np.cos(_np.deg2rad(self.slc.GPRI_ant_elev_angle[0])) * _gpf.ant_radius
+        else:
+            self.r_ant = args.r_ant
 
 
     def correct(self):
@@ -83,8 +87,8 @@ def main():
                 help="Output slc")
     parser.add_argument('slc_par_out', type=str,
                 help="Output slc parameters")
-    parser.add_argument('--r_ant', type=float, default=0.25,
-                help="Antenna rotation arm length")
+    parser.add_argument('--r_ant', type=float, default=argparse.SUPPRESS,
+                help="Antenna rotation arm length. If not specified, it is calculated from the GPRI parameter file")
     parser.add_argument('--r_ph',
                 help="Antenna phase center horizontal displacement",
                 type=float, default=0.15)
