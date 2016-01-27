@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("image", help="The path of the interferogram to flatten [FCOMPLEX]", type=str)
 parser.add_argument("phase", help="The path of the phase to subtract [Float or FCOMPLEX]", type=str)
 parser.add_argument("width", help="Width of image", type=int)
-parser.add_argument('baseline_ratio', help='The ratio of the baseline, used to rescale the phase',
+parser.add_argument('original_baseline', help='The ba',
                     type=float, default=1)
 parser.add_argument("out", help="The path of the interferogram to flatten [FCOMPLEX]", type=str)
 parser.add_argument("type", help='The type of data', choices=['FLOAT', 'FCOMPLEX'])
