@@ -33,7 +33,7 @@ phase = _np.fromfile(args.phase, dtype= _gpf.type_mapping['FCOMPLEX']).reshape(s
 
 
 
-correction = _np.exp(1j * phase  * args.sim_baseline/ args.meas_baseline)
+correction = _np.exp(-1j * phase  * args.sim_baseline/args.meas_baseline)
 
 correction = correction / _np.abs(correction)
 

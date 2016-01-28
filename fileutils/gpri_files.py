@@ -15,42 +15,38 @@ import copy as _cp
 import numbers as _num
 import tempfile as _tf
 import scipy.signal as _sig
-
 import numpy as _np
 from numpy.lib.stride_tricks import as_strided as _ast
 import scipy as _sp
 from collections import namedtuple as _nt
 from collections import OrderedDict as _od
 import re as _re
+import other_files as _of
 
-#Constants for gpri
-ra = 6378137.0000    #WGS-84 semi-major axis
-rb = 6356752.3141    #WGS-84 semi-minor axis
-C = 299792458.0    #speed of light m/s
-KU_WIDTH = 15.798e-3 #WG-62 Ku-Band waveguide width dimension
-KU_DZ = 10.682e-3   #Ku-Band Waveguide slot spacing
-RANGE_OFFSET= 3
-xoff = 0.112         #140mm X offset to the antenna holder rotation axis
-ant_radius = 0.1115   #99.2mm radial arm length. This is the rotation radius of the antenna holder
-#Z coordinates of antennas W.R.T the top transmitting antenna, down is +Z
-tx_dz = {'A':0, 'B':0.125}
-rx1_dz = {'A':0.475, 'B':0.6}
-rx2_dz = {'A':0.725 , 'B':0.125}
-
-
+# Constants for gpri
+ra = 6378137.0000  # WGS-84 semi-major axis
+rb = 6356752.3141  # WGS-84 semi-minor axis
+C = 299792458.0  # speed of light m/s
+KU_WIDTH = 15.798e-3  # WG-62 Ku-Band waveguide width dimension
+KU_DZ = 10.682e-3  # Ku-Band Waveguide slot spacing
+RANGE_OFFSET = 3
+xoff = 0.112  # 140mm X offset to the antenna holder rotation axis
+ant_radius = 0.1115  # 99.2mm radial arm length. This is the rotation radius of the antenna holder
+# Z coordinates of antennas W.R.T the bottommost antenna, up is +Z
+tx_dz = {'A': 0.85, 'B': 0.725}
+rx1_dz = {'A': 0.375, 'B': 0.25}
+rx2_dz = {'A': 0.125, 'B': 0}
 
 # This dict defines the mapping
 # between the gamma datasets and numpy
 type_mapping = {
     'FCOMPLEX': _np.dtype('>c8'),
-    #'SCOMPLEX': _np.dtype('>c2'),
+    # 'SCOMPLEX': _np.dtype('>c2'),
     'FLOAT': _np.dtype('>f4'),
     'SHORT INTEGER': _np.dtype('>i2'),
     'INTEGER*2': _np.dtype('>i2'),
     'REAL*4': _np.dtype('>f4')
 }
-
-
 
 # This dict defines the mapping
 # between channels in the file name and the matrix
@@ -60,6 +56,7 @@ channel_dict = {
     'VH': (1, 0),
     'VV': (1, 1),
 }
+
 
 def get_image_size(path, width, type_name):
     """
@@ -73,9 +70,10 @@ def get_image_size(path, width, type_name):
     import os as _os
     fc = _os.path.getsize(path) / type_mapping[type_name].itemsize
     shape = [width, int(fc / (width))]
-    computed_size = shape[0]*shape[1]*type_mapping[type_name].itemsize
+    computed_size = shape[0] * shape[1] * type_mapping[type_name].itemsize
     measured_size = _os.path.getsize(path)
     return shape
+
 
 def temp_dataset():
     """
@@ -97,8 +95,6 @@ def temp_binary(suffix=''):
 def to_bitmap(dataset, filename):
     fmt = 'bmp'
     _sp.misc.imsave(filename, dataset, format=fmt)
-
-
 
 
 class gammaDataset(_np.ndarray):
@@ -229,8 +225,6 @@ class gammaDataset(_np.ndarray):
     az_vec = property(azvec)
 
 
-
-
 def par_to_dict(par_file):
     """
     This function converts a gamma '.par' file into
@@ -243,13 +237,13 @@ def par_to_dict(par_file):
     par_dict = _od()
     with open(par_file, 'r') as fin:
         # Skip first line
-        #fin.readline()
+        # fin.readline()
         for line in fin:
             if line:
-                split_array = line.replace('\n','').split(':', 1)
+                split_array = line.replace('\n', '').split(':', 1)
                 if len(split_array) > 1:
                     key = split_array[0]
-                    if key == 'time_start':#The utc time string should not be split
+                    if key == 'time_start':  # The utc time string should not be split
                         l = split_array[1:]
                     else:
                         l = []
@@ -365,7 +359,45 @@ def path_helper(location, date, time, slc_dir='slc', data_dir='/media/bup/Data')
     return def_path
 
 
-# TODO make compatible with other datums
+def extract_channel_number(title):
+    """
+    This function extract the channel numer (lower 1 or upper 2) from the title
+    of the slc file, which in in the format
+    "title:	 2015-12-07 14:20:27.671486+00:00 CH2 upper"
+
+    Parameters
+    ----------
+    title
+
+    Returns
+    -------
+
+    """
+    #Generate re
+    p = _re.compile(ur'(lower)|(upper)')
+    result = _re.search(p, title)
+    idx = result.lastindex
+    return idx
+
+def compute_phase_center(par):
+    """
+    This function computes the phase center position for a given slc
+    file by computing (rx_pos + tx_pos)/2
+    Parameters
+    ----------
+    par, dict
+    Dictionary of slc parameters in the gamma format
+
+    Returns
+    -------
+
+    """
+    rx_number = extract_channel_number(par['title'])
+    ph_center = (par['GPRI_tx_coord'][2] + par['GPRI_rx{num}_coord'.format(num=rx_number)][2]) / 2.0
+    return ph_center
+
+
+
 def geotif_to_dem(gt, par_path, bin_path):
     """
     This function converts a gdal dataset
@@ -378,44 +410,11 @@ def geotif_to_dem(gt, par_path, bin_path):
     srs.ImportFromWkt(gt.GetProjection())
     d = {}
     # FOrmat information
-    if _np.issubdtype(DEM.dtype, _np.int32):
-        DEM = DEM.astype(_np.int16)
-        d['data_format'] = 'INTEGER*2'
-    elif _np.issubdtype(DEM.dtype, _np.int16):
-        d['data_format'] = 'INTEGER*2'
-    elif _np.issubdtype(DEM.dtype, _np.float32):
-        d['data_format'] = 'REAL*4'
-    # Geotransform information
-    d['DEM_scale'] = 1.0
-    d['DEM_projection'] = 'OMCH'
-    d['projection_name'] = 'OM - Switzerland'
-    d['corner_north'] = GT[3]
-    d['corner_east'] = GT[0]
-    d['width'] = gt.RasterXSize
-    d['nlines'] = gt.RasterYSize
-    d['post_north'] = GT[5]
-    d['post_east'] = GT[1]
-    # Ellipsoid information
-    d['ellipsoid_name'] = srs.GetAttrValue('SPHEROID')
-    d['ellipsoid_ra'] = srs.GetSemiMajor()
-    d['ellipsoid_reciprocal_flattening'] = srs.GetInvFlattening()
-    # TODO only works for switzerland at the moment
-    # Datum Information
-    sr2 = _osr.SpatialReference()
-    sr2.ImportFromEPSG(21781)
-    datum = sr2.GetTOWGS84()
-    d['datum_name'] = 'Swiss National 3PAR'
-    d['datum_shift_dx'] = 679.396
-    d['datum_shift_dy'] = -0.095
-    d['datum_shift_dz'] = 406.471
-    # Projection Information
-    d['false_easting'] = srs.GetProjParm('false_easting')
-    d['false_northing'] = srs.GetProjParm('false_northing')
-    d['projection_k0'] = srs.GetProjParm('scale_factor')
-    d['center_longitude'] = srs.GetProjParm('longitude_of_center')
-    d['center_latitude'] = srs.GetProjParm('latitude_of_center')
-    out_type = type_mapping[d['data_format']]
-    write_dataset(DEM.T.astype(out_type), d, par_path, bin_path)
+    # Convert
+    dem_dic = _of.gdal_to_dict(gt)
+    dict_to_par(dem_dic, par_path)
+    DEM.astype(type_mapping[dem_dic['data_format']]).tofile(bin_path)
+
 
 
 def gpri_raw_strides(nsamp, nchan, npat, itemsize):
@@ -423,18 +422,18 @@ def gpri_raw_strides(nsamp, nchan, npat, itemsize):
     This function computes the array strides for 
     the gpri raw file format
     """
-    #We start with the smallest stride, jumping
-    #from rx channel to the other
+    # We start with the smallest stride, jumping
+    # from rx channel to the other
     st_chan = itemsize
-    #The second smallest jumps from one range sample to the next
-    #so we have to jump to every nchan-th sample
+    # The second smallest jumps from one range sample to the next
+    # so we have to jump to every nchan-th sample
     st_rg = st_chan * nchan
-    #To move from one pattern to the next, we move to the next impulse
-    st_pat = (nsamp +1) * st_rg
-    #To move in azimuth to the subsequent record with the same
-    #pattern , we have to jump npat times a range record
+    # To move from one pattern to the next, we move to the next impulse
+    st_pat = (nsamp + 1) * st_rg
+    # To move in azimuth to the subsequent record with the same
+    # pattern , we have to jump npat times a range record
     st_az = st_pat * npat
-    return (st_rg, st_az , st_chan, st_pat)
+    return (st_rg, st_az, st_chan, st_pat)
 
 
 def load_raw(par_path, path, nchan=2):
@@ -469,7 +468,7 @@ def default_slc_dict():
     par = _od()
     par['title'] = ''
     par['sensor'] = 'GPRI 2'
-    par['date'] = [0, 0 ,0]
+    par['date'] = [0, 0, 0]
     par['start_time'] = 0
     par['center_time'] = 0
     par['end_time'] = 0
@@ -491,9 +490,9 @@ def default_slc_dict():
     par['near_range_slc'] = [0, 'm']
     par['center_range_slc'] = [0, 'm']
     par['far_range_slc'] = [0, 'm']
-    par['first_slant_range_polynomial'] = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    par['center_slant_range_polynomial'] = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    par['last_slant_range_polynomial'] = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    par['first_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    par['center_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    par['last_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     par['incidence_angle'] = [0.0, 'degrees']
     par['azimuth_deskew'] = 'OFF'
     par['azimuth_angle'] = [0.0, 'degrees']
@@ -512,7 +511,7 @@ def default_slc_dict():
     par['earth_semi_major_axis'] = [ra, 'm']
     par['earth_semi_minor_axis'] = [rb, 'm']
     par['number_of_state_vectors'] = 0
-    par['GPRI_TX_mode']= ''
+    par['GPRI_TX_mode'] = ''
     par['GPRI_TX_antenna'] = ''
     par['GPRI_RX_antenna'] = ''
     par['GPRI_az_start_angle'] = [0, 'degrees']
@@ -525,78 +524,84 @@ def default_slc_dict():
     par['GPRI_scan_heading'] = [0, 'degrees']
     return par
 
+
 class rawParameters:
     """
     This class computes several raw parameters from
     a raw_par file
     """
+
     def __init__(self, raw_dict, raw):
         self.grp = _nt('GenericDict', raw_dict.keys())(**raw_dict)
         self.nsamp = self.grp.CHP_num_samp
         self.block_length = self.nsamp + 1
-        self.chirp_duration = self.block_length/self.grp.ADC_sample_rate
-        self.pn1 = _np.arange(self.nsamp/2 + 1) 		#list of slant range pixel numbers
-        self.rps = (self.grp.ADC_sample_rate/self.nsamp*C/2.)/self.grp.RF_chirp_rate #range pixel spacing
-        self.slr = (self.pn1 * self.grp.ADC_sample_rate/self.nsamp*C/2.)/self.grp.RF_chirp_rate  + RANGE_OFFSET  #slant range for each sample
-        self.scale = (abs(self.slr)/self.slr[self.nsamp/8])**1.5     #cubic range weighting in power
-        self.ns_max = int(round(0.90 * self.nsamp/2))	#default maximum number of range samples for this chirp
-        self.tcycle = (self.block_length)/self.grp.ADC_sample_rate    #time/cycle
+        self.chirp_duration = self.block_length / self.grp.ADC_sample_rate
+        self.pn1 = _np.arange(self.nsamp / 2 + 1)  # list of slant range pixel numbers
+        self.rps = (self.grp.ADC_sample_rate / self.nsamp * C / 2.) / self.grp.RF_chirp_rate  # range pixel spacing
+        self.slr = (
+                   self.pn1 * self.grp.ADC_sample_rate / self.nsamp * C / 2.) / self.grp.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
+        self.scale = (abs(self.slr) / self.slr[self.nsamp / 8]) ** 1.5  # cubic range weighting in power
+        self.ns_max = int(round(0.90 * self.nsamp / 2))  # default maximum number of range samples for this chirp
+        self.tcycle = (self.block_length) / self.grp.ADC_sample_rate  # time/cycle
         self.dt = type_mapping['SHORT INTEGER']
         self.sizeof_data = _np.dtype(_np.int16).itemsize
-        self.bytes_per_record = self.sizeof_data * self.block_length  #number of bytes per echo
-        #Get file size
+        self.bytes_per_record = self.sizeof_data * self.block_length  # number of bytes per echo
+        # Get file size
         self.filesize = _os.path.getsize(raw)
-        #Number of lines
-        self.nl_tot = int(self.filesize/(self.sizeof_data * self.block_length))
-        #Stuff for angle
+        # Number of lines
+        self.nl_tot = int(self.filesize / (self.sizeof_data * self.block_length))
+        # Stuff for angle
         if self.grp.STP_antenna_end != self.grp.STP_antenna_start:
             self.ang_acc = self.grp.TSC_acc_ramp_angle
             rate_max = self.grp.TSC_rotation_speed
             self.t_acc = self.grp.TSC_acc_ramp_time
-            self.ang_per_tcycle = self.tcycle * self.grp.TSC_rotation_speed	#angular sweep/transmit cycle
+            self.ang_per_tcycle = self.tcycle * self.grp.TSC_rotation_speed  # angular sweep/transmit cycle
         else:
             self.t_acc = 0.0
             self.ang_acc = 0.0
             rate_max = 0.0
             self.ang_per_tcycle = 0.0
         if self.grp.ADC_capture_time == 0.0:
-            angc = abs(self.grp.antenna_end - self.grp.antenna_start) - 2 * self.ang_acc	#angular sweep of constant velocity
-            tc = abs(angc/rate_max)			#duration of constant motion
-            self.grp.capture_time = 2 * self.t_acc + tc 	#total time for scanner to complete scan
-       #Frequenct vector
-        self.freq_vec = self.grp.RF_freq_min + _np.arange(self.grp.CHP_num_samp, dtype=float) * self.grp.RF_chirp_rate/self.grp.ADC_sample_rate
+            angc = abs(
+                self.grp.antenna_end - self.grp.antenna_start) - 2 * self.ang_acc  # angular sweep of constant velocity
+            tc = abs(angc / rate_max)  # duration of constant motion
+            self.grp.capture_time = 2 * self.t_acc + tc  # total time for scanner to complete scan
+            # Frequenct vector
+        self.freq_vec = self.grp.RF_freq_min + _np.arange(self.grp.CHP_num_samp,
+                                                          dtype=float) * self.grp.RF_chirp_rate / self.grp.ADC_sample_rate
 
     def compute_slc_parameters(self, args):
-        self.rmax = self.ns_max * self.rps;		#default maximum slant range
-        self.win =  _sig.kaiser(self.nsamp, args.kbeta)
+        self.rmax = self.ns_max * self.rps;  # default maximum slant range
+        self.win = _sig.kaiser(self.nsamp, args.kbeta)
         self.zero = args.zero
-        self.win2 = _sig.hanning(2*self.zero)		#window to remove transient at start of echo due to sawtooth frequency sweep
-        self.ns_min = int(round(args.rmin/self.rps))	#round to the nearest range sample
+        self.win2 = _sig.hanning(
+            2 * self.zero)  # window to remove transient at start of echo due to sawtooth frequency sweep
+        self.ns_min = int(round(args.rmin / self.rps))  # round to the nearest range sample
         self.ns_out = (self.ns_max - self.ns_min) + 1
         self.rmin = self.ns_min * self.rps
         self.dec = args.d
-        self.nl_acc = int(self.t_acc/(self.tcycle*self.dec))
+        self.nl_acc = int(self.t_acc / (self.tcycle * self.dec))
         # self.nl_tot = int(self.grp.ADC_capture_time/(self.tcycle))
         self.nl_tot_dec = self.nl_tot / self.dec
         self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
         self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
-        if(args.rmax != 0.0):	#check if greater than maximum value for the selected chirp
-          if (int(round(args.rmax/self.rps)) <= self.ns_max):
-            self.ns_max = int(round(args.rmax/self.rps))
-            self.rmax = self.ns_max * self.rps;
-          else:
-            print 'ERROR: requested maximum slant range exceeds maximum possible value with this chirp: %.3f'%(self.rmax,)
+        if (args.rmax != 0.0):  # check if greater than maximum value for the selected chirp
+            if (int(round(args.rmax / self.rps)) <= self.ns_max):
+                self.ns_max = int(round(args.rmax / self.rps))
+                self.rmax = self.ns_max * self.rps;
+            else:
+                print 'ERROR: requested maximum slant range exceeds maximum possible value with this chirp: %.3f' % (
+                self.rmax,)
 
-        self.ns_out = (self.ns_max - self.ns_min) + 1	#number of output samples
-        #Compute antenna positions
-        if self.grp.STP_antenna_end > self.grp.STP_antenna_start: #clockwise rotation looking down the rotation axis
-            self.az_start = self.grp.STP_antenna_start + self.ang_acc	#offset to start of constant motion + center-freq squint
-        else:				#counter-clockwise
+        self.ns_out = (self.ns_max - self.ns_min) + 1  # number of output samples
+        # Compute antenna positions
+        if self.grp.STP_antenna_end > self.grp.STP_antenna_start:  # clockwise rotation looking down the rotation axis
+            self.az_start = self.grp.STP_antenna_start + self.ang_acc  # offset to start of constant motion + center-freq squint
+        else:  # counter-clockwise
             self.az_start = self.grp.STP_antenna_start - self.ang_acc
 
+
 class rawData(_np.ndarray):
-
-
     def __array_finalize__(self, obj):
         if obj is None: return
         if hasattr(obj, '__dict__'):
@@ -606,23 +611,23 @@ class rawData(_np.ndarray):
         data, par_dict = load_raw(args[0], args[1])
         obj = data.view(cls)
         obj.__dict__ = _cp.deepcopy(par_dict)
-        #Duration of chirp
-        obj.tcycle = obj.shape[0] * 1/obj.ADC_sample_rate
+        # Duration of chirp
+        obj.tcycle = obj.shape[0] * 1 / obj.ADC_sample_rate
         return obj
 
     def channel_index(self, pat, ant):
         chan_list = self.TX_RX_SEQ.split('-')
         chan_idx = chan_list.index(pat)
-        ant_map = {'l':0,'u':1}
+        # raw file are interleaved, ch1, ch2, ch1, ch2
+        ant_map = {'l': 0, 'u': 1}
         return [ant_map[ant], chan_idx]
-
 
     def azspacing(self):
         npat = len(self.TX_RX_SEQ.split('-'))
         return self.tcycle * self.STP_rotation_speed * npat
 
     def freqvec(self):
-        return self.RF_freq_min + _np.arange(self.CHP_num_samp, dtype=float) * self.RF_chirp_rate/self.ADC_sample_rate
+        return self.RF_freq_min + _np.arange(self.CHP_num_samp, dtype=float) * self.RF_chirp_rate / self.ADC_sample_rate
 
     az_spacing = property(azspacing)
     freq_vec = property(freqvec)
@@ -633,14 +638,16 @@ def lamg(freq, w):
     This function computes the wavelength in waveguide for the TE10 mode
     """
     la = lam(freq)
-    return la / _np.sqrt(1.0 - (la / (2 * w))**2)	#wavelength in WG-62 waveguide
+    return la / _np.sqrt(1.0 - (la / (2 * w)) ** 2)  # wavelength in WG-62 waveguide
 
-#lambda in freespace
+
+# lambda in freespace
 def lam(freq):
     """
     This function computes the wavelength in freespace
     """
-    return C/freq
+    return C / freq
+
 
 def squint_angle(freq, w, s):
     """
@@ -648,10 +655,11 @@ def squint_angle(freq, w, s):
     waveguide antenna as a function of the frequency, the size and the slot spacing.
     It supposes a waveguide for the TE10 mode
     """
-    sq_ang = _np.arccos(lam(freq) / lamg(freq, w) -  lam(freq) / (2 * s))
-    dphi = _np.pi *(2.*s/lamg(freq, w) - 1.0)				#antenna phase taper to generate squint
-    sq_ang_1 = _np.rad2deg(_np.arcsin(lam(freq) *dphi /(2.*_np.pi*s)))	#azimuth beam squint angle
+    sq_ang = _np.arccos(lam(freq) / lamg(freq, w) - lam(freq) / (2 * s))
+    dphi = _np.pi * (2. * s / lamg(freq, w) - 1.0)  # antenna phase taper to generate squint
+    sq_ang_1 = _np.rad2deg(_np.arcsin(lam(freq) * dphi / (2. * _np.pi * s)))  # azimuth beam squint angle
     return sq_ang_1
+
 
 def load_segment(file, shape, xmin, xmax, ymin, ymax, dtype=type_mapping['FCOMPLEX']):
     """
@@ -680,17 +688,17 @@ def load_segment(file, shape, xmin, xmax, ymin, ymax, dtype=type_mapping['FCOMPL
 
     """
 
-    #x corresponds to range, y to azimuth
-    #Seek before starting memmap (seek as many records as ymin)
+    # x corresponds to range, y to azimuth
+    # Seek before starting memmap (seek as many records as ymin)
     inital_seek = int(ymin * shape[0] * dtype.itemsize)
-    #How many records to load
-    nrecords =  int(shape[0] * (ymax - ymin))
+    # How many records to load
+    nrecords = int(shape[0] * (ymax - ymin))
     with open(file, 'rb') as input_file:
         input_file.seek(inital_seek)
-        #Load the desired records (this automagically provides y slicing
+        # Load the desired records (this automagically provides y slicing
         selected_records = _np.fromfile(input_file, dtype=dtype, count=nrecords)
-        #Reshape with the record length
+        # Reshape with the record length
         output_shape = ((ymax - ymin), shape[0])
         selected_records = selected_records.reshape(output_shape).T
-        output_slice = selected_records[xmin:xmax,:]
+        output_slice = selected_records[xmin:xmax, :]
         return output_slice

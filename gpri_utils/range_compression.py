@@ -65,6 +65,11 @@ class gpriRangeProcessor:
         return arr_compr
 
     def fill_dict(self):
+        """
+        This function fills the slc dict with the correct image
+        parameters
+        :return:
+        """
         image_time = (self.raw_par.nl_image - 1) * (self.raw_par.tcycle * self.raw_par.dec)
         slc_dict = _gpf.default_slc_dict()
         ts = self.raw_par.grp.time_start
@@ -84,19 +89,18 @@ class gpriRangeProcessor:
         rx1_coord = [0., 0., 0.]
         rx2_coord = [0., 0., 0.]
         tx_coord =  [0., 0., 0.]
+        #
         #Topsome receiver
-        rx1_coord[0] = _gpf.xoff + _gpf.ant_radius * _np.cos(ant_elev) #local coordinates of the tower: x,y,z, boresight is along +X axis, +Z is down
+        rx1_coord[0] = _gpf.xoff + _gpf.ant_radius * _np.cos(ant_elev) #local coordinates of the tower: x,y,z, boresight is along +X axis, +Z is up
         rx1_coord[1] = 0.0				 #+Y is to the right when looking in the direction of +X
-        rx1_coord[2] = _gpf.rx1_dz[seq[2]] - _gpf.ant_radius * _np.sin(ant_elev)	 #up is -Z, all antennas have the same elevation angle!
-
+        rx1_coord[2] = _gpf.rx1_dz[seq[1]] + _gpf.ant_radius * _np.sin(ant_elev)	 #up is Z, all antennas have the same elevation angle!
+        #Bottomsome receiver
         rx2_coord[0] = _gpf.xoff + _gpf.ant_radius * _np.cos(ant_elev)
         rx2_coord[1] = 0.0
-        rx2_coord[2] = _gpf.rx2_dz[seq[1]] - _gpf.ant_radius * _np.sin(ant_elev)
-
+        rx2_coord[2] = _gpf.rx2_dz[seq[2]] + _gpf.ant_radius * _np.sin(ant_elev)
         tx_coord[0] = _gpf.xoff + _gpf.ant_radius * _np.cos(ant_elev)
         tx_coord[1] = 0.0
-        tx_coord[2] = _gpf.tx_dz[seq[0]] - _gpf.ant_radius * _np.sin(ant_elev)
-        print(tx_coord)
+        tx_coord[2] = _gpf.tx_dz[seq[0]] + _gpf.ant_radius * _np.sin(ant_elev)
         chan_name= 'CH1 lower' if seq[3] == 'l' else 'CH2 upper'
         slc_dict['title'] = ts + ' '  + chan_name
         slc_dict['date'] = [ymd[0], ymd[1], ymd[2]]
