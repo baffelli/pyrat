@@ -12,12 +12,12 @@ import scipy.signal as _sig
 import scipy.ndimage as _ndim
 import matplotlib.pyplot as _plt
 import pyrat.visualization.visfun as _vf
-import collections.orderedDict as _od
+from collections import OrderedDict as _od
 
 # Argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument("HHVV_flat", help="HHVV phase with topography removed (fcomplex)", type=str)
-parser.add_argument("HHVV_flat_par", help="Parameters of HHVV phase", type=int)
+parser.add_argument("HHVV_flat_par", help="Parameters of HHVV phase", type=str)
 parser.add_argument("HH_pwr", help="HH power (mli)", type=str)
 parser.add_argument("HH_pwr_par", help="HH power parameter file (mli)", type=str)
 parser.add_argument("VV_pwr", help="VV power (mli)", type=str)
@@ -35,13 +35,16 @@ args = parser.parse_args()
 hhvv_phase, hh_vv_par = _gpf.load_dataset(args.HHVV_flat_par, args.HHVV_flat)
 HH_pwr, HH_pwr_par = _gpf.load_dataset(args.HH_pwr_par, args.HH_pwr)
 VV_pwr, VV_pwr_par = _gpf.load_dataset(args.VV_pwr_par, args.VV_pwr)
-reflector_imbalance_phase = hhvv_phase[args.ridx, args.azidx]
-reflector_imbalance_amplitude = HH_pwr[args.ridx, args.azidx] / VV_pwr[args.ridx, args.azidx]
+reflector_imbalance_phase = _np.angle(hhvv_phase[args.ridx, args.azidx])
+reflector_imbalance_amplitude = _np.sqrt(HH_pwr[args.ridx, args.azidx] / VV_pwr[args.ridx, args.azidx])
 
 #Parameter dict
 cal_dict = _od()
-_od['HHVV_phase_imbalance'] = [reflector_imbalance_phase, 'rad']
-_od['HHVV_amplitude_imbalance'] = reflector_imbalance_amplitude
+cal_dict['HHVV_phase_imbalance'] = [reflector_imbalance_phase, 'rad']
+cal_dict['HHVV_amplitude_imbalance'] = reflector_imbalance_amplitude
+cal_num = reflector_imbalance_amplitude * _np.exp(1j * reflector_imbalance_phase)
+cal_dict['HHVV_amplitude_imbalance_real'] = _np.real(reflector_imbalance_amplitude)
+cal_dict['HHVV_amplitude_imbalance_imaginary'] = _np.imag(reflector_imbalance_amplitude)
 
 #Write calibrations parameters
 _gpf.dict_to_par(cal_dict, args.cal_parameters)

@@ -297,7 +297,8 @@ def load_dataset(par_file, bin_file, memmap=True):
         try:
             dt = type_mapping[par_dict['data_format']]
         except:
-            raise KeyError("This file does not contain datatype specification in a known format")
+            # raise KeyError("This file does not contain datatype specification in a known format")
+            dt = type_mapping['FCOMPLEX']
     try:
         shape = (par_dict['range_samples'],
                  par_dict['azimuth_lines'])
