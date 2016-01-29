@@ -12,29 +12,36 @@ import scipy.signal as _sig
 import scipy.ndimage as _ndim
 import matplotlib.pyplot as _plt
 import pyrat.visualization.visfun as _vf
+import collections.orderedDict as _od
 
-
-
-#Argument parser
+# Argument parser
 parser = argparse.ArgumentParser()
-parser.add_argument("HHVV_flat", help="HHVV phase with topography removed", type=str)
+parser.add_argument("HHVV_flat", help="HHVV phase with topography removed (fcomplex)", type=str)
+parser.add_argument("HHVV_flat_par", help="Parameters of HHVV phase", type=int)
 parser.add_argument("HH_pwr", help="HH power (mli)", type=str)
+parser.add_argument("HH_pwr_par", help="HH power parameter file (mli)", type=str)
 parser.add_argument("VV_pwr", help="VV power (mli)", type=str)
+parser.add_argument("VV_pwr_par", help="VV power parameter file (mli)", type=str)
+parser.add_argument("HV_pwr", help="HV power (mli)", type=str)
+parser.add_argument("HV_pwr_par", help="HV power parameter file (mli)", type=str)
+parser.add_argument("VH_pwr", help="VH power (mli)", type=str)
+parser.add_argument("VH_pwr_par", help="VH power parameter file (mli)", type=str)
+parser.add_argument("ridx", help="Reference reflector range index", type=int)
+parser.add_argument("azidx", help="Reference reflector azimuth index", type=int)
+parser.add_argument("cal_parameters", help="Computed polarimetric calibration parameters", type=str)
 args = parser.parse_args()
-#Load all channels
-chan_dict = {}
-chan_dict.fromkeys(['HH','HV','VH','VV'],[[],[],[],[]])
-#Create a dictionary with key _ > channel name, value: list with channel and parameter dict
-for chan_name in chan_dict.iterkeys():
-    chan_dict[chan_name].append( _gpf.gammaDataset(getattr(args,chan_name + '_par'),getattr(args,chan_name)))
-    chan_dict[chan_name].append(_gpf.par_to_dict(getattr(args,chan_name + '_par')))
 
-#Compute the baseline for the polarimetric measurements
-pol_baseline = _gpf.compute_phase_center(chan_dict['HH'][1]) - _gpf.compute_phase_center(chan_dict['VV'][1])
-topo_baseline = _gpf.par_to_dict(args.topo_base)['antenna_separation'][0]
+# Determine the HH-VV phase imbalance
+hhvv_phase, hh_vv_par = _gpf.load_dataset(args.HHVV_flat_par, args.HHVV_flat)
+HH_pwr, HH_pwr_par = _gpf.load_dataset(args.HH_pwr_par, args.HH_pwr)
+VV_pwr, VV_pwr_par = _gpf.load_dataset(args.VV_pwr_par, args.VV_pwr)
+reflector_imbalance_phase = hhvv_phase[args.ridx, args.azidx]
+reflector_imbalance_amplitude = HH_pwr[args.ridx, args.azidx] / VV_pwr[args.ridx, args.azidx]
 
-#Compute the HH-VV phase difference and remove the topographic phase
-HHVV_phase =chan_dict['HH'][0] * chan_dict['VV'][0].conj() * _np.exp(-1j * pol_baseline / topo_baseline * )
+#Parameter dict
+cal_dict = _od()
+_od['HHVV_phase_imbalance'] = [reflector_imbalance_phase, 'rad']
+_od['HHVV_amplitude_imbalance'] = reflector_imbalance_amplitude
 
-with open(args.out, 'wb+') as of:
-    correction.astype(_gpf.type_mapping['FCOMPLEX']).T.tofile(of)
+#Write calibrations parameters
+_gpf.dict_to_par(cal_dict, args.cal_parameters)
