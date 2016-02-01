@@ -5,13 +5,9 @@ Created on Wed Sep 24 11:25:00 2014
 @author: baffelli
 """
 import numpy as np
-import matplotlib
 import scipy
-from scipy import interpolate
-import matplotlib.pyplot as plt
-import pyrat
-import pyrat.core
-import pyrat.core.corefun
+from .. import core
+# from .. import core.corefun
 """
 Pyrat module for interferometric processing
 """

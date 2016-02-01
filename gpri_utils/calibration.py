@@ -9,13 +9,11 @@ Created on Thu May 15 14:56:18 2014
 Utilities for GPRI calibration
 """
 import numpy as _np
-from pyrat import core, matrices
+from .. import core
 from ..core import corefun, polfun
 from ..visualization import visfun as _vf
-import scipy as _sc
 from scipy import fftpack as _fftp
-from scipy import signal as _sg
-#from ..core import scatteringMatrix
+
 
 def calibrate_from_r_and_t(S, R,T):
     T_inv = _np.linalg.inv(T)

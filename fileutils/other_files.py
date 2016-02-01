@@ -8,7 +8,6 @@ import numpy as _np
 from collections import OrderedDict as _od
 from osgeo import osr as _osr
 from osgeo import gdal as _gdal
-import gpri_files as _gpf
 
 def load_dat(path):
     """

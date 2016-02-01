@@ -21,7 +21,7 @@ import scipy as _sp
 from collections import namedtuple as _nt
 from collections import OrderedDict as _od
 import re as _re
-import other_files as _of
+from . import other_files as _of
 
 # Constants for gpri
 ra = 6378137.0000  # WGS-84 semi-major axis
@@ -288,17 +288,20 @@ def dict_to_par(par_dict, par_file):
             fout.write(out + '\n')
 
 
-def load_dataset(par_file, bin_file, memmap=True):
+def load_dataset(par_file, bin_file, memmap=True, dtype=None):
     par_dict = par_to_dict(par_file)
     # Map type to gamma
-    try:
-        dt = type_mapping[par_dict['image_format']]
-    except:
+    if not dtype:
         try:
-            dt = type_mapping[par_dict['data_format']]
+            dt = type_mapping[par_dict['image_format']]
         except:
-            # raise KeyError("This file does not contain datatype specification in a known format")
-            dt = type_mapping['FCOMPLEX']
+            try:
+                dt = type_mapping[par_dict['data_format']]
+            except:
+                # raise KeyError("This file does not contain datatype specification in a known format")
+                dt = type_mapping['FCOMPLEX']
+    else:
+        dt = type_mapping[dtype]
     try:
         shape = (par_dict['range_samples'],
                  par_dict['azimuth_lines'])
@@ -314,7 +317,10 @@ def load_dataset(par_file, bin_file, memmap=True):
             try:
                 shape = (par_dict['interferogram_width'], par_dict['interferogram_azimuth_lines'])
             except:
-                raise KeyError("This file does not contain data shape specification in a known format")
+                try:
+                    shape = (par_dict['range_samp_1'], par_dict['az_samp_1'])
+                except:
+                    raise KeyError("This file does not contain data shape specification in a known format")
     shape = shape[::-1]
     if memmap:
         with open(bin_file, 'rb') as mmp:
@@ -393,7 +399,7 @@ def compute_phase_center(par):
     -------
 
     """
-    rx_number = extract_channel_number(par['title'])
+    rx_number = extract_channel_number(par['title'][-1])
     ph_center = (par['GPRI_tx_coord'][2] + par['GPRI_rx{num}_coord'.format(num=rx_number)][2]) / 2.0
     return ph_center
 
