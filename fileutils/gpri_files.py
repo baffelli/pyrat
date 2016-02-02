@@ -290,6 +290,7 @@ def dict_to_par(par_dict, par_file):
 
 def load_dataset(par_file, bin_file, memmap=True, dtype=None):
     par_dict = par_to_dict(par_file)
+    print(par_dict)
     # Map type to gamma
     if not dtype:
         try:
@@ -299,7 +300,7 @@ def load_dataset(par_file, bin_file, memmap=True, dtype=None):
                 dt = type_mapping[par_dict['data_format']]
             except:
                 # raise KeyError("This file does not contain datatype specification in a known format")
-                dt = type_mapping['FCOMPLEX']
+                dt = type_mapping['FLOAT']
     else:
         dt = type_mapping[dtype]
     try:
