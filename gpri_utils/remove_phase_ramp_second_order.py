@@ -59,9 +59,9 @@ C = _gpf.C
 lam = fc/C
 x = 4 * _np.pi/lam * (A_int1 * ph_topo_2 - A_int2 * ph_topo_1) / (A_int1*B_int_2 - A_int2*B_int_1)
 y = 4 * _np.pi/lam * (B_int_1 * ph_topo_2 - B_int_2 * ph_topo_1) / (A_int2*B_int_1 - A_int1*B_int_2)
-topo_pol = _np.exp(-1j *(B_pol * x + A_pol * y))
-
+topo_pol = _np.exp(-1j *(2 * B_pol * x + A_pol * y))
+z = ph_pol_topo * topo_pol
 with open(args.x, 'wb+') as of, open(args.y, 'wb+') as of1,  open(args.z, 'wb+') as of2:
     x.astype(_gpf.type_mapping['FLOAT']).T.tofile(of)
     y.astype(_gpf.type_mapping['FLOAT']).T.tofile(of1)
-    topo_pol.astype(_gpf.type_mapping['FCOMPLEX']).T.tofile(of2)
+    z.astype(_gpf.type_mapping['FCOMPLEX']).T.tofile(of2)
