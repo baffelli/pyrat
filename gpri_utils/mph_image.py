@@ -1,17 +1,13 @@
 #!/usr/bin/python
 __author__ = 'baffelli'
-
-
 import sys, os
 import numpy as _np
 import argparse
-import pyrat.visualization.visfun as _vf
+from pyrat.visualization import visfun as _vf
 import pyrat.fileutils.gpri_files as _gpf
 import matplotlib.pyplot as _plt
 import matplotlib as _mpl
 from matplotlib import style as _sty
-
-
 
 
 class dismphPlotter:

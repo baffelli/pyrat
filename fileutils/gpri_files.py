@@ -382,7 +382,7 @@ def extract_channel_number(title):
 
     """
     #Generate re
-    p = _re.compile(ur'(lower)|(upper)')
+    p = _re.compile("(lower)|(upper)")
     result = _re.search(p, title)
     idx = result.lastindex
     return idx
@@ -598,8 +598,8 @@ class rawParameters:
                 self.ns_max = int(round(args.rmax / self.rps))
                 self.rmax = self.ns_max * self.rps;
             else:
-                print 'ERROR: requested maximum slant range exceeds maximum possible value with this chirp: %.3f' % (
-                self.rmax,)
+                print("ERROR: requested maximum slant range exceeds maximum possible value with this chirp: {value:f<30}'".format(
+                self.rmax,))
 
         self.ns_out = (self.ns_max - self.ns_min) + 1  # number of output samples
         # Compute antenna positions

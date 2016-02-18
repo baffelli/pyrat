@@ -10,15 +10,11 @@ import cv2 as _cv2
 import matplotlib as _mpl
 import matplotlib.pyplot as _plt
 import numpy as _np
-import pyrat
-import pyrat.core.polfun
+#import pyrat.core.polfun
 import scipy.fftpack as _fftp
 import scipy.ndimage as _ndim
 
-_os.environ['GAMMA_HOME']='/usr/local/GAMMA_SOFTWARE-20130717'
-_os.environ['ISP_HOME']=_os.environ['GAMMA_HOME'] + '/ISP'
-_os.environ['DIFF_HOME']=_os.environ['GAMMA_HOME'] + '/DIFF'
-_os.environ['LD_LIBRARY_PATH']=_os.environ['GAMMA_HOME'] +'/lib'
+
 
 
 # Define colormaps
@@ -376,42 +372,6 @@ def show_geocoded(geocoded_image, **kwargs):
     _plt.ylabel(r'Northing [m]')
     return a
 
-
-class ROI:
-    """
-    Class to represent ROIS
-    """
-
-    def __init__(*args):
-        self = args[0]
-        if type(args[1]) is list:
-            self.polygon_list = args[1]
-        else:
-            self.polygon_list = [args[1]]
-        self.shape = args[2]
-        self.mask = _np.zeros(self.shape, dtype=_np.bool)
-        self.fill_mask()
-
-    def fill_mask(self):
-        def dstack_product(x, y):
-            return _np.dstack(_np.meshgrid(x, y)).reshape(-1, 2)
-
-        x_grid = _np.arange(self.shape[0])
-        y_grid = _np.arange(self.shape[1])
-        points = dstack_product(y_grid, x_grid)
-        for pt in self.polygon_list:
-            path = _mpl.path.Path(pt)
-            self.mask = self.mask + path.contains_points(points, radius=0.5).reshape(self.shape)
-
-    def draw_mask(self, ax, **kwargs):
-        display_to_ax = ax.transAxes.inverted().transform
-        data_to_display = ax.transData.transform
-        for dta_pts in self.polygon_list:
-            ax_pts = display_to_ax(data_to_display(dta_pts))
-            p = _plt.Polygon(ax_pts, True, transform=ax.transAxes, **kwargs)
-            ax.add_patch(p)
-
-
 def ROC(cases, scores, n_positive, n_negative):
     sort_indices = _np.argsort(scores)
     sort_cases = cases[sort_indices[::-1]]
@@ -445,8 +405,9 @@ def scale_coherence(c):
     #    c_sc = _np.select(((_np.sin(c * _np.pi / 2)), 0.3), (c > 0.2, c<0.2))
     return _np.sin(c * _np.pi / 2)
 
-def dismph(data, min_val=-_np.pi,
-             max_val=_np.pi, k = 1, N=24):
+
+
+def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=1, N=24):
     #palette to scale phase
     colors = (
     (0,1,1),
@@ -471,7 +432,6 @@ def dismph(data, min_val=-_np.pi,
     #Convert back to rgb
     rgb = _mpl.colors.hsv_to_rgb(hsv)
     return rgb[:,:,:], pal, norm
-
 
 def disp_mph(data, dt='amplitude', k=0.5, min_val=-_np.pi,
              max_val=_np.pi, return_pal=False, return_im=True):
@@ -595,3 +555,40 @@ def blockshaped(arr, n_patch):
     return (arr.reshape(h // nrows, nrows, -1, ncols)
             .swapaxes(1, 2)
             .reshape(-1, nrows, ncols))
+
+class ROI:
+    """
+    Class to represent ROIS
+    """
+
+    def __init__(*args):
+        self = args[0]
+        if type(args[1]) is list:
+            self.polygon_list = args[1]
+        else:
+            self.polygon_list = [args[1]]
+        self.shape = args[2]
+        self.mask = _np.zeros(self.shape, dtype=_np.bool)
+        self.fill_mask()
+
+    def fill_mask(self):
+        def dstack_product(x, y):
+            return _np.dstack(_np.meshgrid(x, y)).reshape(-1, 2)
+
+        x_grid = _np.arange(self.shape[0])
+        y_grid = _np.arange(self.shape[1])
+        points = dstack_product(y_grid, x_grid)
+        for pt in self.polygon_list:
+            path = _mpl.path.Path(pt)
+            self.mask = self.mask + path.contains_points(points, radius=0.5).reshape(self.shape)
+
+    def draw_mask(self, ax, **kwargs):
+        display_to_ax = ax.transAxes.inverted().transform
+        data_to_display = ax.transData.transform
+        for dta_pts in self.polygon_list:
+            ax_pts = display_to_ax(data_to_display(dta_pts))
+            p = _plt.Polygon(ax_pts, True, transform=ax.transAxes, **kwargs)
+            ax.add_patch(p)
+
+
+
