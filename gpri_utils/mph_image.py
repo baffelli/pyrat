@@ -49,7 +49,7 @@ class dismphPlotter:
         with _sty.context(self.style):
             f = _plt.figure()
             RGB, pal, norm = _vf.dismph(self.image[:,self.args.start:self.args.nlines].T,
-                                        k = self.args.k)
+                                        k = self.args.k, N=64)
             _plt.imshow(RGB, cmap=pal, interpolation='none')
             if self.args.cb:
                 cbar = _plt.colorbar(orientation='horizontal', ticks=[0,0.5,1], \
