@@ -27,6 +27,7 @@ from . import other_files as _of
 ra = 6378137.0000  # WGS-84 semi-major axis
 rb = 6356752.3141  # WGS-84 semi-minor axis
 C = 299792458.0  # speed of light m/s
+#15.7988 x 7.8994 mm
 KU_WIDTH = 15.798e-3  # WG-62 Ku-Band waveguide width dimension
 KU_DZ = 10.682e-3  # Ku-Band Waveguide slot spacing
 RANGE_OFFSET = 3
