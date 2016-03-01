@@ -19,6 +19,9 @@ def azspec(image):
 
 VV_hat = azspec(data_VV)
 
+
+def rcm_ref()
+
 #
 # RGB, pal, map = vf.dismph(VV_hat, k=0.2)
 

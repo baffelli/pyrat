@@ -25,7 +25,14 @@ class gpriRVPProcessor:
         self.fshift = _np.ones(self.raw_par.nsamp/ 2 +1)
         self.fshift[1::2] = -1
         self.rvp = _np.exp(1j*4.*_np.pi*self.raw_par.grp.RF_chirp_rate*(self.raw_par.slr/C)**2) #residual video phase correction
-
+        #Fast (chirp) time
+        self.fast_time = _np.arange(self.raw_par.nsamp/2) * 2/self.raw_par.grp.ADC_sample_rate
+        #Chirsp duration
+        chirp_duration = 1/self.raw_par.grp.ADC_sample_rate * 2 * self.raw_par.nsamp/2
+        #Slow time
+        self.slow_time = chirp_duration * _np.arange(0,self.raw_par.nl_tot)
+        #Range frequency
+        self.range_freq = self.fast_time * self.raw_par.grp.RF_chirp_rate
 
     def correct(self):
         #For each azimuth
@@ -34,14 +41,43 @@ class gpriRVPProcessor:
             temp = _np.append(_np.fft.ifftshift(_np.fft.irfft(_np.fft.rfft((self.rawdata[1:, idx_az].astype(_np.float32))/ 32768)* self.fshift*
                                             self.rvp.astype('complex64').conj() * 32768),0) ,0)
             self.rawdata_corr[:, idx_az] = temp.astype(_gpf.type_mapping['SHORT INTEGER'])
+        #Convert to complex
+        self.rawdata_rmc = 1 * self.rawdata.astype(_np.complex64)/  32768
+        #Range compressed data
+        self.rc = _np.zeros((self.fshift.shape[0] , self.raw_par.nl_tot), dtype=_np.complex64)
+        #Compute rcmc
+        #Antenna length
+        r_ant = _np.sqrt(0.25** + 0.15**2)
+        #rotation speed
+        omega = _np.deg2rad(self.raw_par.grp.TSC_rotation_speed)
+        #fmcw rate
+        K = self.raw_par.grp.RF_chirp_rate
+        #Wavelength
+        lam = self.raw_par.grp.RF_center_freq / C
+        #Reference slow time (taken at the center of the scene)
+        t_slow_ref = self.slow_time[4600]
+        #Reference fast time (taken at the center of the chirp)
+        t_fast_ref = self.fast_time[self.fast_time.shape[0] * 0.2]
+        #First rmc term
+        first_term = 2 * r_ant/C * _np.cos((self.slow_time - t_slow_ref + t_fast_ref) * omega)
+        second_term = 2 * r_ant * omega / (lam * K) * _np.sin(omega * (self.slow_time - t_slow_ref))
+        rmc = _np.zeros(self.rawdata.shape, dtype=_np.complex64)
+        for idx_f in range(self.rawdata.shape[0] - 1):
+            rmc[idx_f,:] = _np.exp(2j * _np.pi * (first_term + second_term) * self.range_freq[idx_f])
+            self.rawdata_rmc[idx_f,:] = self.rawdata_rmc[idx_f,:] * rmc[idx_f, :]
+
+        for idx_az in range(self.rawdata_rmc.shape[1]):
+            self.rc[:, idx_az] = _np.fft.fft(self.rawdata_rmc[1:, idx_az], axis=0)[0:self.raw_par.nsamp/2 + 1] * self.fshift * self.raw_par.scale
         import matplotlib.pyplot as plt
         plt.figure()
-        plt.subplot(2,1,1)
-        plt.imshow((self.rawdata[::5,::5]))
-        ax = plt.gca()
-        plt.subplot(2,1,2, sharex= ax, sharey=ax)
-        plt.imshow((self.rawdata_corr[::5,::5]))
+        plt.imshow(_np.abs(self.rc[0:1200,:])**0.2)
         plt.show()
+        # plt.figure()
+        # plt.subplot(2,1,1)
+        # plt.imshow((self.rawdata[::5,::5]),extent=[self.slow_time.min(),self.slow_time.max(),self.fast_time.min(),self.fast_time.max()], aspect=1000, origin='upper')
+        # plt.ylabel('Fast time [s]')
+        # plt.xlabel('Slow time [s]')
+        # plt.show()
         return self.rawdata_corr
 
 
