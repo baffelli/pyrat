@@ -25,6 +25,8 @@ class gpriRangeProcessor:
         print("{},{}".format(self.raw_par.block_length, self.raw_par.nl_tot))
         self.rawdata = _np.fromfile(args.raw, dtype=self.raw_par.dt).reshape([self.raw_par.block_length, self.raw_par.nl_tot][::-1]).T
         self.apply_scale = args.apply_scale
+        self.rvp = _np.exp(1j*4.*_np.pi*self.raw_par.grp.RF_chirp_rate*(self.raw_par.slr/C)**2) #range video phase correction
+        self.rvp_corr = args.rvp_corr
 
     def compress(self):
         arr_compr = _np.zeros((self.raw_par.ns_max - self.raw_par.ns_min + 1, self.raw_par.nl_tot_dec) ,dtype=_np.complex64)
@@ -54,6 +56,8 @@ class gpriRangeProcessor:
                 dec_pulse[-self.raw_par.zero:] = dec_pulse[-self.raw_par.zero:] * self.raw_par.win2[-self.raw_par.zero:]
             #Emilinate the first sample, as it is used to jump back to the start freq
             line_comp = _np.fft.rfft(dec_pulse[1::]/self.raw_par.dec * self.raw_par.win) * fshift
+            if self.rvp_corr:
+                line_comp = line_comp * self.rvp
             #Decide if applying the range scale factor or not
             if self.apply_scale:
                 scale_factor = self.raw_par.scale[self.raw_par.ns_min:self.raw_par.ns_max + 1]
@@ -157,8 +161,8 @@ def main():
     parser.add_argument("-s","--apply_scale", type=bool, default=True, dest='apply_scale')
     parser.add_argument('-r', help='Near range for the slc',dest='rmin', type=float, default=0)
     parser.add_argument('-R', help='Far range for the slc', dest='rmax',type=float, default=1000)
-
-    #Read arguments
+    parser.add_argument('--rvp_corr', help='Correct range video phase', dest='rvp_corr', default=False, action='store_true')
+    #Read adrguments
     try:
         args = parser.parse_args()
     except:

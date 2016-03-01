@@ -457,9 +457,9 @@ def load_raw(par_path, path, nchan=2):
     nchan = nchan
     npat = len(par['TX_RX_SEQ'].split('-'))
     itemsize = _np.int16(1).itemsize
-    bytes_per_record = (nsamp + 1) * 2 * itemsize
+    bytes_per_record = (nsamp + 1) * nchan * itemsize
     filesize = _osp.getsize(path)
-    raw = _np.memmap(path, dtype='int16', mode='r')
+    raw = _np.memmap(path, dtype=type_mapping['SHORT INTEGER'], mode='r')
     nl_tot = int(filesize / bytes_per_record)
     sh = (nsamp + 1, nl_tot / npat, \
           nchan, npat)
