@@ -16,7 +16,6 @@ adc_rate = 6.25000e+06
 #Target parameters
 r_c = 550
 r_arm = np.sqrt(0.25**2 + 0.15**2)
-r_arm = 20
 n_lines = 1500
 omega = np.deg2rad(1.2)
 ant_bw = np.deg2rad(0.04)
@@ -25,19 +24,19 @@ tau_ant = ant_bw / omega
 z = 200
 
 
-#Simulate the fmcw signal for a given range
-def fmcw_signal(r, t_chirp, chirp_rate, adc_rate, f0):
-    #Number of samples in chirp
-    n_chirp = adc_rate * t_chirp
-    #Fast time vector
-    fast_time = np.arange(n_chirp) * 1/adc_rate
-    #Dechirped signal
-    lam = C / f0
-    #Propagation phase
-    signal = np.exp(-1j * 4 * np.pi * r * f0 / C) * \
-             np.exp(-1j * np.pi * 4 * r/C * chirp_rate * fast_time) * \
-              np.exp(-1j * 4 * np.pi * (r/C)**2 * chirp_rate)
-    return signal
+# #Simulate the fmcw signal for a given range
+# def fmcw_signal(r, t_chirp, chirp_rate, adc_rate, f0):
+#     #Number of samples in chirp
+#     n_chirp = adc_rate * t_chirp
+#     #Fast time vector
+#     fast_time = np.arange(n_chirp) * 1/adc_rate
+#     #Dechirped signal
+#     lam = C / f0
+#     #Propagation phase
+#     signal = np.exp(-1j * 4 * np.pi * r * f0 / C) * \
+#              np.exp(-1j * np.pi * 4 * r/C * chirp_rate * fast_time) * \
+#               np.exp(-1j * 4 * np.pi * (r/C)**2 * chirp_rate)
+#     return signal
 
 #Simulate distance from a target
 def distance_from_target(r_c, r_ant, tau, tau_target, omega):
@@ -90,13 +89,12 @@ def correct_squint(signal, t_chirp, chirp_rate, adc_rate, f0, omega):
     sig_vector = np.zeros((n_chirp, nlines), dtype=np.complex64)
     chirp_freq = f0 - bw/2 + chirp_rate * fast_time
     #Squint vector
-    squint_ang = np.deg2rad(gpf.squint_angle(chirp_freq, gpf.KU_WIDTH, gpf.KU_DZ))
+    squint_ang = np.deg2rad(gpf.squint_angle(chirp_freq, gpf.KU_WIDTH, gpf.KU_DZ + 0.0008))
     squint_ang = squint_ang - squint_ang[squint_ang.shape[0]/2]
     squint_t = squint_ang / omega
     for idx_freq in range(signal.shape[0]):
         az_vec = np.arange(signal.shape[1])
         az_vec_corr = az_vec + squint_t[idx_freq] / t_chirp
-        print(az_vec_corr)
         signal_corr[idx_freq,:] = np.interp(az_vec, az_vec_corr, signal[idx_freq,:].real)
     return signal_corr
 
@@ -113,5 +111,5 @@ fshift = np.ones(s.shape[0]/2 +1)
 fshift[0::2] = -1
 s_compr = np.fft.rfft(s * r_win[:,None] * zero[:,None], axis =0 ) * fshift[:, None]
 s_compr_desq = np.fft.rfft(s_desq * r_win[:,None] * zero[:,None], axis =0 ) * fshift[:, None]
-rgb, pal, crap = vf.dismph(s_compr, k=0.3)
-rgb_corr, pal, crap = vf.dismph(s_compr_desq, k=0.3)
+rgb, pal, crap = vf.dismph(s_compr, k=0.1)
+rgb_corr, pal, crap = vf.dismph(s_compr_desq, k=0.1)
