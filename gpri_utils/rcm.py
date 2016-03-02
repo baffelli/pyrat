@@ -89,7 +89,8 @@ def correct_squint(signal, t_chirp, chirp_rate, adc_rate, f0, omega):
     sig_vector = np.zeros((n_chirp, nlines), dtype=np.complex64)
     chirp_freq = f0 - bw/2 + chirp_rate * fast_time
     #Squint vector
-    squint_ang = np.deg2rad(gpf.squint_angle(chirp_freq, gpf.KU_WIDTH, gpf.KU_DZ + 0.0008))
+    #squint_ang = np.deg2rad(gpf.squint_angle(chirp_freq, gpf.KU_WIDTH, gpf.KU_DZ - 0.00008))\
+    squint_ang = np.deg2rad(chirp_freq * 4.17e-9)
     squint_ang = squint_ang - squint_ang[squint_ang.shape[0]/2]
     squint_t = squint_ang / omega
     for idx_freq in range(signal.shape[0]):
