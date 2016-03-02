@@ -75,7 +75,6 @@ class gpriAzimuthProcessor:
                     print('Processing range index: ' + str(idx_r))
         return slc_filt
 
-
 def main():
     #Read the arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -107,6 +106,11 @@ def main():
     #Create processor object
     proc = gpriAzimuthProcessor(args)
     slc_corr = proc.correct()
+    slc_td = proc.time_domain_algorithm()
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.imshow(_np.abs(slc_td)**0.2)
+    plt.show()
     with open(args.slc_out, 'wb') as of:
         slc_corr.T.astype(_gpf.type_mapping['FCOMPLEX']).tofile(of)
     _gpf.dict_to_par(slc_corr.__dict__, args.slc_par_out)
