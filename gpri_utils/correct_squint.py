@@ -54,6 +54,7 @@ def main():
                 help="Parameters of the corrected GPRI raw file")
     parser.add_argument('sq_rate', help='Squint rate in deg/Hz', type=float)
     parser.add_argument('center_squint', help='Squint at the center frequency in degrees', type=float)
+    parser.add_argument('--exact', help='If set, uses an exact model for the squint', action='store_true')
     #Read arguments
     try:
         args = parser.parse_args()
@@ -74,11 +75,13 @@ def main():
     print(raw_data.shape)
     #Create squint corrector object
     squint_processor = squintCorrector(args, raw_par)
-    #Squint correction function
-    sf = lambda freq_vec: linear_squint(freq_vec, [args.center_squint, args.sq_rate])
+    if args.exact:
+        sf = model_squint
+    else:
+        #Squint correction function
+        sf = lambda freq_vec: linear_squint(freq_vec, [args.center_squint, args.sq_rate])
     #Call processor
     raw_data_corr = squint_processor.correct_squint(raw_data, sf)
-
     #Write dataset
     with open(args.raw_out, 'wb') as of:
         raw_data_corr.T.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)

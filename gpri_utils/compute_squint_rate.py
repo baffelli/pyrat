@@ -41,15 +41,15 @@ class rawTracker:
                                           (self.grp.block_length, self.grp.nl_tot)
                                           ,0, self.grp.block_length,
                                           az_start_idx, az_stop_idx,
-                                          dtype=_gpf.type_mapping['SHORT INTEGER'])
+                                          dtype=_gpf.type_mapping['SHORT INTEGER']).astype(_np.float32) / 32768
         az_min = self.grp.grp.STP_antenna_start + self.grp.ang_per_tcycle * az_start_idx
         #First we compress to a mini-slc
-        range_spectrum = _np.fft.rfft(self.raw_data,axis=0) * self.fshift[:,None] * self.grp.scale[:,None]
+        range_spectrum = _np.fft.rfft(self.raw_data[1:,:],axis=0) * self.fshift[:,None] * self.grp.scale[:,None]
         #range_spectrum *=  _np.hamming(range_spectrum.shape[1])[None,:]
         #From the range spectrum we can obtain the maximum
         #From the maximum energy we determine the dominant target frequency
-        max_idx = _np.argmax(_np.abs(range_spectrum[1:,:]))
-        range_spectrum_shape = [range_spectrum.shape[0]- 1, range_spectrum.shape[1]]
+        max_idx = _np.argmax(_np.abs(range_spectrum))#we subtract 1 because the first sample is used to jump
+        range_spectrum_shape = [range_spectrum.shape[0], range_spectrum.shape[1]]
         max_r, max_az = _np.unravel_index(max_idx,range_spectrum_shape)
         _plt.figure()
         _plt.imshow(_np.abs(range_spectrum))
@@ -60,14 +60,16 @@ class rawTracker:
         r_max = self.grp.slr[max_r]
         t_chirp = self.grp.grp.CHP_num_samp/self.grp.grp.ADC_sample_rate
         bw = (self.grp.grp.RF_freq_max - self.grp.grp.RF_freq_min)
-        range_freq = 4 * _np.pi * 2 * r_max * bw / float(3e8 * t_chirp)
+        range_freq = 4 * _np.pi * 2 * r_max * bw / float(_gpf.C * t_chirp)
         range_filter = _np.exp(1j * range_freq * _np.arange(0,self.grp.block_length - 1)/self.grp.grp.ADC_sample_rate)
+        # #We transform the data into hilbert domain (analytic signal)
+        # chirp_analytic = _sig.hilbert(self.raw_data[1:,:], axis = 0)
         #Cut the data around the maxium in azimuth
         range_spectrum = range_spectrum[:, max_az - self.args.analysis_window/2:max_az + self.args.analysis_window/2]
         #azimuth indices
         az_vec = (max_az - self.args.analysis_window/2) * self.grp.ang_per_tcycle + az_min + self.grp.ang_per_tcycle * _np.arange(range_spectrum.shape[1])
         #Window size for the filter
-        freq_filter = _np.zeros(range_spectrum_shape[0] + 1)
+        freq_filter = _np.zeros(range_spectrum_shape[0])
         #Window position
         freq_filter[max_r-self.args.range_window/2:max_r+self.args.range_window/2] = _np.hamming(self.args.range_window)
         #Filter spectrum to extract only range of interest
@@ -75,6 +77,8 @@ class rawTracker:
         # filt_data = self.raw_data[1:, max_az - self.args.analysis_window/2:max_az + self.args.analysis_window/2] * _np.real(range_filter[:,None])
         #COmpute its envelope
         filt_env = _sig.hilbert(filt_data,axis=0)
+        _plt.imshow(_np.abs(filt_env))
+        _plt.show()
         #Track the maximum and convert the indices into angles
         max_vec = _np.array( [_np.argmax(_np.abs(filt_env[idx,:]))
                                  for idx in range(filt_env.shape[0])])

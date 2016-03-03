@@ -41,7 +41,7 @@ class gpriRangeProcessor:
                 current_idx = idx_az * self.raw_par.dec + idx_dec
                 current_idx_1 = idx_az + idx_dec * self.raw_par.dec
                 if self.raw_par.dt == _np.dtype(_np.int16) or self.raw_par.dt == _gpf.type_mapping['SHORT INTEGER']:
-                    current_data = self.rawdata[:, current_idx ].astype(_np.float32) / 32768
+                    current_data = self.rawdata[:, current_idx ].astype(_np.float32) / _gpf.TSF
                 else:
                      current_data = self.rawdata[:, current_idx ].astype(_np.float32)
                 if current_idx % 1000 == 0:
