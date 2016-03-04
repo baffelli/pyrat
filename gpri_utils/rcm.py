@@ -46,8 +46,8 @@ class acquisitionSimulator:
         self.ant_pat = lambda tau:  10**(30 * (np.sinc(tau / float(tau_ant))**3)/10.0) - 1 #this function evaluated the antenna pattern at the slow time tau
         #Squint given in slow time delay
         squint_ang = (self.chirp_freq * self.squint_rate)
-        #squint_ang = np.deg2rad(gpf.squint_angle(self.chirp_freq, gpf.KU_WIDTH, gpf.KU_DZ_ALT))
-        squint_ang = squint_ang - squint_ang[squint_ang.shape[0]/2]
+        squint_ang = np.deg2rad(gpf.squint_angle(self.chirp_freq, gpf.KU_WIDTH, gpf.KU_DZ_ALT))
+        #squint_ang = squint_ang - squint_ang[squint_ang.shape[0]/2]
         self.squint_t = squint_ang / self.omega
         #Fast and slow time vectors
         self.fast_time =  np.arange(acquisition_params['CHP_num_samp']) * 1/self.ADC_sample_rate
@@ -86,8 +86,8 @@ class acquisitionSimulator:
 
         """
         sig = np.exp(-1j * 4 * np.pi * r * self.f0 / gpf.C) * \
-              np.exp(-1j * np.pi * 4 * r/gpf.C * self.k * fast_time) * \
-              np.exp(-1j * 4 * np.pi * (r/gpf.C)**2 * self.k)
+              np.exp(-1j * np.pi * 4 * r/gpf.C * self.k * fast_time) *\
+              np.exp(1j * 4 * np.pi * (r/gpf.C)**2 * self.k)
         return sig
 
     def simulate(self):
@@ -99,12 +99,12 @@ class acquisitionSimulator:
         for idx_fast, t in enumerate(self.fast_time):#iterate over all fast times
             for targ_r, targ_az in self.reflector_list:#for all reflectors
                 tau_targ = (targ_az - self.az_min + self.arm_angle) / self.omega#target location in slow time (angle)
-                nu = t + self.slow_time + self.squint_t[idx_fast] #time variable slow time + fast time + time delay caused by squint
+                nu = t + self.slow_time - self.squint_t[idx_fast] #time variable slow time + fast time + time delay caused by squint
                 r = distance_from_target(targ_r, self.r_arm, tau_targ, nu, self.omega)
                 chirp = self.fmcw_signal(t, r)  * self.ant_pat(nu - tau_targ) #Chirp + antenna pattern
                 #Interpolate for squint
                 sig[idx_fast, :] += chirp #coherent sum of all signals
-        (sig).imag.T.astype(gpf.type_mapping['SHORT INTEGER']).tofile(self.raw_file)
+        ((sig/np.max(np.abs(sig)))* gpf.TSF).real.T.astype(gpf.type_mapping['SHORT INTEGER']).tofile(self.raw_file)
         return sig
 
 
@@ -117,7 +117,7 @@ VV_raw = '/data/Simulations/VV.raw'
 VV_raw_par = '/data/Simulations/VV.raw_par'
 
 ref_list = [(350, np.deg2rad(11)),(362,np.deg2rad(10)),(362,np.deg2rad(8)),(590,np.deg2rad(10))]
-ref_list = [(350, np.deg2rad(11))]
+ref_list = [(550, np.deg2rad(11))]
 
 
 HH_sim = acquisitionSimulator(radar_par, HH_ant_par, ref_list, HH_raw, HH_raw_par)
