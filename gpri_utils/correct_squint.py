@@ -28,7 +28,8 @@ class squintCorrector():
         #Interpolated raw channel
         raw_channel_interp = _np.zeros_like(raw_channel)
         for idx in range(0, raw_channel.shape[0]):
-            print("interp range:" + str(idx))
+            if idx % 500 == 0 :
+                print("interp sample:" + str(idx))
             az_new = angle_vec + squint_vec[idx]
             raw_channel_interp[idx,: ] = _np.interp(az_new, angle_vec, raw_channel[idx,:],left=0.0, right=0.0)
         return raw_channel_interp
@@ -61,6 +62,8 @@ def main():
     except:
         print(parser.print_help())
         sys.exit(-1)
+    print(args.sq_rate)
+
     #Read raw dataqset and parameters
     raw_dict = _gpf.par_to_dict(args.raw_par)
     #Compute parameters

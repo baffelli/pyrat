@@ -22,15 +22,16 @@ from collections import namedtuple as _nt
 from collections import OrderedDict as _od
 import re as _re
 from . import other_files as _of
+import sys as _sys
 
 # Constants for gpri
 ra = 6378137.0000  # WGS-84 semi-major axis
 rb = 6356752.3141  # WGS-84 semi-minor axis
 C = 299792458.0  # speed of light m/s
-#15.7988 x 7.8994 mm
+# 15.7988 x 7.8994 mm
 KU_WIDTH = 15.798e-3  # WG-62 Ku-Band waveguide width dimension
 KU_DZ = 10.682e-3  # Ku-Band Waveguide slot spacing
-KU_DZ_ALT = 10.3e-3 # Ku-Band Waveguide slot spacing
+KU_DZ_ALT = 10.3e-3  # Ku-Band Waveguide slot spacing
 RANGE_OFFSET = 3
 xoff = 0.112  # 140mm X offset to the antenna holder rotation axis
 ant_radius = 0.1115  # 99.2mm radial arm length. This is the rotation radius of the antenna holder
@@ -38,7 +39,7 @@ ant_radius = 0.1115  # 99.2mm radial arm length. This is the rotation radius of 
 tx_dz = {'A': 0.85, 'B': 0.725}
 rx1_dz = {'A': 0.375, 'B': 0.25}
 rx2_dz = {'A': 0.125, 'B': 0}
-#Scaling factor short integer <-> float
+# Scaling factor short integer <-> float
 TSF = 32768
 
 # This dict defines the mapping
@@ -385,11 +386,12 @@ def extract_channel_number(title):
     -------
 
     """
-    #Generate re
+    # Generate re
     p = _re.compile("(lower)|(upper)")
     result = _re.search(p, title)
     idx = result.lastindex
     return idx
+
 
 def compute_phase_center(par):
     """
@@ -409,7 +411,6 @@ def compute_phase_center(par):
     return ph_center
 
 
-
 def geotif_to_dem(gt, par_path, bin_path):
     """
     This function converts a gdal dataset
@@ -426,7 +427,6 @@ def geotif_to_dem(gt, par_path, bin_path):
     dem_dic = _of.gdal_to_dict(gt)
     dict_to_par(dem_dic, par_path)
     DEM.astype(type_mapping[dem_dic['data_format']]).tofile(bin_path)
-
 
 
 def gpri_raw_strides(nsamp, nchan, npat, itemsize):
@@ -551,7 +551,7 @@ class rawParameters:
         self.pn1 = _np.arange(self.nsamp / 2 + 1)  # list of slant range pixel numbers
         self.rps = (self.grp.ADC_sample_rate / self.nsamp * C / 2.) / self.grp.RF_chirp_rate  # range pixel spacing
         self.slr = (
-                   self.pn1 * self.grp.ADC_sample_rate / self.nsamp * C / 2.) / self.grp.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
+                       self.pn1 * self.grp.ADC_sample_rate / self.nsamp * C / 2.) / self.grp.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
         self.scale = (abs(self.slr) / self.slr[self.nsamp / 8]) ** 1.5  # cubic range weighting in power
         self.ns_max = int(round(0.90 * self.nsamp / 2))  # default maximum number of range samples for this chirp
         self.tcycle = (self.block_length) / self.grp.ADC_sample_rate  # time/cycle
@@ -602,8 +602,9 @@ class rawParameters:
                 self.ns_max = int(round(args.rmax / self.rps))
                 self.rmax = self.ns_max * self.rps;
             else:
-                print("ERROR: requested maximum slant range exceeds maximum possible value with this chirp: {value:f<30}'".format(
-                self.rmax,))
+                print(
+                "ERROR: requested maximum slant range exceeds maximum possible value with this chirp: {value:f<30}'".format(
+                    self.rmax, ))
 
         self.ns_out = (self.ns_max - self.ns_min) + 1  # number of output samples
         # Compute antenna positions
@@ -717,96 +718,98 @@ def load_segment(file, shape, xmin, xmax, ymin, ymax, dtype=type_mapping['FCOMPL
 
 
 def ant_pos(t0, angle_start, angle_end, gear_ratio, max_speed):
+    # return the current rotation speed and angle given a time since the start of rotation
+    # v1.0 clw 22-Oct-2010
+    # v1.1 clw 7-Nov-2011 correct rotation rates
+    #
+    #  t0  		current time after rotation start
+    #  angle_start  starting antenna rotation angle
+    #  angle_end    ending antenna rotation angle
+    #  gear_ratio   gear ratio (72:1 or 80:1) specify 72 or 80 as the argument
+    #  max_speed	maximum speed in steps of 0.5 from 0.5 to 10.0 degrees/sec sent to TSCC
+    # 		The exact speed is determined from a lookup table
+    #
+    #  returns the current exact rotation speed and angle,
+    #  and times for start and end of constant velocity motion
 
-# return the current rotation speed and angle given a time since the start of rotation
-# v1.0 clw 22-Oct-2010
-# v1.1 clw 7-Nov-2011 correct rotation rates
-#
-#  t0  		current time after rotation start
-#  angle_start  starting antenna rotation angle
-#  angle_end    ending antenna rotation angle
-#  gear_ratio   gear ratio (72:1 or 80:1) specify 72 or 80 as the argument
-#  max_speed	maximum speed in steps of 0.5 from 0.5 to 10.0 degrees/sec sent to TSCC
-# 		The exact speed is determined from a lookup table
-#
-#  returns the current exact rotation speed and angle,
-#  and times for start and end of constant velocity motion
-
-  if gear_ratio == 72:	#72:1 gear ratio
-    rate = (0.50080, 1.00160, 1.50240, 2.00321, 2.50401, 3.00481, 3.48772, 3.98597, 4.48994, 5.00801, 5.50176, 6.00962, 6.51042, 7.00673, 7.51202, 8.01282, 8.49185, 8.97989, 9.52744, 10.01603)
-#   rate = (0.50080, 1.00677, 1.51406, 2.01354, 2.52017, 3.02811, 3.51916, 4.02708, 4.54217, 5.07307, 5.58038, 6.10354, 6.53766, 7.03830, 7.54832, 8.05413, 8.53826, 9.03180, 9.58590, 10.08066)
-    ramp = (0.00000, 0.01250, 0.03750, 0.07500, 0.12500, 0.18750, 0.26250, 0.35000, 0.45000, 0.56250, 0.68750, 0.82500, 0.97500, 1.13750, 1.31250, 1.50000, 1.70000, 1.91250, 2.13750,  2.37500)
-    tstep = 0.025	#time step for velocities
-  else:
-    if gear_ratio == 80: #80:1 gear ratio
-      rate = (0.49938, 0.99876, 1.50240, 1.99751, 2.49335, 3.00481, 3.51563, 3.99503, 4.50721, 5.02232, 5.49316, 5.95869, 6.51042, 6.99627, 7.48005, 7.99006, 8.52273, 9.01442, 9.50169, 9.97340)
-#     rate = (0.50224, 1.00447, 1.51537, 2.00894, 2.51117, 3.03072, 3.55115, 4.04096, 4.56577, 5.09513, 5.58038, 6.06145, 6.54070, 7.03126, 7.52006, 8.03572, 8.57470, 9.07259, 9.56634, 10.04465)
-      ramp = (0.00000, 0.01125, 0.03375, 0.06750, 0.11250, 0.16875, 0.23625, 0.31500, 0.40500, 0.50625, 0.61875, 0.74250, 0.87750, 1.02375, 1.18125, 1.35000, 1.53000, 1.72125, 1.92375, 2.13750)
-      tstep = 0.0225	#time step for velocities
+    if gear_ratio == 72:  # 72:1 gear ratio
+        rate = (
+            0.50080, 1.00160, 1.50240, 2.00321, 2.50401, 3.00481, 3.48772, 3.98597, 4.48994, 5.00801, 5.50176, 6.00962,
+            6.51042, 7.00673, 7.51202, 8.01282, 8.49185, 8.97989, 9.52744, 10.01603)
+        #   rate = (0.50080, 1.00677, 1.51406, 2.01354, 2.52017, 3.02811, 3.51916, 4.02708, 4.54217, 5.07307, 5.58038, 6.10354, 6.53766, 7.03830, 7.54832, 8.05413, 8.53826, 9.03180, 9.58590, 10.08066)
+        ramp = (
+            0.00000, 0.01250, 0.03750, 0.07500, 0.12500, 0.18750, 0.26250, 0.35000, 0.45000, 0.56250, 0.68750, 0.82500,
+            0.97500, 1.13750, 1.31250, 1.50000, 1.70000, 1.91250, 2.13750, 2.37500)
+        tstep = 0.025  # time step for velocities
     else:
-      print 'ERROR: unsupported gear ratio for positioner: %d'%gear_ratio
-      sys.exit(-1)
+        if gear_ratio == 80:  # 80:1 gear ratio
+            rate = (
+                0.49938, 0.99876, 1.50240, 1.99751, 2.49335, 3.00481, 3.51563, 3.99503, 4.50721, 5.02232, 5.49316, 5.95869,
+                6.51042, 6.99627, 7.48005, 7.99006, 8.52273, 9.01442, 9.50169, 9.97340)
+            #     rate = (0.50224, 1.00447, 1.51537, 2.00894, 2.51117, 3.03072, 3.55115, 4.04096, 4.56577, 5.09513, 5.58038, 6.06145, 6.54070, 7.03126, 7.52006, 8.03572, 8.57470, 9.07259, 9.56634, 10.04465)
+            ramp = (
+                0.00000, 0.01125, 0.03375, 0.06750, 0.11250, 0.16875, 0.23625, 0.31500, 0.40500, 0.50625, 0.61875, 0.74250,
+                0.87750, 1.02375, 1.18125, 1.35000, 1.53000, 1.72125, 1.92375, 2.13750)
+            tstep = 0.0225  # time step for velocities
+        else:
+            _sys.exit(-1)
 
-  if max_speed > 10 or max_speed < 0:
-    print 'ERROR: positioner speed outside of range 0 --> 10 deg/sec: %.3f'%max_speed
-    raise SystemExit, 1
+    if max_speed > 10 or max_speed < 0:
+        raise SystemExit
 
-  ix = int(max_speed/0.5 - 1)  #num steps of approx 0.5 deg/s to max speed, initial velocity is approx 0.5 deg/s
-  if ix == -1:	#tower is stationary
-    return(0., 0., 0., 0., 0.)
+    ix = int(max_speed / 0.5 - 1)  # num steps of approx 0.5 deg/s to max speed, initial velocity is approx 0.5 deg/s
+    if ix == -1:  # tower is stationary
+        return (0., 0., 0., 0., 0.)
 
-  t_acc = ix * tstep 	#time interval for acceleration to max_speed
-  ang_acc = ramp[ix]	#angle at the end of the acceleration phase
-  rate_max = rate[ix]	#actual velocity at the end of the acceleration phase
-  sweep = angle_end - angle_start	#total angular sweep
+    t_acc = ix * tstep  # time interval for acceleration to max_speed
+    ang_acc = ramp[ix]  # angle at the end of the acceleration phase
+    rate_max = rate[ix]  # actual velocity at the end of the acceleration phase
+    sweep = angle_end - angle_start  # total angular sweep
 
-  if abs(sweep) < (2 * ang_acc):#check if the angle is less than 2 * the motion required for acceleration to max
-    t_acc = 0.0
-    ang_acc = 0.0
-    rate_max = rate[0]
-    print 'WARNING: sweep angle is less than required to accelerate and decelerate, sweep will be executed at minimum speed: %.5f'%rate_max
+    if abs(sweep) < (2 * ang_acc):  # check if the angle is less than 2 * the motion required for acceleration to max
+        t_acc = 0.0
+        ang_acc = 0.0
+        rate_max = rate[0]
 
-  angc = abs(sweep) - 2*ang_acc		#angular sweep of constant velocity
-  tc = angc/rate_max			#duration of constant motion
-  t_dec = t_acc + tc			#time at the start of decceleration
-  ang_dec = ang_acc + angc
-  t_total = 2*t_acc + tc #total time
-#  print 't_acc: %.5f  ang_acc: %.5f  tc: %.5f  ang_c: %.5f  t_dec: %.5f  ang_dec: %.5f  t_total: %.5f'%(t_acc, ang_acc, tc, angc, t_dec, ang_dec, t_total)
+    angc = abs(sweep) - 2 * ang_acc  # angular sweep of constant velocity
+    tc = angc / rate_max  # duration of constant motion
+    t_dec = t_acc + tc  # time at the start of decceleration
+    ang_dec = ang_acc + angc
+    t_total = 2 * t_acc + tc  # total time
+    #  print 't_acc: %.5f  ang_acc: %.5f  tc: %.5f  ang_c: %.5f  t_dec: %.5f  ang_dec: %.5f  t_total: %.5f'%(t_acc, ang_acc, tc, angc, t_dec, ang_dec, t_total)
 
-  if  t0 <= t_acc :			#acceleration phase
-    itx = int(t0/tstep)
-    rate1 = rate[itx]
-    ramp1 = ramp[itx]
-    td = t0 - itx*tstep
+    if t0 <= t_acc:  # acceleration phase
+        itx = int(t0 / tstep)
+        rate1 = rate[itx]
+        ramp1 = ramp[itx]
+        td = t0 - itx * tstep
 
-    if angle_end > angle_start:
-      ang = angle_start + ramp1 + td * rate1
-    else:
-      ang = angle_start - (ramp1 + td * rate1)
-    return(ang, rate1, t_acc, ang_acc, rate_max)
+        if angle_end > angle_start:
+            ang = angle_start + ramp1 + td * rate1
+        else:
+            ang = angle_start - (ramp1 + td * rate1)
+        return (ang, rate1, t_acc, ang_acc, rate_max)
 
-  if t0 > t_acc and t0 <= t_dec:	#constant velocity phase
-    if angle_end > angle_start:
-      ang = angle_start + (ang_acc + (t0 - t_acc) * rate_max)
-    else:
-      ang = angle_start - (ang_acc + (t0 - t_acc) * rate_max)
-    return(ang, rate_max, t_acc, ang_acc, rate_max)
+    if t0 > t_acc and t0 <= t_dec:  # constant velocity phase
+        if angle_end > angle_start:
+            ang = angle_start + (ang_acc + (t0 - t_acc) * rate_max)
+        else:
+            ang = angle_start - (ang_acc + (t0 - t_acc) * rate_max)
+        return (ang, rate_max, t_acc, ang_acc, rate_max)
 
-  if t0 > t_dec and t0 <= t_total:	#decceleration phase
-    td = (t0 - t_dec)			#time since start of deceleration
-    itx = ix - (int(td/tstep) + 1)	#already deccelerating
+    if t0 > t_dec and t0 <= t_total:  # decceleration phase
+        td = (t0 - t_dec)  # time since start of deceleration
+        itx = ix - (int(td / tstep) + 1)  # already deccelerating
 
-    rate1 = rate[itx]
-    ramp1 = ramp[ix] - ramp[itx + 1]
-    print 'ant_pos: time td: %.5f  ix: %d  itx: %d   rate1: %.5f  ramp1: %.5f'%(td, ix, itx, rate1, ramp1)
+        rate1 = rate[itx]
+        ramp1 = ramp[ix] - ramp[itx + 1]
 
-    if angle_end > angle_start:
-      ang = angle_start + ang_acc + angc + ramp1 + (td - int(td/tstep)*tstep) * rate1
-    else:
-      ang = angle_start - (ang_acc + angc + ramp1 + (td - int(td/tstep)*tstep) * rate1)
+        if angle_end > angle_start:
+            ang = angle_start + ang_acc + angc + ramp1 + (td - int(td / tstep) * tstep) * rate1
+        else:
+            ang = angle_start - (ang_acc + angc + ramp1 + (td - int(td / tstep) * tstep) * rate1)
 
-    return(ang, rate1, t_acc, ang_acc, rate_max)
+        return (ang, rate1, t_acc, ang_acc, rate_max)
 
-  if t0 >= t_total:
-    print 'ang_pos: time is after end of scanner rotation: ',t0
-    return(angle_end, 0.0, t_acc, ang_acc, rate_max)
+    if t0 >= t_total:
+        return (angle_end, 0.0, t_acc, ang_acc, rate_max)
