@@ -7,12 +7,16 @@ import pyrat.gpri_utils.calibration as cal
 import scipy.signal as sig
 import argparse
 import range_compression as rc
+import pyrat.gpri_utils.calibration as cal
 
 
-def distance_from_target(r_c, r_ant, tau, tau_target, omega):
+def distance_from_target(r_arm, r_ph, r_sl, tau, tau_target, omega):
     theta = omega * (tau - tau_target)
-    c = r_ant + r_c
-    return np.sqrt(c**2 + r_ant**2 - 2 * c * r_ant * np.cos(theta))
+    ph, d = cal.distance_from_phase_center(r_arm, r_ph, r_sl,theta)
+    return d
+#
+# def ant_pat(tau, bw):
+#
 
 class acquisitionSimulator:
     def __init__(self, prf_file, ant_file, reflector_list, raw_file, raw_par_file):
@@ -37,13 +41,15 @@ class acquisitionSimulator:
         self.chirp_freq = self.f0  + np.linspace(acquisition_params['CHP_freq_min'], acquisition_params['CHP_freq_max'], acquisition_params['CHP_num_samp'])
         #Antenna parameters
         self.squint_rate = np.deg2rad(antenna_params['antenna_squint_rate'])
-        self.r_arm = np.sqrt(antenna_params['phase_center_offset'] ** 2 + antenna_params['lever_arm_length'] ** 2)
-        self.arm_angle = np.arctan2(antenna_params['phase_center_offset'],antenna_params['lever_arm_length'])
+        self.r_arm = antenna_params['lever_arm_length']
+        self.r_ph = antenna_params['phase_center_offset']
+        # self.r_arm = np.sqrt(antenna_params['phase_center_offset'] ** 2 + antenna_params['lever_arm_length'] ** 2)
+        # self.arm_angle = np.arctan2(antenna_params['phase_center_offset'],antenna_params['lever_arm_length'])
         self.reflector_list = reflector_list
         #Antenna pattern in polar coordinates
         ant_bw = np.deg2rad(0.4)#Antenna beamwidth
         tau_ant = ant_bw / self.omega
-        self.ant_pat = lambda tau:  10**(30 * (np.sinc(tau / float(tau_ant))**3)/10.0) - 1 #this function evaluated the antenna pattern at the slow time tau
+        self.ant_pat = lambda tau:  10**(1 * (np.sinc(tau / float(tau_ant) )**4)/10.0) - 1 #this function evaluated the antenna pattern at the slow time tau
         #Squint given in slow time delay
         squint_ang = (self.chirp_freq * self.squint_rate)
         squint_ang = np.deg2rad(gpf.squint_angle(self.chirp_freq, gpf.KU_WIDTH, gpf.KU_DZ_ALT))
@@ -98,13 +104,16 @@ class acquisitionSimulator:
         print(sig.shape)
         for idx_fast, t in enumerate(self.fast_time):#iterate over all fast times
             for targ_r, targ_az in self.reflector_list:#for all reflectors
-                tau_targ = (targ_az - self.az_min + self.arm_angle) / self.omega#target location in slow time (angle)
+                tau_targ = (targ_az - self.az_min) / self.omega#target location in slow time (angle)
                 nu = t + self.slow_time - self.squint_t[idx_fast] #time variable slow time + fast time + time delay caused by squint
-                r = distance_from_target(targ_r, self.r_arm, tau_targ, nu, self.omega)
+                r = distance_from_target(self.r_arm, self.r_ph, targ_r, nu, tau_targ, self.omega)
                 chirp = self.fmcw_signal(t, r)  * self.ant_pat(nu - tau_targ) #Chirp + antenna pattern
                 #Interpolate for squint
                 sig[idx_fast, :] += chirp #coherent sum of all signals
-        ((sig/np.max(np.abs(sig)))* gpf.TSF).real.T.astype(gpf.type_mapping['SHORT INTEGER']).tofile(self.raw_file)
+        #First of all, normalize the signal
+        sig /= np.max(np.abs(sig))
+        sig *=  gpf.TSF
+        sig.imag.T.astype(gpf.type_mapping['SHORT INTEGER']).tofile(self.raw_file)
         return sig
 
 
@@ -117,7 +126,7 @@ VV_raw = '/data/Simulations/VV.raw'
 VV_raw_par = '/data/Simulations/VV.raw_par'
 
 ref_list = [(350, np.deg2rad(11)),(362,np.deg2rad(10)),(362,np.deg2rad(8)),(590,np.deg2rad(10))]
-ref_list = [(550, np.deg2rad(11))]
+ref_list = [(550.8, np.deg2rad(11))]
 
 
 HH_sim = acquisitionSimulator(radar_par, HH_ant_par, ref_list, HH_raw, HH_raw_par)
@@ -126,6 +135,11 @@ VV_sim = acquisitionSimulator(radar_par, VV_ant_par, ref_list, VV_raw, VV_raw_pa
 vv_sig = VV_sim.simulate()
 print('dono')
 
+x = np.linspace(-5,5,1000)
+xx, yy = np.meshgrid(x,x)
+r = np.sqrt(xx**2 + yy**2)
+th = np.arctan2(yy,xx)
+pat = HH_sim.ant_pat(th  / np.deg2rad(1.2))
 #
 # def main():
 #     parser = argparse.ArgumentParser()
@@ -146,4 +160,15 @@ print('dono')
 #     except KeyboardInterrupt:
 #         pass
 
+import pyrat.gpri_utils.calibration as cal
+r_arm = 0.25
+r_ph = 0.15
+theta = np.deg2rad(np.linspace(-10,10))
+theta_t = np.deg2rad(5)
+r_t = 500
+angle, dist = cal.distance_from_phase_center(r_arm, r_ph, r_t, theta, theta_t)
 
+
+t = np.linspace(0,1)
+e = np.exp(1j * 2 * t + 0.25 * 1j)
+e1 = np.exp(1j * 2 * t + 0.45 * 1j)

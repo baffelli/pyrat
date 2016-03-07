@@ -295,7 +295,6 @@ def dict_to_par(par_dict, par_file):
 
 def load_dataset(par_file, bin_file, memmap=True, dtype=None):
     par_dict = par_to_dict(par_file)
-    print(par_dict)
     # Map type to gamma
     if not dtype:
         try:

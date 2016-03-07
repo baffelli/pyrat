@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib import style as _sty
 _sty.use('/home/baffelli/PhD_work/Code/paper_rc.rc')
 
-
+#
 class gpriEstimator:
 
     def __init__(self, args):
@@ -29,12 +29,19 @@ class gpriEstimator:
         self.azidx = args.azidx
         self.ws = args.ws
         self.figpath = args.fig_path
+        self.args = args
 
     def determine(self):
         def cf(r_arm, r_ph, r, az_vec, off, meas_phase):
             sim_phase, dist = _cal.distance_from_phase_center(r_arm, r_ph, r, az_vec, wrap = False)
             cost = _np.mean(_np.abs(sim_phase  + off - meas_phase)**2)
             return cost
+        #
+        # #Show the slc with the point highlighted
+        # plt.figure()
+        # plt.imshow(_np.abs(self.slc)**0.2, origin='lower')
+        # plt.plot(self.azidx, self.ridx,'ro')
+        # plt.show()
         #Slice the slc
         slc_sl = (self.ridx, slice(self.azidx - self.ws / 2, self.azidx + self.ws))
         #Determine true maximum
@@ -53,9 +60,16 @@ class gpriEstimator:
             refl_ph = _np.angle(reflector_slice)
         refl_amp = (_np.abs(reflector_slice))
         r_sl = r_vec[self.ridx]
+        #Define cost function
         cost_VV = lambda par_vec: cf(self.r_arm, par_vec[0], r_vec[self.ridx], az_vec, par_vec[1], refl_ph)
+        #Solve optimization problem
         res = _opt.minimize(cost_VV, [0,0], bounds=((-2,2),(None,None)))
-        print(res.x[0])
+        print(res)
+        par_dict = {}
+        par_dict['phase_center_offset'] = [res.x[0], 'm']
+        par_dict['lever_arm_length'] = [self.r_arm, 'm']
+        par_dict['range_of_closest_approach'] = [r_sl, 'm']
+        _gpf.dict_to_par(par_dict, self.args.par_path)
         sim_ph, dist = _cal.distance_from_phase_center(self.r_arm, res.x[0],  r_sl, az_vec, wrap=False)
         f = plt.figure()
         plt.plot(_np.rad2deg(az_vec),_np.rad2deg(refl_ph), label=r'Measured')
@@ -63,7 +77,7 @@ class gpriEstimator:
         plt.grid()
         plt.ylabel(r'Phase [deg]')
         plt.xlabel(r'azimuth angle from maximum [deg]')
-        plt.ylim(-0,360)
+        plt.ylim(-180,180)
         plt.legend()
         plt.show()
         f.savefig(self.figpath)
@@ -84,6 +98,8 @@ def main():
                 help="Point target azimuth location")
     parser.add_argument('r_ant', type=float,
                 help="Antenna rotation arm length")
+    parser.add_argument('par_path',
+                help="Path to save the phase center location", type=str)
     parser.add_argument('fig_path',
                 help="Path to save the graphical output", type=str)
     parser.add_argument('-w', '--win_size', dest='ws', type=float, default=20,
