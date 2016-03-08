@@ -96,8 +96,8 @@ def main():
                 help="Point target range location")
     parser.add_argument('azidx', type=float,
                 help="Point target azimuth location")
-    parser.add_argument('r_ant', type=float,
-                help="Antenna rotation arm length")
+    # parser.add_argument('r_ant', type=float,
+    #             help="Antenna rotation arm length")
     parser.add_argument('par_path',
                 help="Path to save the phase center location", type=str)
     parser.add_argument('fig_path',

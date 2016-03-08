@@ -55,7 +55,8 @@ class gpriPlotter:
             max_phase = refl_ph[max_idx]
 
             refl_amp = (_np.abs(reflector_slice))
-            ax.plot(az_vec,_np.rad2deg(refl_ph - max_phase))
+            r_sl = self.slc.r_vec[ridx]
+            ax.plot(az_vec,_np.rad2deg(refl_ph - max_phase), label=r"r={} m".format(round(r_sl)))
         #Plot line for beamwidth
         _plt.axvline(0.2, color='red', ls='--')
         _plt.axvline(-0.2, color='red', ls='--')
@@ -64,6 +65,7 @@ class gpriPlotter:
         _plt.ylim([self.phase_limits[0], self.phase_limits[1]])
         _plt.yticks(_np.arange(self.phase_limits[0], self.phase_limits[1], self.step_size ))
         _plt.grid()
+        _plt.legend()
         _plt.show()
         f.savefig(self.figpath)
         _plt.close(f)

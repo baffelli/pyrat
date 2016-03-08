@@ -242,9 +242,9 @@ def stretch_contrast(im, tv=5, ma=95):
     return im1
 
 
-def exp_im(im, k):
+def exp_im(im, k, sf):
     """
-    Converts an image to the 0-1 range using a negative
+    Converts an image to the 0-1 range using an
     exponential scaling
     
     Parameters
@@ -253,12 +253,17 @@ def exp_im(im, k):
         The image to convert
     k  : double
         The scaling exponent
+    sf : dobule
+        The relative scale factor
     Returns
     -------
     ndarray
         The scaled image.
     """
-    return scale_array(1 - _np.exp(- k * _np.abs(im)))
+    im_pwr = _np.abs(im)
+    c = scale_array(im_pwr)
+    im_pwr = scale_array((c)**k, max_val=sf)
+    return im_pwr
 
 
 def reverse_lookup(image, lut):
@@ -312,7 +317,7 @@ def auto_heading(S, pixel_coord, geo_coord):
     return pixel_az - geo_heading
 
 
-def pauli_rgb(scattering_vector, normalized=False, k=1, sf = 1):
+def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf = 0.3):
     """
         This function produces a rgb image from a scattering vector.
         
@@ -327,21 +332,9 @@ def pauli_rgb(scattering_vector, normalized=False, k=1, sf = 1):
         """
     if not normalized:
         data_diagonal = _np.abs(scattering_vector)
-        # sp = data_diagonal[:,:,0]
-        # min_perc = _np.percentile(sp, 5)
-        # max_perc = _np.percentile(sp, 99.5)
-        # min_perc = _np.nanmin(sp)
-        # max_perc = _np.nanmax(sp)
-        # data_diagonal[:, :, 0] = scale_array(data_diagonal[:, :, 0],
-        #                                      min_val=min_perc, max_val=max_perc)
-        # data_diagonal[:, :, 1] = scale_array(data_diagonal[:, :, 1],
-        #                                      min_val=min_perc, max_val=max_perc)
-        # data_diagonal[:, :, 2] = scale_array(data_diagonal[:, :, 2],
-        #                                      min_val=min_perc, max_val=max_perc)
-        data_diagonal = (sf * ((data_diagonal) ** (k)))
-        data_diagonal[:, :, 0] = scale_array(data_diagonal[:, :, 0])
-        data_diagonal[:, :, 1] = scale_array(data_diagonal[:, :, 1])
-        data_diagonal[:, :, 2] = scale_array(data_diagonal[:, :, 2])
+        data_diagonal[:, :, 0] = exp_im(data_diagonal[:, :, 0],k, sf)
+        data_diagonal[:, :, 1] = exp_im(data_diagonal[:, :, 1],k, sf)
+        data_diagonal[:, :, 2] = exp_im(data_diagonal[:, :, 2],k, sf)
         R = data_diagonal[:, :, 0]
         G = data_diagonal[:, :, 1]
         B = data_diagonal[:, :, 2]
@@ -407,7 +400,8 @@ def scale_coherence(c):
 
 
 
-def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=1, N=24):
+
+def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=1, N=24, sf=1):
     #palette to scale phase
     colors = (
     (0,1,1),
@@ -420,7 +414,7 @@ def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=1, N=24):
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     #Extract amplitude and phase
     ang = scale_array(_np.angle(data))
-    ampl = scale_array(_np.abs(data)**k)
+    ampl = exp_im(_np.abs(data),k,sf)
     #Convert angle to colors
     rgb = pal(ang)
     #Extract the hsv parameters
