@@ -46,7 +46,7 @@ r_vec = HH_par['near_range_slc'][0] + _np.arange(HH.shape[0]) * HH_par['range_pi
 #Load the topo phase
 topo_phase, topo_par  = _gpf.load_dataset(args.topo_phase_par, args.topo_phase)
 
-cal_par = 2
+cal_par = 10**(1.75/20)
 #Construct the scattering matrix
 C_matrix = _np.zeros(HH.shape + (4,4), dtype=HH.dtype)
 C_matrix_flat = _np.zeros(HH.shape + (4,4), dtype=HH.dtype)
