@@ -109,7 +109,7 @@ def scale_array(*args, **kwargs):
         maxVal = kwargs.get('max_val')
     else:
         maxVal = _np.nanmax(data)
-    scaled = (_np.clip(data, minVal, maxVal) - minVal) / (maxVal - minVal)
+    scaled = (_np.clip(data, minVal, maxVal) - minVal) / _np.abs(maxVal - minVal)
     return scaled
 
 
@@ -261,8 +261,8 @@ def exp_im(im, k, sf):
         The scaled image.
     """
     im_pwr = _np.abs(im)
-    c = scale_array(im_pwr)
-    im_pwr = scale_array((c)**k, max_val=sf)
+    c = _np.nanmax(im_pwr)
+    im_pwr = scale_array((im_pwr/c)**k)
     return im_pwr
 
 
@@ -401,7 +401,7 @@ def scale_coherence(c):
 
 
 
-def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=1, N=24, sf=1):
+def dismph(data, min_val=-2*_np.pi, max_val=2*_np.pi, k=1, N=24, sf=1):
     #palette to scale phase
     colors = (
     (0,1,1),
