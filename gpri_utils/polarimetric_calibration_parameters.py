@@ -63,13 +63,21 @@ for idx_1, (chan_1, par_1) in enumerate(chan_list):
 
 
 
-
-C_matrix = _mat.coherencyMatrix(C_matrix,basis='lexicographic').boxcar_filter([5,10]).normalize()
-C_matrix_flat = _mat.coherencyMatrix(C_matrix_flat,basis='lexicographic').boxcar_filter([5,10]).normalize()
+av_win =[5,10]#averaging window
+C_matrix = _mat.coherencyMatrix(C_matrix,basis='lexicographic').boxcar_filter(av_win).normalize()
+C_matrix_flat = _mat.coherencyMatrix(C_matrix_flat,basis='lexicographic').boxcar_filter(av_win).normalize()
 T_matrix = C_matrix_flat.lexicographic_to_pauli()
+C_span = C_matrix.span()
 
-# _plt.imshow(_np.angle(C_matrix_flat[:,:,0,1]))
-# _plt.show()
+#For each range and azimuth target, find the maximum inside the averaging window and update the indices
+for idx_targ, (ridx, azidx) in enumerate(zip(args.ridx,args.azidx)):
+    mask = _np.zeros(C_matrix.shape[0:2])
+    mask[ridx - av_win[0]:ridx + av_win[0],
+    azidx - av_win[1]:azidx + av_win[1]] = 1
+    max_idx = _np.argmax(mask * C_span)
+    max_r, max_az = _np.unravel_index(max_idx, C_span.shape)
+    args.azidx[idx_targ] = max_az
+    args.ridx[idx_targ] = max_r
 
 ref_idx = 2
 f = (C_matrix[args.ridx[ref_idx],args.ridx[ref_idx],3,3]/C_matrix[args.ridx[ref_idx],args.azidx[ref_idx],0,0])**(1/4)
@@ -89,25 +97,23 @@ distortion_matrix_inv = _np.diag(1/_np.diag(distortion_matrix))
 C_matrix_c = C_matrix_flat.transform(distortion_matrix_inv,distortion_matrix_inv.T.conj())
 C_matrix_c_mono = _np.zeros(HH.shape + (3,3), dtype=_np.complex64)
 
-
-#Plot some ratios
-_plt.figure()
-_plt.imshow(10 *_np.log10(_np.abs(C_matrix_c[:,:,0,0])/_np.abs(C_matrix_c[:,:,2,2])),cmap='RdBu')
-_plt.colorbar()
-_plt.show()
-#Extract the submatrix
+#Extract the submatrix (monostatic equivalent)
 for cnt_1, idx_1 in enumerate([0,1,3]):
     for cnt_2,idx_2 in enumerate([0,1,3]):
         C_matrix_c_mono[:,:,cnt_1,cnt_2] = C_matrix_c[:,:,idx_1,idx_2]
 
-#Display nice pol signatures
-C_matrix_c = _mat.coherencyMatrix(C_matrix_c_mono, basis='lexicographic')
-for idx_ref in range(len(args.ridx)):
-    resu = _pf.pol_signature(C_matrix_c[args.ridx[ref_idx],args.ridx[ref_idx]])
-    _vf.show_signature(resu)
-    _plt.show()
 
 
+# #Display nice pol signatures
+# C_matrix_c = _mat.coherencyMatrix(C_matrix_c_mono, basis='lexicographic')
+# import polarimetricVisualization as pV
+# pV.polarimetricVisualization(C_matrix_c, vf=_pf.pol_signature)
+# _plt.show()
+#
+# for idx_ref in range(len(args.ridx)):
+#     resu = _pf.pol_signature(C_matrix_c[args.ridx[ref_idx],args.ridx[ref_idx]])
+#     _vf.show_signature(resu)
+#     _plt.show()
 
 
 #Read HHVV phase at the reflectors
@@ -115,15 +121,7 @@ HHVV_phase = C_matrix[:,:,0,3]
 HHVV_phase_flat = C_matrix_flat[:,:,0,3]
 HHVV_phase_flat_corr = C_matrix_c[:,:,0,3]
 rgb, pal, c = _vf.dismph(HHVV_phase_flat,k=0.3,sf=0.6)
-_plt.figure()
-_plt.subplot(2,1,1)
-# _plt.imshow(rgb, interpolation='none', origin='lower')
 _plt.imshow(_np.rad2deg(_np.angle(HHVV_phase_flat_corr)), cmap='rainbow')
-_plt.colorbar()
-ax =_plt.gca()
-_plt.subplot(2,1,2, sharex=ax, sharey=ax)
-# _plt.imshow(rgb, interpolation='none', origin='lower')
-_plt.imshow(rgb)
 _plt.colorbar()
 _plt.plot(args.azidx, args.ridx,'o')
 _plt.figure()
