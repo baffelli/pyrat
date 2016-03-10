@@ -69,15 +69,7 @@ C_matrix_flat = _mat.coherencyMatrix(C_matrix_flat,basis='lexicographic').boxcar
 T_matrix = C_matrix_flat.lexicographic_to_pauli()
 C_span = C_matrix.span()
 
-#For each range and azimuth target, find the maximum inside the averaging window and update the indices
-for idx_targ, (ridx, azidx) in enumerate(zip(args.ridx,args.azidx)):
-    mask = _np.zeros(C_matrix.shape[0:2])
-    mask[ridx - av_win[0]:ridx + av_win[0],
-    azidx - av_win[1]:azidx + av_win[1]] = 1
-    max_idx = _np.argmax(mask * C_span)
-    max_r, max_az = _np.unravel_index(max_idx, C_span.shape)
-    args.azidx[idx_targ] = max_az
-    args.ridx[idx_targ] = max_r
+
 
 ref_idx = 2
 f = (C_matrix[args.ridx[ref_idx],args.ridx[ref_idx],3,3]/C_matrix[args.ridx[ref_idx],args.azidx[ref_idx],0,0])**(1/4)
@@ -120,8 +112,9 @@ for cnt_1, idx_1 in enumerate([0,1,3]):
 HHVV_phase = C_matrix[:,:,0,3]
 HHVV_phase_flat = C_matrix_flat[:,:,0,3]
 HHVV_phase_flat_corr = C_matrix_c[:,:,0,3]
-rgb, pal, c = _vf.dismph(HHVV_phase_flat,k=0.3,sf=0.6)
-_plt.imshow(_np.rad2deg(_np.angle(HHVV_phase_flat_corr)), cmap='rainbow')
+rgb, pal, c = _vf.dismph(HHVV_phase_flat,k=0.3,sf=15)
+_plt.imshow(rgb, origin='lower')
+#
 _plt.colorbar()
 _plt.plot(args.azidx, args.ridx,'o')
 _plt.figure()

@@ -69,7 +69,7 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('image', type=str,
                 help="Fcomplex image")
-    parser.add_argument('width', type=int,
+    parser.add_argument('width', type=float,
                 help="Width of image (complex samples per line)")
     parser.add_argument('start', type=str, default='0',
                         help='First line to display')

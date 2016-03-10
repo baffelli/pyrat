@@ -262,7 +262,7 @@ def exp_im(im, k, sf):
     """
     im_pwr = _np.abs(im)
     c = _np.nanmax(im_pwr)
-    im_pwr = scale_array((im_pwr/c)**k)
+    im_pwr = scale_array((im_pwr/c)**k,max_val=sf**k)
     return im_pwr
 
 
