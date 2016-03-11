@@ -16,8 +16,10 @@ import scipy.optimize as _opt
 import matplotlib.pyplot as _plt
 import matplotlib as _mpl
 from matplotlib import style as _sty
-_sty.use('/home/baffelli/PhD_work/Code/paper_rc.rc')
-
+import pyrat.visualization.visfun as _vf
+import pyrat.core.corefun as _cf
+import pyrat.gpri_utils.calibration as cal
+_sty.use('/home/baffelli/PhD/trunk/Code/paper_rc.rc')
 
 class gpriPlotter:
 
@@ -32,43 +34,49 @@ class gpriPlotter:
         self.step_size = args.step_size
 
     def plot(self):
-        f = _plt.figure()
-        ax = _plt.gca()
-        for ridx, azidx in zip(self.args.ridx, self.args.azidx):
-            #Slice the slc
-            slc_sl = (ridx, slice(azidx - self.ws / 2, azidx + self.ws/2))
-            #Determine true maximum
-            max_idx = _np.argmax(_np.abs(self.slc[slc_sl]))
-            #Determine half power beamwidth
-            reflector_slice = self.slc[slc_sl]
-            # half_pwr_idx = _np.nonzero(_np.abs(reflector_slice) >
-            #                            _np.abs(reflector_slice[max_idx]) * 0.5)
-            #Slice slc
-            #Azimuth angle vector for plot
-            az_vec = self.slc.GPRI_az_angle_step[0] * _np.arange(-len(reflector_slice)/2
-                                                                              ,len(reflector_slice)/2)
-            if self.args.unwrap:
-                refl_ph = _np.unwrap(_np.angle(reflector_slice))
-            else:
-                refl_ph =_np.angle(reflector_slice)
-
-            max_phase = refl_ph[max_idx]
-
-            refl_amp = (_np.abs(reflector_slice))
-            r_sl = self.slc.r_vec[ridx]
-            ax.plot(az_vec,_np.rad2deg(refl_ph - max_phase), label=r"r={} m".format(round(r_sl)))
-        #Plot line for beamwidth
-        _plt.axvline(0.2, color='red', ls='--')
-        _plt.axvline(-0.2, color='red', ls='--')
-        _plt.ylabel(r'Phase [deg]')
-        _plt.xlabel(r'azimuth angle from maximum [deg]')
-        _plt.ylim([self.phase_limits[0], self.phase_limits[1]])
-        _plt.yticks(_np.arange(self.phase_limits[0], self.phase_limits[1], self.step_size ))
-        _plt.grid()
-        _plt.legend()
-        _plt.show()
-        f.savefig(self.figpath)
-        _plt.close(f)
+        with _sty.context('/home/baffelli/PhD/trunk/Code/paper_rc.rc'):
+            f, (phase_ax, amp_ax) = _plt.subplots(2, sharex=True)
+            for ridx, azidx in zip(self.args.ridx, self.args.azidx):
+                #Slice the slc
+                slc_sl = (ridx, slice(azidx - self.ws / 2, azidx + self.ws/2))
+                subimage = self.slc[slc_sl]
+                #Determine true maximum in the slice
+                max_idx = _np.argmax(_np.abs(subimage))
+                #Extract entire image
+                #Determine the shift
+                shift = subimage.shape[0] / 2 - max_idx
+                slc_slc_new = slc_sl = (ridx, slice(azidx - shift - self.ws / 2, azidx - shift + self.ws/2))
+                reflector_slice = self.slc[slc_slc_new]
+                #Slice slc
+                #Azimuth angle vector for plot
+                az_vec = self.slc.GPRI_az_angle_step[0] * _np.arange(-len(reflector_slice)/2
+                                                                                  ,len(reflector_slice)/2)
+                refl_ph = _np.angle(reflector_slice)
+                if self.args.unwrap:
+                    refl_ph = _np.unwrap(refl_ph)
+                else:
+                    refl_ph =_np.angle(refl_ph)
+                refl_ph -= refl_ph[reflector_slice.shape[0]/2]
+                max_phase = refl_ph[reflector_slice.shape[0]/2]
+                refl_amp = (_np.abs(reflector_slice))**2
+                r_sl = self.slc.r_vec[ridx]
+                line, = phase_ax.plot(az_vec,_np.rad2deg(refl_ph), label=r"r={} m".format(round(r_sl)))
+                amp_ax.plot(az_vec, refl_amp/refl_amp[reflector_slice.shape[0]/2])
+                ph, d = cal.distance_from_phase_center(0.22, 0.02, r_sl, _np.deg2rad(az_vec), 0)
+                phase_ax.plot(az_vec, _np.rad2deg(ph - ph[ph.shape[0]/2]),color=line.get_color(),ls='--')
+            #Plot line for beamwidth
+            phase_ax.set_ylim(-30,30)
+            phase_ax.axvline(0.2, color='red', ls='--')
+            phase_ax.axvline(-0.2, color='red', ls='--')
+            phase_ax.yaxis.set_label_text(r'Phase [deg]')
+            phase_ax.xaxis.set_label_text(r'azimuth angle from maximum [deg]')
+            amp_ax.axvline(0.2, color='red', ls='--')
+            amp_ax.axvline(-0.2, color='red', ls='--')
+            amp_ax.yaxis.set_label_text(r'Relative Intensity')
+            amp_ax.xaxis.set_label_text(r'azimuth angle from maximum [deg]')
+            phase_ax.legend()
+            f.savefig(self.figpath)
+            _plt.close(f)
 
 
 def main():
@@ -85,7 +93,7 @@ def main():
                 help="Point target azimuth locations", nargs='+')
     parser.add_argument('figpath', type=str,
                 help="Path to save the plots")
-    parser.add_argument('-w', '--win_size', dest='ws', type=float, default=20,
+    parser.add_argument('-w', '--win_size', dest='ws', type=float, default=50,
                 help="Estimation window size")
     parser.add_argument('-p', '--phase_limits', dest='phase_limits', type=float, nargs=2, default=[-180, 180],
                 help="Estimation window size")

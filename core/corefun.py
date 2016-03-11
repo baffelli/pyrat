@@ -152,8 +152,17 @@ def shift_array(array,shift):
         the shifted array
     """
     array_1 = array * 1
+    pad_array = [(0,0),] * array.ndim
     for ax, current_shift in enumerate(shift):
-        array_1 = _np.roll(array_1, current_shift, axis = ax)
+        slice_array = [Ellipsis,] * array.ndim
+        if shift > 0:
+            pad_array[ax] = (0,shift)
+            slice_array[ax] = slice(shift)
+        else:
+            pad_array[ax] = (_np.abs(shift),0)
+            slice_array[ax] = slice(0,-shift)
+    array_1_pad = _np.pad(array_1, tuple(pad_array), mode='const')
+    array_1 = _np.roll(array_1_pad, current_shift, axis = ax)[tuple[slice_array]]
     return array.__array_wrap__(array_1)
     
 def is_hermitian(T):

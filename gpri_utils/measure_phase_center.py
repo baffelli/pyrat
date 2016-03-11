@@ -54,10 +54,12 @@ class gpriEstimator:
         #Determine parameters
         r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
         az_vec = _np.deg2rad(self.slc.GPRI_az_angle_step[0]) * _np.arange(-len(reflector_slice)/2 ,len(reflector_slice)/2)
+        refl_ph = _np.angle(reflector_slice)
+        refl_ph -= refl_ph[reflector_slice.shape[0]/2]
         if self.u:
-            refl_ph = _np.unwrap(_np.angle(reflector_slice))
+            refl_ph = _np.unwrap(refl_ph)
         else:
-            refl_ph = _np.angle(reflector_slice)
+            refl_ph = refl_ph
         refl_amp = (_np.abs(reflector_slice))
         r_sl = r_vec[self.ridx]
         #Define cost function
@@ -74,12 +76,10 @@ class gpriEstimator:
         f = plt.figure()
         plt.plot(_np.rad2deg(az_vec),_np.rad2deg(refl_ph), label=r'Measured')
         plt.plot(_np.rad2deg(az_vec),_np.rad2deg(sim_ph + res.x[1]), label=r'Model')
-        plt.grid()
         plt.ylabel(r'Phase [deg]')
         plt.xlabel(r'azimuth angle from maximum [deg]')
         plt.ylim(-180,180)
         plt.legend()
-        plt.show()
         f.savefig(self.figpath)
         plt.close(f)
 

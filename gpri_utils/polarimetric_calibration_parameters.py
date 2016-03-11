@@ -28,6 +28,7 @@ parser.add_argument('VV_par', help='VV slc parameters', type=str)
 parser.add_argument("topo_phase", help="Topographic phase (unwrapped float)", type=str)
 parser.add_argument("topo_phase_par", help="Parameters of topographic phase", type=str)
 parser.add_argument("cal_parameters", help="Computed polarimetric calibration parameters (in keyword:parameter format)", type=str)
+parser.add_argument("phase_plot", help="HHVV phase plot", type=str)
 parser.add_argument("--ridx", help="Reference reflector range indices", type=int, nargs='*')
 parser.add_argument("--azidx", help="Reference reflector azimuth indices", type=int, nargs='*')
 args = parser.parse_args()
@@ -83,16 +84,14 @@ phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
 distortion_matrix = _np.diag([1,f*g*_np.exp(1j * phi_t),f/g*_np.exp(1j * phi_r),f**2*_np.exp(1j * (phi_t + phi_r))])
 #Invert it
 distortion_matrix_inv = _np.diag(1/_np.diag(distortion_matrix))
-
-
-#Correct the matrix
+# #Correct the matrix
 C_matrix_c = C_matrix_flat.transform(distortion_matrix_inv,distortion_matrix_inv.T.conj())
-C_matrix_c_mono = _np.zeros(HH.shape + (3,3), dtype=_np.complex64)
-
-#Extract the submatrix (monostatic equivalent)
-for cnt_1, idx_1 in enumerate([0,1,3]):
-    for cnt_2,idx_2 in enumerate([0,1,3]):
-        C_matrix_c_mono[:,:,cnt_1,cnt_2] = C_matrix_c[:,:,idx_1,idx_2]
+# C_matrix_c_mono = _np.zeros(HH.shape + (3,3), dtype=_np.complex64)
+#
+# #Extract the submatrix (monostatic equivalent)
+# for cnt_1, idx_1 in enumerate([0,1,3]):
+#     for cnt_2,idx_2 in enumerate([0,1,3]):
+#         C_matrix_c_mono[:,:,cnt_1,cnt_2] = C_matrix_c[:,:,idx_1,idx_2]
 
 
 
@@ -117,13 +116,13 @@ _plt.imshow(rgb, origin='lower')
 #
 _plt.colorbar()
 _plt.plot(args.azidx, args.ridx,'o')
-_plt.figure()
+f = _plt.figure()
 _plt.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase[args.ridx, args.azidx])),'bo', label='With topography')
 _plt.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase_flat[args.ridx, args.azidx])),'ro', label='Flattened')
 _plt.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase_flat_corr[args.ridx, args.azidx])),'go', label='Calibrated')
 _plt.legend()
-_plt.grid()
 _plt.show()
+f.savefig(args.phase_plot)
 #
 #
 # #Extract phase and range
@@ -148,11 +147,8 @@ _plt.show()
 #Parameter dict
 
 cal_dict = _od()
-# cal_dict['HHVV_phase_imbalance'] = [reflector_imbalance_phase, 'rad']
-# cal_dict['HHVV_amplitude_imbalance'] = reflector_imbalance_amplitude
-# cal_num = reflector_imbalance_amplitude * _np.exp(1j * reflector_imbalance_phase)
-# cal_dict['HHVV_amplitude_imbalance_real'] = _np.real(reflector_imbalance_amplitude)
-# cal_dict['HHVV_amplitude_imbalance_imaginary'] = _np.imag(reflector_imbalance_amplitude)
+cal_dict['f'] = f
+cal_dict['g'] = g
 
 #Write calibrations parameters
 _gpf.dict_to_par(cal_dict, args.cal_parameters)

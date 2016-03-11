@@ -375,7 +375,7 @@ def patch_coregistration(im1, im2, n_patch, oversampling = (5,5)):
 #     else:
 #         return (-4 * _np.pi * dist/lam), dist
 
-def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=True):
+def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
     """
     This function computes the phase caused by a shifted
     phase center in the antenna
