@@ -83,10 +83,13 @@ def gdal_to_dict(ds):
     proj_dict['DEM_projection'] = 'OMCH'
     #Set the type according to the dem type
     tp = _gdal.GetDataTypeName(ds.GetRasterBand(1).DataType)
+    print(tp)
     if tp == 'Float32':
         proj_dict['data_format'] = 'REAL*4'
     if tp == 'Int32':
         proj_dict['data_format'] = 'INTEGER*2'
+    if tp == 'UInt16':
+        proj_dict['data_format'] = 'SHORT INTEGER'
     proj_dict['DEM_hgt_offset'] = 0
     proj_dict['DEM_scale'] = 1.0
     proj_dict['width'] = ds.RasterXSize

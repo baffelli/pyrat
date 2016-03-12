@@ -261,8 +261,8 @@ def exp_im(im, k, sf):
         The scaled image.
     """
     im_pwr = _np.abs(im)
-    c = _np.nanmax(im_pwr)
-    im_pwr = scale_array((im_pwr/c)**k,max_val=sf**k)
+    sc = _np.nanmean(im_pwr)
+    im_pwr = scale_array((im_pwr/sc)**k,max_val=sf)
     return im_pwr
 
 

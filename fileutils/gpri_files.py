@@ -50,6 +50,7 @@ type_mapping = {
     'FLOAT': _np.dtype('>f4'),
     'SHORT INTEGER': _np.dtype('>i2'),
     'INTEGER*2': _np.dtype('>i2'),
+    'INTEGER': _np.dtype('>i'),
     'REAL*4': _np.dtype('>f4')
 }
 

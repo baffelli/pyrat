@@ -28,7 +28,6 @@ parser.add_argument('VV_par', help='VV slc parameters', type=str)
 parser.add_argument("topo_phase", help="Topographic phase (unwrapped float)", type=str)
 parser.add_argument("topo_phase_par", help="Parameters of topographic phase", type=str)
 parser.add_argument("cal_parameters", help="Computed polarimetric calibration parameters (in keyword:parameter format)", type=str)
-parser.add_argument("phase_plot", help="HHVV phase plot", type=str)
 parser.add_argument("--ridx", help="Reference reflector range indices", type=int, nargs='*')
 parser.add_argument("--azidx", help="Reference reflector azimuth indices", type=int, nargs='*')
 args = parser.parse_args()
@@ -75,8 +74,8 @@ C_span = C_matrix.span()
 ref_idx = 2
 f = (C_matrix[args.ridx[ref_idx],args.ridx[ref_idx],3,3]/C_matrix[args.ridx[ref_idx],args.azidx[ref_idx],0,0])**(1/4)
 VV_HH_phase_bias = _np.angle(C_matrix[args.ridx[ref_idx], args.ridx[ref_idx], 3, 0])
-g = _np.mean(C_matrix[:,:,1,1,]/C_matrix[:,:,2,2,])**(1/4)
-cross_pol_bias = _np.mean(C_matrix[:,:,1,2])
+g = _np.mean(C_matrix[:,:,1,1]/C_matrix[:,:,2,2])**(1/4)
+cross_pol_bias = _np.angle(_np.mean(C_matrix[:,:,1,2]))
 #Solve for phi t and phi r
 phi_t = (VV_HH_phase_bias + cross_pol_bias) / 2
 phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
@@ -111,18 +110,27 @@ C_matrix_c = C_matrix_flat.transform(distortion_matrix_inv,distortion_matrix_inv
 HHVV_phase = C_matrix[:,:,0,3]
 HHVV_phase_flat = C_matrix_flat[:,:,0,3]
 HHVV_phase_flat_corr = C_matrix_c[:,:,0,3]
-rgb, pal, c = _vf.dismph(HHVV_phase_flat,k=0.3,sf=15)
+rgb, pal, c = _vf.dismph(HHVV_phase_flat_corr,k=0.3)
 _plt.imshow(rgb, origin='lower')
 #
 _plt.colorbar()
 _plt.plot(args.azidx, args.ridx,'o')
-f = _plt.figure()
-_plt.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase[args.ridx, args.azidx])),'bo', label='With topography')
-_plt.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase_flat[args.ridx, args.azidx])),'ro', label='Flattened')
-_plt.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase_flat_corr[args.ridx, args.azidx])),'go', label='Calibrated')
+f, (ampl_plot, ph_plot) = _plt.subplots(2,sharex=True)
+ph_plot.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase_flat[args.ridx, args.azidx])),'ro', label='HH-VV phase')
+# ph_plot.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase_flat_corr[args.ridx, args.azidx])),'go', label='Calibrated')
+ampl_plot.plot(r_vec[args.ridx], (C_matrix[args.ridx, args.azidx,0,0]/C_matrix[args.ridx, args.azidx,3,3])**0.25,'o')
+ampl_plot.set_ylim(1,1.5)
 _plt.legend()
+_plt.xlabel(r'Slant range[m]')
+_plt.ylabel(r'HH-VV difference[deg]')
+
 _plt.show()
-f.savefig(args.phase_plot)
+
+T_matrix_cal = C_matrix_c.lexicographic_to_pauli()
+rgb = T_matrix_cal.pauli_image()
+_plt.figure()
+_plt.imshow(rgb)
+_plt.show()
 #
 #
 # #Extract phase and range
@@ -149,6 +157,7 @@ f.savefig(args.phase_plot)
 cal_dict = _od()
 cal_dict['f'] = f
 cal_dict['g'] = g
-
+cal_dict['transmit_phase_imbalance'] = phi_t
+cal_dict['receive_phase_imbalance'] = phi_r
 #Write calibrations parameters
 _gpf.dict_to_par(cal_dict, args.cal_parameters)
