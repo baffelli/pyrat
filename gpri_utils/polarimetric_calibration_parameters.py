@@ -27,12 +27,18 @@ parser.add_argument('VV', help='VV slc', type=str)
 parser.add_argument('VV_par', help='VV slc parameters', type=str)
 parser.add_argument("topo_phase", help="Topographic phase (unwrapped float)", type=str)
 parser.add_argument("topo_phase_par", help="Parameters of topographic phase", type=str)
-parser.add_argument("cal_parameters", help="Computed polarimetric calibration parameters (in keyword:parameter format)", type=str)
-parser.add_argument("--ridx", help="Reference reflector range indices", type=int, nargs='*')
-parser.add_argument("--azidx", help="Reference reflector azimuth indices", type=int, nargs='*')
+parser.add_argument("cal_parameters", help="Computed polarimetric calibration parameters (in keyword:parameter format)",
+                    type=str)
+subparsers = parser.add_subparsers(help='Two modes:', dest='subparser_name')
+#Subparser to measure the calibration params
+subparser_measure = subparsers.add_parser('measure', help='Determine calibration parameters')
+subparser_measure.add_argument("--ridx", help="Reference reflector range indices", type=int, nargs=1)
+subparser_measure.add_argument("--azidx", help="Reference reflector azimuth indices", type=int, nargs=1)
+subparser_apply = subparsers.add_parser("apply_C", help='If set, apply the calibration parameter to the input dataset to produce calibrated covariance matrices')
+subparser_apply.add_argument('out_root', help='The root filename of the calibrated dataset')
+#Subparser to apply them
 args = parser.parse_args()
-print(args.ridx)
-print(args.azidx)
+print(args)
 
 #Load the channels
 HH, HH_par = _gpf.load_dataset(args.HH_par, args.HH)
@@ -40,17 +46,13 @@ HV, HV_par  = _gpf.load_dataset(args.HV_par, args.HV)
 VH, VH_par  = _gpf.load_dataset(args.VH_par, args.VH)
 VV, VV_par  = _gpf.load_dataset(args.VV_par, args.VV)
 
-#Range vector
-r_vec = HH_par['near_range_slc'][0] + _np.arange(HH.shape[0]) * HH_par['range_pixel_spacing'][0]
-
 #Load the topo phase
 topo_phase, topo_par  = _gpf.load_dataset(args.topo_phase_par, args.topo_phase)
 
-cal_par = 10**(1.75/20)
 #Construct the scattering matrix
 C_matrix = _np.zeros(HH.shape + (4,4), dtype=HH.dtype)
 C_matrix_flat = _np.zeros(HH.shape + (4,4), dtype=HH.dtype)
-chan_list = [[HH, HH_par], [HV * cal_par, HV_par], [VH * cal_par, VH_par], [VV, VV_par]]
+chan_list = [[HH, HH_par], [HV , HV_par], [VH , VH_par], [VV, VV_par]]
 for idx_1, (chan_1, par_1) in enumerate(chan_list):
     for idx_2, (chan_2, par_2) in enumerate(chan_list):
         #Compute pase center of channel
@@ -64,73 +66,103 @@ for idx_1, (chan_1, par_1) in enumerate(chan_list):
 
 
 av_win =[5,10]#averaging window
-C_matrix = _mat.coherencyMatrix(C_matrix,basis='lexicographic').boxcar_filter(av_win).normalize()
-C_matrix_flat = _mat.coherencyMatrix(C_matrix_flat,basis='lexicographic').boxcar_filter(av_win).normalize()
-T_matrix = C_matrix_flat.lexicographic_to_pauli()
-C_span = C_matrix.span()
+C_matrix = _mat.coherencyMatrix(C_matrix,basis='lexicographic').boxcar_filter(av_win)
+C_matrix_flat = _mat.coherencyMatrix(C_matrix_flat,basis='lexicographic')
+C_matrix_flat_av = C_matrix.boxcar_filter(av_win)
+if args.subparser_name == 'measure':
+
+    f = (C_matrix_flat_av[args.ridx,args.azidx,3,3]/C_matrix_flat_av[args.ridx,args.azidx
+    ,0,0])**(1/4.0)
+    VV_HH_phase_bias = _np.angle(C_matrix_flat[args.ridx, args.azidx, 3, 0])
+    g = _np.mean(C_matrix_flat_av[:,:,1,1]/C_matrix_flat_av[:,:,2,2])**(1/4.0)
+    cross_pol_bias = _np.angle(_np.mean(C_matrix_flat_av[:,:,1,2]))
+    #Solve for phi t and phi r
+    phi_t = (VV_HH_phase_bias + cross_pol_bias) / 2
+    phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
+    cal_dict = _od()
+    print(g)
+    cal_dict['f'] = f.real
+    cal_dict['g'] = g.real
+    cal_dict['transmit_phase_imbalance'] = phi_t
+    cal_dict['receive_phase_imbalance'] = phi_r
+
+    #Write calibrations parameters
+    _gpf.dict_to_par(cal_dict, args.cal_parameters)
+elif args.subparser_name == 'apply_C' :
+    cal_dic = _gpf.par_to_dict(args.cal_parameters)
+    f = cal_dic['f']
+    g = cal_dic['g']
+    phi_t = cal_dic['transmit_phase_imbalance']
+    phi_r = cal_dic['receive_phase_imbalance']
+    #Distortion matrix
+    distortion_matrix = _np.diag([1,f*g*_np.exp(1j * phi_t),f/g*_np.exp(1j * phi_r),f**2*_np.exp(1j * (phi_t + phi_r))])
+    #Invert it
+    distortion_matrix_inv = _np.diag(1/_np.diag(distortion_matrix))
+    # #Correct the matrix
+    C_matrix_c = C_matrix_flat.transform(distortion_matrix_inv,distortion_matrix_inv.T.conj())
+    C_matrix_c.tofile(args.out_root)
+    T_matrix = C_matrix_c.boxcar_filter([5,5]).lexicographic_to_pauli()
+    T_matrix[_np.isnan(T_matrix)] = 0.00001
+    H, anisotropy, alpha_m, beta_m, p, w = T_matrix.cloude_pottier()
+
+    rgb = T_matrix.boxcar_filter([5,5]).pauli_image(k=0.15,sf=3)
+    _plt.figure()
+    _plt.subplot(2,1,1)
+    _plt.imshow(rgb, interpolation='none', aspect=1.5)
+    ax = _plt.gca()
+    _plt.subplot(2,1,2, sharex=ax, sharey=ax)
+    _plt.imshow(H)
+    _plt.show()
 
 
-
-ref_idx = 2
-f = (C_matrix[args.ridx[ref_idx],args.ridx[ref_idx],3,3]/C_matrix[args.ridx[ref_idx],args.azidx[ref_idx],0,0])**(1/4)
-VV_HH_phase_bias = _np.angle(C_matrix[args.ridx[ref_idx], args.ridx[ref_idx], 3, 0])
-g = _np.mean(C_matrix[:,:,1,1]/C_matrix[:,:,2,2])**(1/4)
-cross_pol_bias = _np.angle(_np.mean(C_matrix[:,:,1,2]))
-#Solve for phi t and phi r
-phi_t = (VV_HH_phase_bias + cross_pol_bias) / 2
-phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
-#Distortion matrix
-distortion_matrix = _np.diag([1,f*g*_np.exp(1j * phi_t),f/g*_np.exp(1j * phi_r),f**2*_np.exp(1j * (phi_t + phi_r))])
-#Invert it
-distortion_matrix_inv = _np.diag(1/_np.diag(distortion_matrix))
-# #Correct the matrix
-C_matrix_c = C_matrix_flat.transform(distortion_matrix_inv,distortion_matrix_inv.T.conj())
 # C_matrix_c_mono = _np.zeros(HH.shape + (3,3), dtype=_np.complex64)
 #
 # #Extract the submatrix (monostatic equivalent)
 # for cnt_1, idx_1 in enumerate([0,1,3]):
 #     for cnt_2,idx_2 in enumerate([0,1,3]):
 #         C_matrix_c_mono[:,:,cnt_1,cnt_2] = C_matrix_c[:,:,idx_1,idx_2]
-
-
-
+#
+#
+#
 # #Display nice pol signatures
 # C_matrix_c = _mat.coherencyMatrix(C_matrix_c_mono, basis='lexicographic')
-# import polarimetricVisualization as pV
-# pV.polarimetricVisualization(C_matrix_c, vf=_pf.pol_signature)
-# _plt.show()
-#
+# # import polarimetricVisualization as pV
+# # pV.polarimetricVisualization(C_matrix_c, vf=_pf.pol_signature)
+# # _plt.show()
+# #
 # for idx_ref in range(len(args.ridx)):
-#     resu = _pf.pol_signature(C_matrix_c[args.ridx[ref_idx],args.ridx[ref_idx]])
+#     resu = _pf.pol_signature(C_matrix_c[args.ridx[ref_idx],args.azidx[ref_idx]])
 #     _vf.show_signature(resu)
 #     _plt.show()
-
-
-#Read HHVV phase at the reflectors
-HHVV_phase = C_matrix[:,:,0,3]
-HHVV_phase_flat = C_matrix_flat[:,:,0,3]
-HHVV_phase_flat_corr = C_matrix_c[:,:,0,3]
-rgb, pal, c = _vf.dismph(HHVV_phase_flat_corr,k=0.3)
-_plt.imshow(rgb, origin='lower')
 #
-_plt.colorbar()
-_plt.plot(args.azidx, args.ridx,'o')
-f, (ampl_plot, ph_plot) = _plt.subplots(2,sharex=True)
-ph_plot.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase_flat[args.ridx, args.azidx])),'ro', label='HH-VV phase')
-# ph_plot.plot(r_vec[args.ridx],_np.rad2deg(_np.angle(HHVV_phase_flat_corr[args.ridx, args.azidx])),'go', label='Calibrated')
-ampl_plot.plot(r_vec[args.ridx], (C_matrix[args.ridx, args.azidx,0,0]/C_matrix[args.ridx, args.azidx,3,3])**0.25,'o')
-ampl_plot.set_ylim(1,1.5)
-_plt.legend()
-_plt.xlabel(r'Slant range[m]')
-_plt.ylabel(r'HH-VV difference[deg]')
+#
+# #Read HHVV phase at the reflectors
+# HHVV_phase = C_matrix[:,:,0,3]
+# HHVV_phase_flat = C_matrix_flat[:,:,0,3]
+# HHVV_phase_flat_corr = C_matrix_c[:,:,0,3]
+# rgb, pal, c = _vf.dismph(HHVV_phase_flat_corr,k=0.3)
+# _plt.imshow(rgb, origin='lower')
+# _plt.colorbar()
+# _plt.plot(args.azidx, args.ridx,'o')
+# #Vector of incidence angles
+# inc_vec = _np.rad2deg(inc[args.azidx ,args.ridx])
+# f, (ampl_plot, ph_plot) = _plt.subplots(2,sharex=True)
+# ph_plot.plot(inc_vec,_np.rad2deg(_np.angle(HHVV_phase_flat[args.ridx, args.azidx])),'ro', label='HH-VV phase')
+# ph_plot.plot(inc_vec,_np.rad2deg(_np.angle(HHVV_phase_flat_corr[args.ridx, args.azidx])),'go', label='Calibrated')
+# ampl_plot.plot(inc_vec, (C_matrix[args.ridx, args.azidx,0,0]/C_matrix[args.ridx, args.azidx,3,3])**0.25,'o')
+# ampl_plot.set_ylim(1,1.5)
+# _plt.legend()
+# ph_plot.xaxis.set_label_text(r'Incidence Angle[deg]')
+# ph_plot.yaxis.set_label_text(r'HH-VV difference[deg]')
+# ampl_plot.yaxis.set_label_text(r'HH-VV amplitude imbalance')
+#
+# _plt.show()
 
-_plt.show()
-
-T_matrix_cal = C_matrix_c.lexicographic_to_pauli()
-rgb = T_matrix_cal.pauli_image()
-_plt.figure()
-_plt.imshow(rgb)
-_plt.show()
+# T_matrix_cal = C_matrix_c.lexicographic_to_pauli()
+# rgb = T_matrix_cal.pauli_image(sf=0.1)
+# _plt.figure()
+# _plt.imshow(rgb)
+# _plt.show()
 #
 #
 # #Extract phase and range
@@ -154,10 +186,4 @@ _plt.show()
 
 #Parameter dict
 
-cal_dict = _od()
-cal_dict['f'] = f
-cal_dict['g'] = g
-cal_dict['transmit_phase_imbalance'] = phi_t
-cal_dict['receive_phase_imbalance'] = phi_r
-#Write calibrations parameters
-_gpf.dict_to_par(cal_dict, args.cal_parameters)
+

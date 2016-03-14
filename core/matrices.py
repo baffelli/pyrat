@@ -477,6 +477,14 @@ class coherencyMatrix(gpri_files.gammaDataset):
         C.basis = 'pauli'
         print(C.shape)
         return C
+
+    def tofile(*args):
+        self = args[0]
+        root_name = args[1]
+        for chan_1 in [0,1,3]:
+            for chan_2 in [0,1,3]:
+                    current_chan = _np.array(self[:,:, chan_1, chan_2]).astype(gpri_files.type_mapping['FCOMPLEX']).T.tofile(root_name + ".c{i}{j}".format(i=chan_1, j=chan_2))
+                    gpri_files.dict_to_par(self.__dict__, root_name + '.par')
  
 def blockshaped(arr, nrows, ncols):
     """

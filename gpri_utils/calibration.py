@@ -24,6 +24,10 @@ def calibrate_from_r_and_t(S, R,T):
 
 
 
+
+
+
+
 def remove_window(S):
     spectrum = _np.mean(_np.abs((_fftp.fft(S,axis = 1))),axis = 0)
     spectrum = corefun.smooth(spectrum,5)
@@ -87,6 +91,7 @@ def remove_phase_ramp(S1, B_if, ph_if, bistatic = False, S2 = None):
     C_cal = C * corr_mat
     C_cal = dummy.__array_wrap__(C_cal)
     return C_cal
+
 
 
 
@@ -185,105 +190,9 @@ def synthetic_interferogram(S, DEM, B):
     
 
 
-def  simple_calibration(C_tri,C_distributed):
-    """
-    This function determines the paramrters a
-    simple calibration based
-    on TCR for imbalance and
-    distributed targets for the
-    determination of crosspolarized imbalance
-    Parameters
-    ----------
-    C : coherencyMatrix
-        The image to calibrate
-    coord_tri : tuple
-        The coordinates where the TCR is located
-    slice_distributed  : tuple
-        A tuple of slices identifinyg a region of distributed targets
-    """
-    # if isinstance(C_tri, core.matrices.coherencyMatrix) and C_tri.basis == 'lexicographic':
-    #Determine cochannel imbalance
-    f_mag = (_np.abs(C_tri[3,3]) / (_np.abs(C_tri[0,0])))**0.25
-    f_phase = 1/2.0 * _np.angle(C_tri[3,0])
-    #Determine for distributed targets
-    C_d = C_distributed
-    g_mag = _np.mean(_np.abs(C_d[2,2])) / _np.mean((_np.abs(C_d[1,1])))
-#        g_mag = (_np.mean(_np.abs(S_d['VH'])**2) / _np.mean((_np.abs(S_d['HV'])**2)))**0.5
-#        g_phase =  _np.mean(_np.angle(S_d['HV'].conj() *  S_d['VH'])) 
-    g_phase =  _np.mean(_np.angle(C_d[2,1]))
-    f = f_mag * _np.exp(1j * f_phase)
-    g = g_mag * _np.exp(1j * g_phase)
-    #Determine imbalance on natural targets
-    return f, g
+
     
 
-#def gct(exact_targets,measured_targets):
-#    #Matrices
-#    def sorted_ev(P,N):
-#        lam_dot,x = _np.linalg.eig(P)
-#        lam, y = _np.linalg.eig(N)
-#        phase_1 = _np.abs(_np.arctan((lam_dot[0]*lam[1])/(lam_dot[1]*lam[0])))
-#        phase_2 = _np.abs(_np.arctan((lam_dot[0]*lam[0])/(lam_dot[1]*lam[1])))
-#        if phase_2 > phase_1:
-#            lam = lam[::-1]
-#            y = y[:,::-1]
-#        return lam_dot,x,lam,y
-#            
-#        
-#    N1 = _np.array(measured_targets[0])
-#    N2 = _np.array(measured_targets[1])
-#    N3 = _np.array(measured_targets[2])
-#    P1 = _np.array(exact_targets[0])
-#    P2 = _np.array(exact_targets[1])
-#    P3 = _np.array(exact_targets[2])
-#    #similarity transformations
-#    
-#    #for transmit distortion
-#    P_T = _np.dot(_np.linalg.inv(P1),P2)
-#    P_T_bar = _np.dot(_np.linalg.inv(P1),P3)
-#    
-#    N_T = _np.dot(_np.linalg.inv(N1),N2)
-#    N_T_bar = _np.dot(_np.linalg.inv(N1),N3)
-#    
-#    #for receive distortion
-#    P_R = _np.dot(P2,_np.linalg.inv(P1))
-#    P_R_bar = _np.dot(P3,_np.linalg.inv(P1))
-#    
-#    N_R = _np.dot(N2,_np.linalg.inv(N1))
-#    N_R_bar = _np.dot(N3,_np.linalg.inv(N1))
-#    
-#    #eigenvalue decompositions
-#    
-#    #for reiceved
-#    lambda_t_dot,x_t,lambda_t,y_t = sorted_ev(P_T,N_T)
-#    lambda_t_bar_dot,x_t_bar,lambda_t_bar,y_t_bar = sorted_ev(P_T_bar,N_T_bar)
-#    #for transmit
-#    lambda_r_dot,x_r,lambda_r,y_r = sorted_ev(P_R,N_R)
-#    lambda_r_bar_dot,x_r_bar,lambda_r_bar,y_r_bar = sorted_ev(P_R_bar,N_R_bar)
-#    
-#    #Determine T
-#    #ratio of c1 and c2
-#    c2_c1 =  ((x_t[0,0]*x_t_bar[1,0] - x_t[1,0]*x_t_bar[0,0]) * (y_t[1,1]*y_t_bar[0,0] - y_t[0,1]*y_t_bar[1,0]))/ \
-#             ((x_t[1,1]*x_t_bar[0,0] - x_t[0,1]*x_t_bar[1,0]) * (y_t[0,0]*y_t_bar[1,0] - y_t[1,0]*y_t_bar[0,0]))
-#
-#    #ratio of d1 and d2
-#    d2_d1 =  ((x_r[0,0]*x_r_bar[1,0] - x_r[1,0]*x_r_bar[0,0]) * (y_r[1,1]*y_r_bar[0,0] - y_r[0,1]*y_r_bar[1,0]))/ \
-#             ((x_r[1,1]*x_r_bar[0,0] - x_r[0,1]*x_r_bar[1,0]) * (y_r[0,0]*y_r_bar[1,0] - y_r[1,0]*y_r_bar[0,0]))
-#  
-#
-#    #C
-#    c1 = _np.linalg.det(y_t) * 1/(x_t[0,0]*y_t[1,1]-c2_c1*x_t[0,1]*y_t[1,0]) 
-#    c2 = _np.linalg.det(y_t) * 1/(1/c2_c1*x_t[0,0]*y_t[1,1]-x_t[0,1]*y_t[1,0])
-#    #And D
-#    d1 = _np.linalg.det(y_r) * 1/(x_r[0,0]*y_r[1,1]-d2_d1*x_r[0,1]*y_r[1,0]) 
-#    d2 = _np.linalg.det(y_r) * 1/(1/d2_d1*x_r[0,0]*y_r[1,1]-x_r[0,1]*y_r[1,0]) 
-#    #Determine T and R
-#    C = _np.diag([c1,c2])
-#    D = _np.diag([d1,d2])
-#    
-#    T = _np.dot(_np.dot(x_t,C),_np.linalg.inv(y_t))
-#    R = _np.dot(_np.dot(x_r,D),_np.linalg.inv(y_r))
-#    return T,R
 
 
 
