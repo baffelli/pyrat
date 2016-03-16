@@ -96,7 +96,6 @@ def multi_look(dataset, lks):
     ]
     try:
         cmd = " ".join([str(i) for i in cmd_list])
-        print cmd
         status = _sp.Popen(cmd, env=_os.environ, stderr=_sp.STDOUT)
     except _sp.CalledProcessError as e:
         print(e.output)
@@ -308,9 +307,7 @@ def block_view(A, block= (3, 3)):
     pad = [block_dim - dim % block_dim for dim, block_dim in zip(A.shape,block)]
     pad = pad + (len(A.shape) - len(block)) * [0]
     total_pad = [(p,0) for p in pad]
-    print total_pad
     A = _np.pad(A,total_pad,mode = 'constant')
-    print A.shape
     shape= (A.shape[0]/ block[0], A.shape[1]/ block[1])+ block + A.shape[len(block)::] 
     strides= (block[0]* A.strides[0], block[1]* A.strides[1])+ A.strides
     return _ast(A, shape= shape, strides= strides)
@@ -319,6 +316,5 @@ def block_view(A, block= (3, 3)):
 def block_to_array(A, block = (3,3)):
     new_shape = (A.shape[0] * block[0], A.shape[1] * block[1]) + A.shape[len(block) + 2::]
     strides = A.strides[len(block)::]
-    print (new_shape), (strides)
     return _ast(A, shape= new_shape, strides= strides)
     

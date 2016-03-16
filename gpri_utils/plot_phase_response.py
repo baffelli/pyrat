@@ -62,14 +62,12 @@ class gpriPlotter:
                 r_sl = self.slc.r_vec[ridx]
                 line, = phase_ax.plot(az_vec,_np.rad2deg(refl_ph), label=r"r={} m".format(round(r_sl)))
                 amp_ax.plot(az_vec, refl_amp/refl_amp[reflector_slice.shape[0]/2])
-                ph, d = cal.distance_from_phase_center(0.22, 0.02, r_sl, _np.deg2rad(az_vec), 0)
-                phase_ax.plot(az_vec, _np.rad2deg(ph - ph[ph.shape[0]/2]),color=line.get_color(),ls='--')
             #Plot line for beamwidth
             phase_ax.set_ylim(-30,30)
             phase_ax.axvline(0.2, color='red', ls='--')
             phase_ax.axvline(-0.2, color='red', ls='--')
             phase_ax.yaxis.set_label_text(r'Phase [deg]')
-            phase_ax.xaxis.set_label_text(r'azimuth angle from maximum [deg]')
+            # phase_ax.xaxis.set_label_text(r'azimuth angle from maximum [deg]')
             amp_ax.axvline(0.2, color='red', ls='--')
             amp_ax.axvline(-0.2, color='red', ls='--')
             amp_ax.yaxis.set_label_text(r'Relative Intensity')
@@ -101,6 +99,8 @@ def main():
                 help="Plot y axis step size")
     parser.add_argument( '--unwrap', default=True, action='store_true',
                 help="Unwrap the data when plotting")
+    parser.add_argument('--style', help='Matplotlib stylesheet for plotting', default='', type=str)
+
 
     #Read arguments
     try:

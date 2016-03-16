@@ -8,8 +8,8 @@ Various functions for polarimetric processing
 import matplotlib.pyplot as _plt
 import matplotlib as _mpl
 import numpy as _np
-import corefun
-import matrices
+from . import corefun
+from . import matrices
 def cloude_pottier_histogram(*args,**kwargs):
     """
     This function computes and displays the Cloude-Pottier histogram of a coherency matrix.
@@ -36,8 +36,6 @@ def cloude_pottier_histogram(*args,**kwargs):
     cmap = _mpl.cm.jet
     cmap.set_bad('w')
     w = _np.ones_like(H) / H.size * 100
-    print H.shape
-    print alpha.shape
     _plt.hist2d(H.flatten(),_np.rad2deg(alpha).flatten(), range = [[0,1],[0,90]], cmap = cmap, cmin = 1e-5, weights = w, **kwargs)
     _plt.xlabel(r'$Entropy$')
     _plt.ylabel(r'$Mean\quad\alpha$')
@@ -384,8 +382,8 @@ def pol_signature(S, n_points = 100):
                 T = S.pauli_to_lexicographic().__copy__()
             M1 = _np.transpose(u3_rho(rho), [2,3,0,1])
             T_transf = corefun.transform(M1,T,_np.linalg.inv(M1))
-            power = lambda m : _np.abs(_np.array(m)[:,:,0,0]) / 2
-            power_cross = lambda m : _np.abs(_np.array(m)[:,:,1,1])/2
+            power = lambda m : _np.abs(_np.array(m)[:,:,0,0])
+            power_cross = lambda m : _np.abs(_np.array(m)[:,:,1,1])
             co_power = power(T_transf) / T.span()
             cross_power = power_cross(T_transf) / T.span()
             return co_power, cross_power, tilt, ellipticity

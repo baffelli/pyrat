@@ -367,6 +367,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
         coherency = kwargs.get('coherency')
         agrisar = kwargs.get('agrisar')
         polsarpro = kwargs.get('polsarpro')
+        gamma = kwargs.get('gamma')
         dim = kwargs.get('dim')
         if 'bistatic' not in kwargs:
             bistatic = False
@@ -376,15 +377,13 @@ class coherencyMatrix(gpri_files.gammaDataset):
             basis = 'pauli'
         else:
             basis = kwargs.get('basis')
-        if type(args[1]) is _np.ndarray:
+        if 'gamma' not in kwargs:
+            gamma=False
+        if type(args[1]) is _np.ndarray:#from array
             T = args[1]
             #TODO check why strange hermitian behavior for GPRI data
-            # if corefun.is_hermitian(T):
-            #     obj = _np.asarray(T).view(cls)
-            # else:
-            #     raise _np.linalg.LinAlgError("T is not Hermitian")
             obj = _np.asarray(T).view(cls)
-            obj.basis = 'pauli'
+            obj.basis = basis
         elif type(args[1]) is str:
             path = args[1]
             if agrisar:
@@ -398,6 +397,21 @@ class coherencyMatrix(gpri_files.gammaDataset):
                 #Pauli representation is defaulto
                 pauli = s_matrix.scattering_vector(bistatic = bistatic, basis = basis)
                 T = corefun.outer_product(pauli,pauli)
+            elif gamma:
+                basis = 'lexicographic'
+                par_name = args[2]
+                chan_dict = {0:1, 1:2, 2:3}
+                #Load shape
+                par_dict = gpri_files.par_to_dict(par_name)
+                shp = (par_dict['range_samples'], par_dict['azimuth_lines'])
+                C = _np.zeros((shp) + (3,3), dtype=_np.complex64)
+                for chan_1 in chan_dict.keys():
+                    for chan_2 in chan_dict.keys():
+                        extension = ".c{i}{j}".format(i=chan_dict[chan_1], j=chan_dict[chan_2])
+                        chan_name = path + extension
+                        chan, par = gpri_files.load_dataset(par_name, chan_name)
+                        C[:,:,chan_1, chan_2] = chan
+                T = C
         # Finally, we must return the newly created object:
         obj = T.view(cls)
         obj.window = [1,1]
@@ -461,7 +475,6 @@ class coherencyMatrix(gpri_files.gammaDataset):
             C = self
         C = self.__array_wrap__(C)
         C.basis = 'lexicographic'
-        print 'success'
         return C
         
     def lexicographic_to_pauli(self):
@@ -475,16 +488,16 @@ class coherencyMatrix(gpri_files.gammaDataset):
                 C = self.transform(U4LP, U4PL)
         C = self.__array_wrap__(C)
         C.basis = 'pauli'
-        print(C.shape)
         return C
 
     def tofile(*args):
         self = args[0]
         root_name = args[1]
-        for chan_1 in [0,1,3]:
-            for chan_2 in [0,1,3]:
-                    current_chan = _np.array(self[:,:, chan_1, chan_2]).astype(gpri_files.type_mapping['FCOMPLEX']).T.tofile(root_name + ".c{i}{j}".format(i=chan_1, j=chan_2))
-                    gpri_files.dict_to_par(self.__dict__, root_name + '.par')
+        if self.basis is 'lexicographic':
+            ending = 'c'
+        else:
+            ending = 't'
+
  
 def blockshaped(arr, nrows, ncols):
     """
@@ -598,7 +611,6 @@ class block_array:
         if idx < _np.prod(self.nblocks):
             i,j = _np.unravel_index(idx,self.nblocks)
             clipped_block = block[self.wsa[0][i]:self.wsa[0][i] + self.wea[0][i] ,self.wsa[1][j]:self.wea[1][j] + self.wsa[1][j]]
-            print clipped_block.shape
             start_i = self.rsa[0][i] + self.wsa[0][i]
             start_j = self.rsa[1][j] + self.wsa[1][j]
             self.A[start_i:start_i + clipped_block.shape[0],

@@ -16,7 +16,7 @@ from collections import namedtuple as _nt
 import scipy.optimize as _opt
 import matplotlib.pyplot as plt
 from matplotlib import style as _sty
-_sty.use('/home/baffelli/PhD_work/Code/paper_rc.rc')
+
 
 #
 class gpriEstimator:
@@ -73,15 +73,20 @@ class gpriEstimator:
         par_dict['range_of_closest_approach'] = [r_sl, 'm']
         _gpf.dict_to_par(par_dict, self.args.par_path)
         sim_ph, dist = _cal.distance_from_phase_center(self.r_arm, res.x[0],  r_sl, az_vec, wrap=False)
-        f = plt.figure()
-        plt.plot(_np.rad2deg(az_vec),_np.rad2deg(refl_ph), label=r'Measured')
-        plt.plot(_np.rad2deg(az_vec),_np.rad2deg(sim_ph + res.x[1]), label=r'Model')
-        plt.ylabel(r'Phase [deg]')
-        plt.xlabel(r'azimuth angle from maximum [deg]')
-        plt.ylim(-180,180)
-        plt.legend()
-        f.savefig(self.figpath)
-        plt.close(f)
+        if self.args.sf == '':
+            st = '/home/baffelli/PhD/trunk/Code/paper_rc.rc'
+        else:
+           st =  self.args.sf
+        with _sty.context(st):
+            f = plt.figure()
+            plt.plot(_np.rad2deg(az_vec),_np.rad2deg(refl_ph), label=r'Measured')
+            plt.plot(_np.rad2deg(az_vec),_np.rad2deg(sim_ph + res.x[1]), label=r'Model')
+            plt.ylabel(r'Phase [deg]')
+            plt.xlabel(r'azimuth angle from maximum [deg]')
+            plt.ylim(-180,180)
+            plt.legend()
+            f.savefig(self.figpath)
+            plt.close(f)
 
 
 
@@ -106,6 +111,7 @@ def main():
                 help="Estimation window size")
     parser.add_argument('-u', '--unwrap', dest='u', default=False, action='store_true',
                 help="Toggles phase unwrapping for the estimation")
+    parser.add_argument('--sf', help='Style file for plots', type=str, default='')
     #Read arguments
     try:
         args = parser.parse_args()

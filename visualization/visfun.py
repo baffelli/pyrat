@@ -5,8 +5,6 @@ Created on Thu May 15 16:32:36 2014
 @author: baffelli
 """
 import os as _os
-
-import cv2 as _cv2
 import matplotlib as _mpl
 import matplotlib.pyplot as _plt
 import numpy as _np
@@ -126,7 +124,7 @@ def coarse_coregistration(master, slave, sl):
     res = _cv2.matchTemplate(I, T, _cv2.TM_CCOEFF_NORMED)
     min_val, max_val, min_loc, max_loc = _cv2.minMaxLoc(res)
     sh = (sl[0].start - max_loc[1], sl[1].start - max_loc[0])
-    print sh
+    print(sh)
     slave_coarse = shift_image(slave, (-sh[0], -sh[1]))
     return slave_coarse, res
 
@@ -332,13 +330,14 @@ def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf = 0.3):
         """
     if not normalized:
         data_diagonal = _np.abs(scattering_vector)
-        data_diagonal[:, :, 0] = exp_im(data_diagonal[:, :, 0],k, sf)
-        data_diagonal[:, :, 1] = exp_im(data_diagonal[:, :, 1],k, sf)
-        data_diagonal[:, :, 2] = exp_im(data_diagonal[:, :, 2],k, sf)
-        R = data_diagonal[:, :, 0]
-        G = data_diagonal[:, :, 1]
-        B = data_diagonal[:, :, 2]
-        out = _np.dstack((R, G, B))
+        #Compute the percentiles for all the channels
+        q = [5, 99.5]
+        RGB = _np.zeros(data_diagonal.shape)
+        total_hist = _np.mean(data_diagonal, axis=2)
+        min_p, max_p = _np.percentile(total_hist, q)
+        for chan in [0,1,2]:
+            RGB[:,:,chan] = scale_array(scale_array(data_diagonal[:,:,chan], min_val=min_p, max_val=max_p)**k)
+        out = RGB
     else:
         span = _np.sum(scattering_vector, axis=2)
         out = _np.abs(scattering_vector / span[:, :, None])
@@ -517,23 +516,14 @@ def show_signature(signature_output, rotate=False):
         sig_cross = sig_cross.T
     else:
         xt = [-45, 45, -90, 90]
-    f_co = _plt.figure()
-    _plt.imshow(sig_co, interpolation='none', cmap='RdBu_r', extent=xt)
+    f, (ax_co, ax_x) = _plt.subplots(2,sharex=True,shary=True)
+    ax_co.imshow(sig_co, interpolation='none', cmap='RdBu_r', extent=xt)
+    ax_x.imshow(sig_cross, interpolation='none', cmap='RdBu_r', extent=xt)
     _plt.locator_params(nbins=5)
     _plt.xlabel(r'ellipicity $\tau$')
     _plt.ylabel(r'orientation $\phi$')
     _plt.xticks(rotation=90)
-
-    #    _plt.axis('equal')
-    f_x = _plt.figure()
-    _plt.imshow(sig_cross, interpolation='none', cmap='RdBu_r', extent=xt)
-    _plt.locator_params(nbins=5)
-    _plt.xlabel(r'ellipicity $\tau$')
-    _plt.ylabel(r'orientation $\phi$')
-    _plt.xticks(rotation=90)
-
-    #    _plt.axis('equal')
-    return f_co, f_x
+    return f
 
 
 def blockshaped(arr, n_patch):

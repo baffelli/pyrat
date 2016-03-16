@@ -38,7 +38,6 @@ subparser_apply = subparsers.add_parser("apply_C", help='If set, apply the calib
 subparser_apply.add_argument('out_root', help='The root filename of the calibrated dataset')
 #Subparser to apply them
 args = parser.parse_args()
-print(args)
 
 #Load the channels
 HH, HH_par = _gpf.load_dataset(args.HH_par, args.HH)
@@ -62,6 +61,7 @@ for idx_1, (chan_1, par_1) in enumerate(chan_list):
         C_matrix[:,:, idx_1, idx_2] = chan_1 * chan_2.conj()
         topo_phase_rescaled = _np.exp(1j * topo_phase * bl / topo_par['antenna_separation'][0])
         C_matrix_flat[:,:, idx_1, idx_2] =  C_matrix[:,:, idx_1, idx_2] * topo_phase_rescaled
+
 
 
 
@@ -100,19 +100,29 @@ elif args.subparser_name == 'apply_C' :
     distortion_matrix_inv = _np.diag(1/_np.diag(distortion_matrix))
     # #Correct the matrix
     C_matrix_c = C_matrix_flat.transform(distortion_matrix_inv,distortion_matrix_inv.T.conj())
+    #Write the channels to a file
+    chan_dict = {0:1, 1:2, 3:3}
+    for chan_1, idx_1 in chan_dict.iteritems():
+        for chan_2, idx_2 in chan_dict.iteritems():
+                    extension = ".c{i}{j}".format(i=idx_1, j=idx_2)
+                    current_chan = _np.array(C_matrix_c[:,:, chan_1, chan_2]).astype(_gpf.type_mapping['FCOMPLEX']).T.tofile(args.out_root +  extension)
+    _gpf.dict_to_par(HH_par, args.out_root + '.par')
     C_matrix_c.tofile(args.out_root)
-    T_matrix = C_matrix_c.boxcar_filter([5,5]).lexicographic_to_pauli()
-    T_matrix[_np.isnan(T_matrix)] = 0.00001
-    H, anisotropy, alpha_m, beta_m, p, w = T_matrix.cloude_pottier()
 
-    rgb = T_matrix.boxcar_filter([5,5]).pauli_image(k=0.15,sf=3)
-    _plt.figure()
-    _plt.subplot(2,1,1)
-    _plt.imshow(rgb, interpolation='none', aspect=1.5)
-    ax = _plt.gca()
-    _plt.subplot(2,1,2, sharex=ax, sharey=ax)
-    _plt.imshow(H)
-    _plt.show()
+    # T_matrix = C_matrix_c.boxcar_filter([5,5]).lexicographic_to_pauli()
+    # T_matrix[_np.isnan(T_matrix)] = 0.00001
+    # H, anisotropy, alpha_m, beta_m, p, w = T_matrix.cloude_pottier()
+    # rgb = T_matrix.boxcar_filter([5,5]).pauli_image(k=0.1,sf=3)
+    # #dfgfd
+    # _plt.figure()
+    # _plt.subplot(3,1,1)
+    # _plt.imshow(rgb, interpolation='none', aspect=1.5)
+    # ax = _plt.gca()
+    # _plt.subplot(3,1,2, sharex=ax, sharey=ax)
+    # _plt.imshow(alpha_m,cmap='rainbow',vmin=0,vmax=_np.pi/2, aspect=1.5)
+    # _plt.subplot(3,1,3, sharex=ax, sharey=ax)
+    # _plt.imshow(H,cmap='gray',vmin=0,vmax=1, aspect=1.5)
+    # _plt.show()
 
 
 # C_matrix_c_mono = _np.zeros(HH.shape + (3,3), dtype=_np.complex64)
