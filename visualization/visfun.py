@@ -110,6 +110,13 @@ def scale_array(*args, **kwargs):
     scaled = (_np.clip(data, minVal, maxVal) - minVal) / _np.abs(maxVal - minVal)
     return scaled
 
+def format_axes(ax):
+
+    for spine in ['top', 'right']:
+        ax.spines[spine].set_visible(False)
+    return ax
+
+
 
 def segment_image(S, thresh):
     return (S > thresh).astype(_np.bool)
