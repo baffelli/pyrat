@@ -313,15 +313,15 @@ def u3_phi(ph):
                      [_np.zeros_like(ph), -_np.sin(2*ph) , _np.cos(2*ph)]])
 
 
-def pol_synthesis(S, phi, tau):
+def pol_synthesis(S, psi, chi):
     if type(S) is matrices.scatteringMatrix:
-        M1 = u2_phi(phi)
-        M2 = u2_tau(tau)
+        M1 = u2_phi(psi)
+        M2 = u2_tau(chi)
         M = corefun.transform(M1,M2,_np.eye(2, dtype = _np.complex64))
         ST = corefun.transform(M.T,S,M)
     elif type(S) is matrices.coherencyMatrix:
-        M1 = u3_phi(phi)
-        M2 = u3_tau(tau)
+        M1 = u3_phi(psi)
+        M2 = u3_tau(chi)
         M = corefun.transform(M1,M2,_np.eye(3,dtype = _np.complex64))
         if S.basis is 'pauli':
             T = S
@@ -342,31 +342,31 @@ def u3_rho(rho):
     [_np.conj(rho)**2, -_np.sqrt(2) * _np.conj(rho), _np.ones_like(rho)]])
     return denom * mat
     
-def ellipse_param_to_ratio(phi,tau):
+def ellipse_param_to_ratio(psi, chi):
     """
     This function converts the polarization ellipse parameters
     to the complex polarization ratio
     Parameters
     ----------
-    phi : array_like
+    psi : array_like
         The ellipse orientation
-    tau : array_like
+    chi : array_like
         The polarization shape
     """
-    rho = (_np.tan(phi) + 1j* _np.tan(tau))/ (1 - 1j * _np.tan(phi) * _np.tan(tau))
+    rho = (_np.tan(psi) + 1j * _np.tan(chi)) / (1 - 1j * _np.tan(psi) * _np.tan(chi))
     return rho
 
 
 
 def pol_signature(S, n_points = 100):
-        tilt = _np.linspace(-_np.deg2rad(90),  _np.deg2rad(90), n_points)
+        tilt = _np.linspace(0,  _np.deg2rad(180), n_points)
         ellipticity = _np.linspace(- _np.pi / 4, _np.pi / 4, n_points)
-        phi_m, tau_m = _np.meshgrid(tilt, ellipticity, indexing = 'ij')
+        psi, chi = _np.meshgrid(tilt, ellipticity, indexing = 'ij')
 
         if type(S) is matrices.scatteringMatrix:
             S1 = S.__copy__()
-            M1 = _np.transpose(u2_phi(phi_m), [2,3,0,1])
-            M2 = _np.transpose(u2_tau(tau_m),[2,3,0,1])
+            M1 = _np.transpose(u2_phi(psi), [2,3,0,1])
+            M2 = _np.transpose(u2_tau(chi),[2,3,0,1])
             A = corefun.transform(M1,M2,_np.eye(2))
             co_sig = corefun.transform(A.transpose([0,1,3,2]),S,A)
             power = lambda m : _np.abs(_np.array(m)[:,:,0,0])**2
@@ -375,18 +375,18 @@ def pol_signature(S, n_points = 100):
             cross_power = power_cross(co_sig) / S.span()
             return co_power, cross_power, tilt, ellipticity
         elif type(S) is matrices.coherencyMatrix:
-            rho = ellipse_param_to_ratio(phi_m, tau_m)
+            rho = ellipse_param_to_ratio(psi, chi)
             if S.basis is 'l':
                 T = S.__copy__()
             else:
                 T = S.pauli_to_lexicographic().__copy__()
             M1 = _np.transpose(u3_rho(rho), [2,3,0,1])
             T_transf = corefun.transform(M1,T,_np.linalg.inv(M1))
-            power = lambda m : _np.abs(_np.array(m)[:,:,0,0])
-            power_cross = lambda m : _np.abs(_np.array(m)[:,:,1,1])
-            co_power = power(T_transf) / T.span()
-            cross_power = power_cross(T_transf) / T.span()
-            return co_power, cross_power, tilt, ellipticity
+            power = lambda m : _np.abs(_np.array(m)[:,:,0,0] + _np.array(m)[:,:,2,2]) / T.span()
+            power_cross = lambda m : _np.abs(_np.array(m)[:,:,1,1])/T.span()
+            co_power = power(T_transf)
+            cross_power = power_cross(T_transf)
+            return co_power, cross_power, psi, chi
 
 def polinsar_matrix(S1,S2, win = [2,2],basis = 'pauli', bistatic = False):
     T1 = S1.to_coherency_matrix(basis = basis)
