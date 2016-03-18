@@ -158,7 +158,7 @@ def main():
                 type=int, default=300)
     parser.add_argument("-k", type=float, default=3.00, dest='kbeta',
                       help="Kaiser Window beta parameter")
-    parser.add_argument("-s","--apply_scale", type=bool, default=True, dest='apply_scale')
+    parser.add_argument("-s","--apply_scale", default=True, dest='apply_scale', action='store_false')
     parser.add_argument('-r', help='Near range for the slc',dest='rmin', type=float, default=0)
     parser.add_argument('-R', help='Far range for the slc', dest='rmax',type=float, default=1000)
     parser.add_argument('--rvp_corr', help='Correct range video phase', dest='rvp_corr', default=False, action='store_true')

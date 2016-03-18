@@ -359,7 +359,10 @@ class coherencyMatrix(gpri_files.gammaDataset):
         counts = c1.astype(_np.int) + c2.astype(_np.int) + c3.astype(_np.int)
         return counts
     
-
+    def to_monostatic(self):
+        self.bistatic = False
+        i,j  = _np.meshgrid([0,1,3],[0,1,3])
+        return self[:,:,i,j]
 
     def __new__(*args,**kwargs):
         cls = args[0]
@@ -400,11 +403,14 @@ class coherencyMatrix(gpri_files.gammaDataset):
             elif gamma:
                 basis = 'lexicographic'
                 par_name = args[2]
-                chan_dict = {0:1, 1:2, 2:3}
+                if bistatic == True:
+                    chan_dict = {0:0, 1:1, 2:2, 3:3}
+                else:
+                    chan_dict ={0:1, 1:1, 2:3}
                 #Load shape
                 par_dict = gpri_files.par_to_dict(par_name)
                 shp = (par_dict['range_samples'], par_dict['azimuth_lines'])
-                C = _np.zeros((shp) + (3,3), dtype=_np.complex64)
+                C = _np.zeros((shp) + (len(chan_dict),len(chan_dict)), dtype=_np.complex64)
                 for chan_1 in chan_dict.keys():
                     for chan_2 in chan_dict.keys():
                         extension = ".c{i}{j}".format(i=chan_dict[chan_1], j=chan_dict[chan_2])
@@ -417,6 +423,8 @@ class coherencyMatrix(gpri_files.gammaDataset):
         obj.window = [1,1]
         obj.basis = basis
         obj.geometry = 'cartesian'
+        if gamma:
+            obj.__dict__.update(par)
         return obj
         
 
@@ -490,13 +498,29 @@ class coherencyMatrix(gpri_files.gammaDataset):
         C.basis = 'pauli'
         return C
 
-    def tofile(*args):
+    def to_gamma(*args, **kwargs):
+        if 'bistatic' in kwargs:
+            bistatic = kwargs.get('bistatic')
+        else:
+            bistatic = False
+
         self = args[0]
         root_name = args[1]
         if self.basis is 'lexicographic':
             ending = 'c'
         else:
             ending = 't'
+        if bistatic == True:
+            chan_dict = {0:0, 1:1, 2:2, 3:3}
+        else:
+            chan_dict ={0:0, 1:1, 2:3}
+        for chan_1 in chan_dict.keys():
+            for chan_2 in chan_dict.keys():
+                extension = ".c{i}{j}".format(i=chan_dict[chan_1], j=chan_dict[chan_2])
+                chan_name = root_name + extension
+                _np.array(self[:,:, chan_1, chan_2]).T.astype(gpri_files.type_mapping['FCOMPLEX']).tofile(chan_name)
+        gpri_files.dict_to_par(self.__dict__, root_name + '.par')
+
 
  
 def blockshaped(arr, nrows, ncols):

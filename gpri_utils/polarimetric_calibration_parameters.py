@@ -17,60 +17,28 @@ import pyrat.core.matrices as _mat
 import pyrat.core.polfun as _pf
 # Argument parser
 parser = argparse.ArgumentParser()
-parser.add_argument('HH', help='HH slc', type=str)
-parser.add_argument('HH_par', help='HH slc parameters', type=str)
-parser.add_argument('HV', help='HV slc', type=str)
-parser.add_argument('HV_par', help='HV slc parameters', type=str)
-parser.add_argument('VH', help='HV slc', type=str)
-parser.add_argument('VH_par', help='VH slc parameters', type=str)
-parser.add_argument('VV', help='VV slc', type=str)
-parser.add_argument('VV_par', help='VV slc parameters', type=str)
-parser.add_argument("topo_phase", help="Topographic phase (unwrapped float)", type=str)
-parser.add_argument("topo_phase_par", help="Parameters of topographic phase", type=str)
+
+parser.add_argument("c_root", help="Flattened covariance root path", type=str)
 parser.add_argument("cal_parameters", help="Computed polarimetric calibration parameters (in keyword:parameter format)",
                     type=str)
 subparsers = parser.add_subparsers(help='Two modes:', dest='subparser_name')
 #Subparser to measure the calibration params
 subparser_measure = subparsers.add_parser('measure', help='Determine calibration parameters')
-subparser_measure.add_argument("--ridx", help="Reference reflector range indices", type=int, nargs=1)
-subparser_measure.add_argument("--azidx", help="Reference reflector azimuth indices", type=int, nargs=1)
+subparser_measure.add_argument("ridx", help="Reference reflector range indices", type=int, nargs=1)
+subparser_measure.add_argument("azidx", help="Reference reflector azimuth indices", type=int, nargs=1)
 subparser_apply = subparsers.add_parser("apply_C", help='If set, apply the calibration parameter to the input dataset to produce calibrated covariance matrices')
 subparser_apply.add_argument('out_root', help='The root filename of the calibrated dataset')
 #Subparser to apply them
 args = parser.parse_args()
-
-#Load the channels
-HH, HH_par = _gpf.load_dataset(args.HH_par, args.HH)
-HV, HV_par  = _gpf.load_dataset(args.HV_par, args.HV)
-VH, VH_par  = _gpf.load_dataset(args.VH_par, args.VH)
-VV, VV_par  = _gpf.load_dataset(args.VV_par, args.VV)
-
-#Load the topo phase
-topo_phase, topo_par  = _gpf.load_dataset(args.topo_phase_par, args.topo_phase)
-
-#Construct the scattering matrix
-C_matrix = _np.zeros(HH.shape + (4,4), dtype=HH.dtype)
-C_matrix_flat = _np.zeros(HH.shape + (4,4), dtype=HH.dtype)
-chan_list = [[HH, HH_par], [HV , HV_par], [VH , VH_par], [VV, VV_par]]
-for idx_1, (chan_1, par_1) in enumerate(chan_list):
-    for idx_2, (chan_2, par_2) in enumerate(chan_list):
-        #Compute pase center of channel
-        ph_center_1 = _gpf.compute_phase_center(par_1)
-        ph_center_2 = _gpf.compute_phase_center(par_2)
-        bl = (ph_center_1 - ph_center_2)
-        C_matrix[:,:, idx_1, idx_2] = chan_1 * chan_2.conj()
-        topo_phase_rescaled = _np.exp(1j * topo_phase * bl / topo_par['antenna_separation'][0])
-        C_matrix_flat[:,:, idx_1, idx_2] =  C_matrix[:,:, idx_1, idx_2] * topo_phase_rescaled
+c_par = args.c_root + '.par'
 
 
 
-
-av_win =[5,10]#averaging window
-C_matrix = _mat.coherencyMatrix(C_matrix,basis='lexicographic').boxcar_filter(av_win)
-C_matrix_flat = _mat.coherencyMatrix(C_matrix_flat,basis='lexicographic')
-C_matrix_flat_av = C_matrix.boxcar_filter(av_win)
 if args.subparser_name == 'measure':
-
+    C_matrix_flat = _mat.coherencyMatrix(args.c_root, c_par, basis='lexicographic', gamma=True, bistatic=True)
+    print(C_matrix_flat.shape)
+    av_win =[5,10]#averaging window
+    C_matrix_flat_av = C_matrix_flat.boxcar_filter(av_win)
     f = (C_matrix_flat_av[args.ridx,args.azidx,3,3]/C_matrix_flat_av[args.ridx,args.azidx
     ,0,0])**(1/4.0)
     VV_HH_phase_bias = _np.angle(C_matrix_flat[args.ridx, args.azidx, 3, 0])
@@ -89,6 +57,7 @@ if args.subparser_name == 'measure':
     #Write calibrations parameters
     _gpf.dict_to_par(cal_dict, args.cal_parameters)
 elif args.subparser_name == 'apply_C' :
+    C_matrix_flat = _mat.coherencyMatrix(args.c_root, c_par, basis='lexicographic', gamma=True, bistatic=True)
     cal_dic = _gpf.par_to_dict(args.cal_parameters)
     f = cal_dic['f']
     g = cal_dic['g']
@@ -101,13 +70,7 @@ elif args.subparser_name == 'apply_C' :
     # #Correct the matrix
     C_matrix_c = C_matrix_flat.transform(distortion_matrix_inv,distortion_matrix_inv.T.conj())
     #Write the channels to a file
-    chan_dict = {0:1, 1:2, 3:3}
-    for chan_1, idx_1 in chan_dict.iteritems():
-        for chan_2, idx_2 in chan_dict.iteritems():
-                    extension = ".c{i}{j}".format(i=idx_1, j=idx_2)
-                    current_chan = _np.array(C_matrix_c[:,:, chan_1, chan_2]).astype(_gpf.type_mapping['FCOMPLEX']).T.tofile(args.out_root +  extension)
-    _gpf.dict_to_par(HH_par, args.out_root + '.par')
-    C_matrix_c.tofile(args.out_root)
+    C_matrix_c.to_gamma(args.out_root, bistatic=True)
 
     # T_matrix = C_matrix_c.boxcar_filter([5,5]).lexicographic_to_pauli()
     # T_matrix[_np.isnan(T_matrix)] = 0.00001
