@@ -73,6 +73,7 @@ class gpriPlotter:
             amp_ax.yaxis.set_label_text(r'Relative Intensity')
             amp_ax.xaxis.set_label_text(r'azimuth angle from maximum [deg]')
             phase_ax.legend()
+
             f.savefig(self.figpath)
             _plt.close(f)
 

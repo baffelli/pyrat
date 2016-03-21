@@ -294,6 +294,25 @@ def dict_to_par(par_dict, par_file):
             fout.write(out + '\n')
 
 
+def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
+    #Get filesize
+    filesize = _osp.getsize(bin_file)
+    #Get itemsize
+    itemsize = dtype.itemsize
+    #Compute the number of lines
+    nlines = filesize / (itemsize * width)
+    #Shape of binary
+    shape = (width, nlines)
+    #load binary
+    if memmap:
+        with open(bin_file, 'rb') as mmp:
+            buffer = _mm.mmap(mmp.fileno(), 0, prot=_mm.PROT_READ)
+            d_image = _np.ndarray(shape[::-1], dtype, buffer).T
+    else:
+        d_image = _np.fromfile(bin_file, dtype=dtype).reshape(shape[::-1]).T
+    return d_image
+
+
 def load_dataset(par_file, bin_file, memmap=True, dtype=None):
     par_dict = par_to_dict(par_file)
     # Map type to gamma
@@ -304,36 +323,37 @@ def load_dataset(par_file, bin_file, memmap=True, dtype=None):
             try:
                 dt = type_mapping[par_dict['data_format']]
             except:
-                # raise KeyError("This file does not contain datatype specification in a known format")
-                dt = type_mapping['FLOAT']
+                raise KeyError("This file does not contain datatype specification in a known format")
     else:
-        dt = type_mapping[dtype]
+        try:
+            dt = type_mapping[dtype]
+        except KeyError:
+            raise TypeError('This datatype does not exist')
     try:
-        shape = (par_dict['range_samples'],
-                 par_dict['azimuth_lines'])
+        width = par_dict['range_samples']
     except KeyError:
         # We dont have a SAR image,
         # try as it were a DEM
         try:
-            shape = (par_dict['nlines'],
-                     par_dict['width'])
+            width = par_dict['nlines']
         except:
             # Last try
             # interferogram
             try:
-                shape = (par_dict['interferogram_width'], par_dict['interferogram_azimuth_lines'])
+                width = par_dict['interferogram_width']
             except:
                 try:
-                    shape = (par_dict['range_samp_1'], par_dict['az_samp_1'])
+                    width = par_dict['range_samp_1']
                 except:
                     raise KeyError("This file does not contain data shape specification in a known format")
-    shape = shape[::-1]
-    if memmap:
-        with open(bin_file, 'rb') as mmp:
-            buffer = _mm.mmap(mmp.fileno(), 0, prot=_mm.PROT_READ)
-            d_image = _np.ndarray(shape, dt, buffer).T
-    else:
-        d_image = _np.fromfile(bin_file, dtype=dt).reshape(shape).T
+    d_image = load_binary(bin_file, width, dtype=dt, memmap=memmap)
+    # shape = shape[::-1]
+    # if memmap:
+    #     with open(bin_file, 'rb') as mmp:
+    #         buffer = _mm.mmap(mmp.fileno(), 0, prot=_mm.PROT_READ)
+    #         d_image = _np.ndarray(shape, dt, buffer).T
+    # else:
+    #     d_image = _np.fromfile(bin_file, ).reshape(shape).T
     return d_image, par_dict
 
 

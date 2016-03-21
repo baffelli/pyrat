@@ -11,7 +11,7 @@ import numpy as _np
 #import pyrat.core.polfun
 import scipy.fftpack as _fftp
 import scipy.ndimage as _ndim
-
+import matplotlib.colors as _col
 
 
 
@@ -404,10 +404,27 @@ def scale_coherence(c):
     #    c_sc = _np.select(((_np.sin(c * _np.pi / 2)), 0.3), (c > 0.2, c<0.2))
     return _np.sin(c * _np.pi / 2)
 
+# #TODO
+class gammaNormalize(_col.Normalize):
+    def __init__(self, vmin=None, vmax=None, mean=None, clip=False, gamma=1.2, sf=1):
+        self.mean = mean
+        self.vmax = vmax
+        self.vmin = vmin
+        self.gamma = gamma
+        self.sf = sf
+        _col.Normalize.__init__(self, vmin, vmax, clip)
+
+    def autoscale_None(self, A):
+        self.vmax = _np.nanmax(A)
+        self.vmin = _np.nanmin(A)
+        self.mean = _np.nanmean(A)
+
+    def __call__(self, value):
+        self.autoscale_None(value)
+        return ((value - self.vmin)/(self.vmax - self.vmin))**self.gamma
 
 
-
-def dismph(data, min_val=-2*_np.pi, max_val=2*_np.pi, k=1, N=24, sf=1):
+def dismph(data, min_val=-180, max_val=180, k=1, N=24, sf=1):
     #palette to scale phase
     colors = (
     (0,1,1),
@@ -419,7 +436,7 @@ def dismph(data, min_val=-2*_np.pi, max_val=2*_np.pi, k=1, N=24, sf=1):
         from_list('subs_colors', colors, N=N)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     #Extract amplitude and phase
-    ang = scale_array(_np.angle(data))
+    ang = scale_array(_np.rad2deg(_np.angle(data)))
     ampl = exp_im(_np.abs(data),k,sf)
     #Convert angle to colors
     rgb = pal(ang)
@@ -435,37 +452,6 @@ def dismph(data, min_val=-2*_np.pi, max_val=2*_np.pi, k=1, N=24, sf=1):
     rgb = _mpl.colors.hsv_to_rgb(hsv)
     return rgb[:,:,:], pal, norm
 
-def disp_mph(data, dt='amplitude', k=0.5, min_val=-_np.pi,
-             max_val=_np.pi, return_pal=False, return_im=True):
-
-
-
-    H = scale_array(_np.angle(data), min_val=min_val, max_val=max_val)
-    sat = 0.75
-    S = _np.zeros_like(H) + sat
-    if dt == 'coherence':
-        V = scale_coherence((_np.abs(data)))
-    elif dt == 'amplitude':
-        V = scale_array(_np.abs(data)**k)
-    elif dt == 'none':
-        V = scale_array(_np.abs(data))
-    RGB = _mpl.colors.hsv_to_rgb(_np.dstack((H, S, V)))
-    if return_im:
-        H_pal = scale_array(_np.linspace(min_val, max_val, 255))
-        V_pal = _np.linspace(0, 1, 255)
-        HH, VV = _np.meshgrid(H_pal, V_pal)
-        SS = _np.zeros_like(VV) + sat
-        im = _mpl.colors.hsv_to_rgb(_np.dstack((HH, SS, VV)))
-        return RGB, im
-    if return_pal:
-        H_pal = scale_array(_np.linspace(min_val, max_val, 255))
-        S_pal = H_pal * 0 + sat
-        V_pal = H_pal * 0 + 1
-        pal = _mpl.colors.hsv_to_rgb(_np.dstack((H_pal, S_pal, V_pal))).squeeze()
-        cmap = _mpl.colors.LinearSegmentedColormap.from_list('my_colormap', pal, 256)
-        return RGB, cmap
-    else:
-        return RGB
 
 
 def load_custom_palette():
