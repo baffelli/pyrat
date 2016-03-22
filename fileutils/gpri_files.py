@@ -323,7 +323,8 @@ def load_dataset(par_file, bin_file, memmap=True, dtype=None):
             try:
                 dt = type_mapping[par_dict['data_format']]
             except:
-                raise KeyError("This file does not contain datatype specification in a known format")
+                dt = type_mapping['FLOAT']
+                print(str(KeyError("This file does not contain datatype specification in a known format, using default FLOAT datatype")))
     else:
         try:
             dt = type_mapping[dtype]
@@ -331,7 +332,7 @@ def load_dataset(par_file, bin_file, memmap=True, dtype=None):
             raise TypeError('This datatype does not exist')
     try:
         width = par_dict['range_samples']
-    except KeyError:
+    except:
         # We dont have a SAR image,
         # try as it were a DEM
         try:
