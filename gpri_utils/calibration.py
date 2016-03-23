@@ -291,7 +291,7 @@ def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
     """
     lam = gpf.gpri_files.C / 17.2e9
     r_ant = _np.sqrt(r_arm**2 + r_ph**2)
-    ant_angle = _np.arctan2( r_ph,r_ant)
+    ant_angle = _np.arctan2(r_ph,r_ant)
     #Chord length
     c = r_ant + r_sl
     mixed_term = 2 * c * r_ant * _np.cos(theta - ant_angle)

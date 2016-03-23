@@ -87,7 +87,7 @@ class gpriAzimuthProcessor:
             filt, dist = _cal.distance_from_phase_center(self.r_ant, self.args.r_ph, r_sl, theta, wrap=False)
             lam = _gpf.C /17.2e9
             #Normal matched filter
-            matched_filter = _np.exp(-1j * filt) * _np.hamming(ws_samp)
+            matched_filter = _np.exp(-1j * filt)
             filter_output = _sig.fftconvolve(self.slc[idx_r, :], matched_filter, mode='same')
             if self.args.discard_samples:
                 filter_output = filter_output[::ws_samp]

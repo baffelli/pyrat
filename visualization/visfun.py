@@ -432,17 +432,27 @@ def dismph(data, min_val=-180, max_val=180, k=1, N=24, sf=1):
     (1,1,0),
     (0,1,1)
     )
+    colors = (
+        (0,0,1),
+        (0,1,0),
+        (1,1,0),
+        (1,0,1),
+        (0,0,1)
+    )
+    colors_hue = _mpl.colors.rgb_to_hsv(colors)
+    print(colors_hue)
+    colors_hue[:,1] = 0.8
+    colors_hue = _mpl.colors.hsv_to_rgb(colors_hue)
     pal = _mpl.colors.LinearSegmentedColormap.\
-        from_list('subs_colors', colors, N=N)
+        from_list('subs_colors', colors_hue, N=N)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     #Extract amplitude and phase
-    ang = scale_array(_np.rad2deg(_np.angle(data)))
+    ang = scale_array(_np.rad2deg(_np.angle(data)), min_val=min_val, max_val=max_val)
     ampl = exp_im(_np.abs(data),k,sf)
     #Convert angle to colors
     rgb = pal(ang)
-    #Extract the hsv parameters
+    # #Extract the hsv parameters
     hsv = _mpl.colors.rgb_to_hsv(rgb[:,:,0:3])
-    hsv[:,:,1] = 0.6
     #Add
     #Scale with intensity
     hsv[:,:,2] = ampl
