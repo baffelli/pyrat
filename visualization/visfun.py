@@ -12,7 +12,7 @@ import numpy as _np
 import scipy.fftpack as _fftp
 import scipy.ndimage as _ndim
 import matplotlib.colors as _col
-
+from skimage import color
 
 
 # Define colormaps
@@ -424,25 +424,25 @@ class gammaNormalize(_col.Normalize):
         return ((value - self.vmin)/(self.vmax - self.vmin))**self.gamma
 
 
-def dismph(data, min_val=-180, max_val=180, k=1, N=24, sf=1):
-    #palette to scale phase
-    colors = (
-    (0,1,1),
-    (1,0,1),
-    (1,1,0),
-    (0,1,1)
-    )
-    colors = (
-        (0,0,1),
-        (0,1,0),
-        (1,1,0),
-        (1,0,1),
-        (0,0,1)
-    )
-    colors_hue = _mpl.colors.rgb_to_hsv(colors)
-    print(colors_hue)
-    colors_hue[:,1] = 0.8
-    colors_hue = _mpl.colors.hsv_to_rgb(colors_hue)
+def circular_palette(N=24, repeat=False):
+    radius = 38#chroma
+    if not repeat:
+        theta = _np.linspace(0, 2 * _np.pi, N)
+    else:
+        theta = _np.linspace(0, 2 * _np.pi, N/2)
+    a = radius * _np.cos(theta)
+    b = radius * _np.sin(theta)
+    L = _np.ones(a.shape) * 70
+    LAB = _np.dstack((L,a,b))
+    rgb = color.lab2rgb(LAB[::-1,:]).squeeze()
+    if repeat:
+        rgb = _np.vstack((rgb,rgb))
+    return rgb
+
+
+
+def dismph(data, min_val=-180, max_val=180, k=1, N=24, sf=1, repeat=False):
+    colors_hue = circular_palette(N, repeat=repeat)
     pal = _mpl.colors.LinearSegmentedColormap.\
         from_list('subs_colors', colors_hue, N=N)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
@@ -463,6 +463,24 @@ def dismph(data, min_val=-180, max_val=180, k=1, N=24, sf=1):
     return rgb[:,:,:], pal, norm
 
 
+def hsv_cp(H, alpha, span):
+    """
+    Display H entropy and span as a composite
+    Parameters
+    ----------
+    H
+    alpha
+    span
+
+    Returns
+    -------
+
+    """
+    V = scale_array(_np.log10(span))
+    H1 = scale_array(alpha, top=0, bottom=240) / 360
+    S = 1 - H
+    return _mpl.colors.hsv_to_rgb(_np.dstack((H1, S, V)))
+
 
 def load_custom_palette():
     RGB = disp_mph(_np.exp(1j * _np.linspace(0, 2 * _np.pi, 255))).squeeze()
@@ -479,32 +497,9 @@ def extract_section(image, center, size):
     return image[xx, yy]
 
 
-def show_if(S1, S2, win):
-    name_list = ['HH', 'HV', 'VH', 'VV']
-    k1 = S1.scattering_vector(basis='lexicographic')
-    k2 = S2.scattering_vector(basis='lexicographic')
-    if_mat = _np.zeros(S1.shape[0:2] + (4, 4), dtype=_np.complex64)
-    for i in range(4):
-        for j in range(4):
-            c_if = pyrat.coherence(k1[:, :, i], k2[:, :, j], win)
-            if_mat[:, :, i, j] = c_if
-            RGB = if_hsv(c_if)
-            if i == 0 and j == 0:
-                ax = _plt.subplot2grid((4, 4), (i, j))
-                _plt.imshow(RGB, cmap='gist_rainbow', interpolation='none')
-                ax = _plt.gca()
-            else:
-                _plt.subplot2grid((4, 4), (i, j))
-                _plt.imshow(RGB, cmap='gist_rainbow', interpolation='none')
-            _plt.title(name_list[i] + name_list[j])
-    return if_mat
 
 
-def hsv_cp(H, alpha, span):
-    V = scale_array(_np.log10(span))
-    H1 = scale_array(alpha, top=0, bottom=240) / 360
-    S = 1 - H
-    return _mpl.colors.hsv_to_rgb(_np.dstack((H1, S, V)))
+
 
 
 def show_signature(signature_output, rotate=False):
