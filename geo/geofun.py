@@ -571,7 +571,7 @@ def get_extent(ds):
     gt = ds.GetGeoTransform()
     gt_x_vec = tuple(_np.sort((gt[0], gt[0] + gt[1] * (ds.RasterXSize))))
     gt_y_vec = tuple(_np.sort(((gt[3], gt[3] + gt[5] * (ds.RasterYSize)))))
-    return gt_x_vec, gt_y_vec
+    return gt_x_vec[0], gt_x_vec[1], gt_y_vec[0], gt_y_vec[1]
 
 
 def read_coordinate_extent(ds, coords, interp=None):
@@ -750,7 +750,7 @@ def paletted_to_rgb(gt):
     rgba = _np.zeros((RAS.max() + 1, 4))
 
     for idx in palette_list:
-        color = _np.array(ct.GetColorEntry(int(idx))) / 255.0
+        color = _np.array(ct.GetColorEntry(int(idx)))
         rgba[idx, :] = color
     RGBA_ras = rgba[RAS]
     mem_drv = gdal.GetDriverByName('MEM')
