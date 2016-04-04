@@ -281,9 +281,10 @@ def dict_to_par(par_dict, par_file):
     None
     """
     with open(par_file, 'w') as fout:
-        for key, par in par_dict.iteritems():
+        for key in iter(par_dict):
+            par = par_dict[key]
             out = str(key) + ":" + '\t'
-            if isinstance(par, basestring):
+            if isinstance(par, str):
                 out = out + par
             else:
                 try:
@@ -565,6 +566,10 @@ class rawParameters:
     """
 
     def __init__(self, raw_dict, raw):
+        if hasattr(raw_dict, 'iteritems'):#if the user passes a string, first load the corresponding dict
+            pass
+        else:
+            raw_dict = par_to_dict(raw_dict)
         self.grp = _nt('GenericDict', raw_dict.keys())(**raw_dict)
         self.nsamp = self.grp.CHP_num_samp
         self.block_length = self.nsamp + 1
@@ -603,7 +608,7 @@ class rawParameters:
         self.freq_vec = self.grp.RF_freq_min + _np.arange(self.grp.CHP_num_samp,
                                                           dtype=float) * self.grp.RF_chirp_rate / self.grp.ADC_sample_rate
 
-    def compute_slc_parameters(self, args):
+    def compute_slc_parameters(self, args):#compute the slc parameters for a given set of input parameters
         self.rmax = self.ns_max * self.rps;  # default maximum slant range
         self.win = _sig.kaiser(self.nsamp, args.kbeta)
         self.zero = args.zero

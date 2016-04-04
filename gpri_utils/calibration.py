@@ -145,7 +145,6 @@ def coregister_channels_FFT(S,shift_patch, oversampling = (5,5)):
     S_cor['VV'] = _vf.shift_image(S['VV'],co_shift)
     S_cor['HV'] = _vf.shift_image(S['HV'],cross_shift)
     S_cor['VH'] = _vf.shift_image(S['VH'],cross_shift_1)
-    print co_shift, cross_shift, cross_shift_1
     return S_cor
 
 

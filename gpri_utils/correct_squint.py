@@ -36,8 +36,8 @@ class squintCorrector():
 
 #These function take a vector of frequencies and
 #return a vector of squint angles in degrees
-def model_squint(freq_vec):
-    return _gpf.squint_angle(freq_vec, _gpf.KU_WIDTH, _gpf.KU_DZ)
+def model_squint(freq_vec, DZ):
+    return _gpf.squint_angle(freq_vec, _gpf.KU_WIDTH, DZ)
 
 def linear_squint(freq_vec, sq_parameters):
     return _np.polynomial.polynomial.polyval(freq_vec, sq_parameters)
@@ -56,6 +56,7 @@ def main():
     parser.add_argument('sq_rate', help='Squint rate in deg/Hz', type=float)
     parser.add_argument('center_squint', help='Squint at the center frequency in degrees', type=float)
     parser.add_argument('--exact', help='If set, uses an exact model for the squint', action='store_true')
+
     #Read arguments
     try:
         args = parser.parse_args()
@@ -75,7 +76,7 @@ def main():
                                           ,0, raw_par.block_length,0,
                                           raw_par.nl_tot,
                                           dtype=_gpf.type_mapping['SHORT INTEGER'])
-    print(raw_data.shape)
+
     #Create squint corrector object
     squint_processor = squintCorrector(args, raw_par)
     if args.exact:
