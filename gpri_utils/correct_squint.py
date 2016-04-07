@@ -21,16 +21,20 @@ class squintCorrector():
         squint_vec = squint_function(self.raw_par.freq_vec)
         squint_vec = squint_vec / self.raw_par.ang_per_tcycle
         squint_vec = squint_vec - squint_vec[self.raw_par.freq_vec.shape[0]/2]
+        #In addition, we correct for the beam motion during the chirp
+        rotation_squint = _np.linspace(0,self.raw_par.tcycle, self.raw_par.nsamp) * self.raw_par.grp.TSC_rotation_speed / self.raw_par.ang_per_tcycle
         #Normal angle vector
         angle_vec =_np.arange(raw_channel.shape[1])
         #We do not correct the squint of the first sample
         squint_vec = _np.insert(squint_vec, 0,0)
+        rotation_squint = _np.insert(rotation_squint, 0, 0)
         #Interpolated raw channel
         raw_channel_interp = _np.zeros_like(raw_channel)
         for idx in range(0, raw_channel.shape[0]):
+            az_new = angle_vec + squint_vec[idx] - rotation_squint[idx]
             if idx % 500 == 0 :
-                print("interp sample:" + str(idx))
-            az_new = angle_vec + squint_vec[idx]
+                print_str = "interp sample: {idx}, ,shift: {sh}".format(idx=idx, sh=az_new[0] - angle_vec[0])
+                print(print_str)
             raw_channel_interp[idx,: ] = _np.interp(az_new, angle_vec, raw_channel[idx,:],left=0.0, right=0.0)
         return raw_channel_interp
 
