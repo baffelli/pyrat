@@ -28,9 +28,24 @@ class gpriRangeProcessor:
         self.rvp = _np.exp(1j*4.*_np.pi*self.raw_par.grp.RF_chirp_rate*(self.raw_par.slr/C)**2) #range video phase correction
         self.rvp_corr = args.rvp_corr
 
-    def compress(self):
+
+    def subband_filter(self, f_c, bw=66e6):
+        filt = _np.zeros(self.raw_par.nsamp)
+        freq_per_step = self.raw_par.grp.RF_chirp_rate * self.raw_par.raw_par.tcycle
+        f_c_idx = int((self.raw_par.freq_vec - f_c) / (freq_per_step))
+        bw_in_samples = int(bw / freq_per_step)
+        min_idx = _np.clip(f_c_idx + bw_in_samples/2,0,self.raw_par.nsamp)
+        max_idx = _np.clip(f_c_idx - bw_in_samples/2,0,self.raw_par.nsamp)
+        filt[min_idx:max_idx] = _np.hamming(bw_in_samples)
+        return filt
+
+    def compress(self, f_c=None, bw=66e6):
+        #Construct a filter
+        if f_c is None:
+            filt = _np.ones(self.raw_par.nsamp)
+        else:
+            filt = self.subband_filter(f_c, bw=bw)
         arr_compr = _np.zeros((self.raw_par.ns_max - self.raw_par.ns_min + 1, self.raw_par.nl_tot_dec) ,dtype=_np.complex64)
-        print(arr_compr.shape)
         fshift = _np.ones(self.raw_par.nsamp/ 2 +1)
         fshift[1::2] = -1
         #For each azimuth
@@ -55,7 +70,7 @@ class gpriRangeProcessor:
                 dec_pulse[0:self.raw_par.zero] = dec_pulse[0:self.raw_par.zero] * self.raw_par.win2[0:self.raw_par.zero]
                 dec_pulse[-self.raw_par.zero:] = dec_pulse[-self.raw_par.zero:] * self.raw_par.win2[-self.raw_par.zero:]
             #Emilinate the first sample, as it is used to jump back to the start freq
-            line_comp = _np.fft.rfft(dec_pulse[1::]/self.raw_par.dec * self.raw_par.win) * fshift
+            line_comp = _np.fft.rfft(dec_pulse[1::] * filt /self.raw_par.dec * self.raw_par.win) * fshift
             if self.rvp_corr:
                 line_comp = line_comp * self.rvp
             #Decide if applying the range scale factor or not
@@ -143,6 +158,7 @@ class gpriRangeProcessor:
 def main():
     #Read the arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    # subparsers = parser.add_subparsers()
     parser.add_argument('raw',
                 help="Raw channel file")
     parser.add_argument('raw_par',
@@ -172,11 +188,9 @@ def main():
     proc = gpriRangeProcessor(args)
     slc = proc.compress()
     #
-    print(proc.raw_par.ns_out)
     #Create default slc parameters
     slc_dict = proc.fill_dict()
     #Compute parameters
-    print(len(slc))
     with open(args.slc_out, 'wb') as of:
         slc.T.astype(_gpf.type_mapping['FCOMPLEX']).tofile(of)
     _gpf.dict_to_par(slc_dict, args.slc_par_out)

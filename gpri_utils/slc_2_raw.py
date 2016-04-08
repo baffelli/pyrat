@@ -21,7 +21,8 @@ class gpriBackwardsProcessor:
 
     def __init__(self, args):
         #Load slc
-        # self.slc = _gpf.gammaDataset(args.slc_par, args.slc).astype(_np.complex64)
+        self.slc = _gpf.gammaDataset(args.slc_par, args.slc).astype(_np.complex64)
+        self.raw_par_in = _gpf.par_to_dict(args.raw_par_in)
         self.slc_par = _gpf.par_to_dict(args.slc_par)
         self.args = args
         #Compute tcycle (supposing the decimation factor is known)
@@ -47,32 +48,40 @@ class gpriBackwardsProcessor:
             self.ns_max = int(round(args.rmax/self.rps))
         else:
             self.ns_max = int(round(0.90 * self.nsamp/2))
+        self.ang_acc = self.raw_par_in['TSC_acc_ramp_angle']
+        rate_max = self.raw_par_in['TSC_rotation_speed']
+        self.t_acc = self.raw_par_in['TSC_acc_ramp_time']
+        self.ang_per_tcycle = self.tcycle * self.raw_par_in['TSC_rotation_speed']  # angular sweep/transmit cycle
+        self.nl_acc = int(self.t_acc / (self.tcycle * self.args.dec))
+        self.win2 = _sig.hanning(
+            2 * args.zero)
+        self.win2[self.win2 == 0] = 1
+        self.zero = args.zero
+
+        #
 
 
     def decompress(self, of):
-        arr_raw = _np.zeros((self.block_length,int(self.slc_par['azimuth_lines'])), dtype=_np.float32)
-        print(arr_raw.shape)
+        arr_raw = _np.zeros((self.block_length,int(self.slc_par['azimuth_lines'] + 2 * self.nl_acc)), dtype=_np.float32)
         fshift = _np.ones(self.nsamp/2 + 1)
         fshift[0::2] = -1
         #Temporary "full" slc line
         full_line = _np.zeros(self.nsamp/2 + 1, dtype=_np.complex64)
         #First convert back
-        with open(self.args.slc, 'rb') as inf:
-            for idx_az in range(int(self.slc_par['azimuth_lines'])):
-                load_line = _np.fromfile(inf,dtype=self.dt, count=int(self.slc_par['range_samples'])) * \
-                1/self.scale[self.ns_min:self.ns_max + 1]
-                full_line[self.ns_min:self.ns_max + 1] = load_line
-                arr_raw[1::, idx_az] = _np.fft.irfft(full_line * fshift, n=self.nsamp)/self.win
-                if idx_az % 1000 == 0:
-                    out_str = "processing line {}".format(idx_az)
-                    print(out_str)
-                    print(full_line.shape)
-                    print(arr_raw.shape)
-                (arr_raw[::,idx_az].astype(_gpf.type_mapping['SHORT INTEGER']) * 32768).T.tofile(of)
+        for idx_az in range(int(self.slc_par['azimuth_lines'])):
+            load_line = self.slc[:, idx_az] * 1/self.scale[self.ns_min:self.ns_max + 1]
+            full_line[self.ns_min:self.ns_max + 1] = load_line
+            arr_raw[1::, idx_az + self.nl_acc] = _np.fft.irfft(full_line * fshift, n=self.nsamp)/self.win
+            if idx_az % 1000 == 0:
+                out_str = "processing line {}".format(idx_az)
+        if self.zero > 0:
+            arr_raw[0:self.zero,:] = arr_raw[0:self.zero,:] / self.win2[0:self.zero, None]
+            arr_raw[-self.zero:] = arr_raw[-self.zero:,:] / self.win2[-self.zero:, None]
+        (arr_raw.astype(_gpf.type_mapping['SHORT INTEGER']).T.).tofile(of)
         #return arr_raw
         #Compute azimuth spectrum
         _plt.figure()
-        _plt.imshow((arr_raw[::5,::]))
+        _plt.imshow((arr_raw[::5,::])**0.1)
         _plt.grid()
         _plt.show()
 
@@ -85,6 +94,8 @@ def main():
                 help="Slc file to process")
     parser.add_argument('slc_par',
                 help="GPRI slc file parameters")
+    parser.add_argument('raw_par_in',
+                        help="Input raw-par (used to compute acceleration time)")
     parser.add_argument('raw_out', type=str,
                 help="Output raw")
     parser.add_argument('raw_par_out', type=str,
@@ -109,6 +120,7 @@ def main():
     proc = gpriBackwardsProcessor(args)
     with open(args.raw_out, 'wb') as of:
         proc.decompress(of)
+    _gpf.dict_to_par(proc.raw_par_in, args.raw_par_out)
         #raw.T.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
 
 if __name__ == "__main__":
