@@ -61,7 +61,7 @@ class gpriBackwardsProcessor:
         #
 
 
-    def decompress(self, of):
+    def decompress(self):
         arr_raw = _np.zeros((self.block_length,int(self.slc_par['azimuth_lines'] + 2 * self.nl_acc)), dtype=_np.float32)
         fshift = _np.ones(self.nsamp/2 + 1)
         fshift[0::2] = -1
@@ -77,13 +77,10 @@ class gpriBackwardsProcessor:
         if self.zero > 0:
             arr_raw[0:self.zero,:] = arr_raw[0:self.zero,:] / self.win2[0:self.zero, None]
             arr_raw[-self.zero:] = arr_raw[-self.zero:,:] / self.win2[-self.zero:, None]
-        (arr_raw.astype(_gpf.type_mapping['SHORT INTEGER']).T.).tofile(of)
-        #return arr_raw
-        #Compute azimuth spectrum
-        _plt.figure()
-        _plt.imshow((arr_raw[::5,::])**0.1)
-        _plt.grid()
-        _plt.show()
+        return arr_raw
+        #
+        # (.astype(_gpf.type_mapping['SHORT INTEGER'])).tofile(of)
+
 
 
 
@@ -118,9 +115,11 @@ def main():
         sys.exit(-1)
     #Create processor object
     proc = gpriBackwardsProcessor(args)
-    with open(args.raw_out, 'wb') as of:
-        proc.decompress(of)
-    _gpf.dict_to_par(proc.raw_par_in, args.raw_par_out)
+    arr_raw = proc.decompress()
+    arr_raw = arr_raw.astype(_gpf.type_mapping['SHORT INTEGER'])
+    #(dataset, par_dict, par_file, bin_file)
+    _gpf.write_dataset(arr_raw, proc.raw_par_in, args.raw_par_out, args.raw_out)
+    # _gpf.dict_to_par(proc.raw_par_in, args.raw_par_out)
         #raw.T.astype(_gpf.type_mapping['SHORT INTEGER']).tofile(of)
 
 if __name__ == "__main__":

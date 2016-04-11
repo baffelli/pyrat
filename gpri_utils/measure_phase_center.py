@@ -69,6 +69,7 @@ class gpriEstimator:
         print(res)
         par_dict = {}
         par_dict['phase_center_offset'] = [res.x[0], 'm']
+        par_dict['residual error'] = res.fun
         par_dict['lever_arm_length'] = [self.r_arm, 'm']
         par_dict['range_of_closest_approach'] = [r_sl, 'm']
         _gpf.dict_to_par(par_dict, self.args.par_path)
