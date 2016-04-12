@@ -28,17 +28,20 @@ parser.add_argument('VV_par', help='VV slc parameters', type=str)
 parser.add_argument('out_root', help='The root filename of the flattened covariance dataset')
 #Two modes: remove or not
 subparsers = parser.add_subparsers(help='Modes', dest='subparser_name')
-subparser_remove = subparsers.add_parsers('flatten', help='Remove topographic phase')
-subparser_normal = subparsers.add_parsers('noflatten', help='Do not remove topographic phase')
-subparser_remove.add_argument("topo_phase", help="Topographic phase (unwrapped float) with the same shape as the other SLCS", type=str)
-subparser_remove.add_argument("topo_phase_par", help="Topographic phase parameters", type=str)
-subparser_remove.add_argument("topo_phase_master_par", help="SLC params of the master image used to generate the topographic phase", type=str)
-subparser_remove.add_argument("topo_phase_slave_par", help="SLC params of the slave image used to generate the topographic phase", type=str)
+subparser_remove = subparsers.add_parser('flatten', help='Remove topographic phase')
+subparser_normal = subparsers.add_parser('noflatten', help='Do not remove topographic phase')
+subparser_remove.add_argument("topo_phase", help="Topographic phase (unwrapped float) with the same shape as the other SLCS",
+                              type=str)
+subparser_remove.add_argument("topo_phase_par", help="Topographic phase parameters",
+                              type=str)
+subparser_remove.add_argument("topo_phase_master_par",
+                              help="SLC params of the master image used to generate the topographic phase", type=str)
+subparser_remove.add_argument("topo_phase_slave_par",
+                               help="SLC params of the slave image used to generate the topographic phase", type=str)
 
 #Subparser to apply them
 args = parser.parse_args()
-
-
+print(args)
 
 
 #Load the channels
