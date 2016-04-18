@@ -26,6 +26,8 @@ def gpi(input_mat, **kwargs):
             k = _np.diagonal(input_mat,axis1 = 2, axis2 = 3)[:,:,[1,2,0]]
         else:
             k = _np.diagonal(input_mat,axis1 = 2, axis2 = 3)
+            if input_mat.shape[-1] == 4:
+                k = k[:, :, [0, 1, 3]]
     im = visfun.pauli_rgb(k,**kwargs)
     return im
 
