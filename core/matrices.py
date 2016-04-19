@@ -476,13 +476,10 @@ class coherencyMatrix(gpri_files.gammaDataset):
         """
         This function converst the current matrix to the lexicographic basis
         """
-        if self.basis is 'pauli':
-            if self.shape[-1] is 3:
-                C = self.transform(U3PL, U3LP)
-            else:
-                C = self.transform(U4PL, U4LP)
+        if self.shape[-1] is 3:
+            C = self.transform(U3PL, U3LP)
         else:
-            C = self
+            C = self.transform(U4PL, U4LP)
         C = self.__array_wrap__(C)
         C.basis = 'lexicographic'
         return C
@@ -491,11 +488,10 @@ class coherencyMatrix(gpri_files.gammaDataset):
         """
         This function converst the current matrix to the pauli basis
         """        
-        if self.basis is 'lexicographic':
-            if self.shape[-1] is 3:
-                C = self.transform(U3LP, U3PL)
-            else:
-                C = self.transform(U4LP, U4PL)
+        if self.shape[-1] is 3:
+            C = self.transform(U3LP, U3PL)
+        else:
+            C = self.transform(U4LP, U4PL)
         C = self.__array_wrap__(C)
         C.basis = 'pauli'
         return C

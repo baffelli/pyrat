@@ -37,18 +37,10 @@ c_par = args.c_root + '.par'
 if args.subparser_name == 'measure':
     C_matrix_flat = _mat.coherencyMatrix(args.c_root, c_par, basis='lexicographic', gamma=True, bistatic=True)
     print(C_matrix_flat.shape)
-    av_win =[5,10]#averaging window
+    av_win = [5,5]#averaging window
     C_matrix_flat_av = C_matrix_flat.boxcar_filter(av_win)
-    f = (C_matrix_flat_av[args.ridx,args.azidx,3,3]/C_matrix_flat_av[args.ridx,args.azidx
-    ,0,0])**(1/4.0)
-    VV_HH_phase_bias = _np.angle(C_matrix_flat[args.ridx, args.azidx, 3, 0])
-    g = _np.mean(C_matrix_flat_av[:,:,1,1]/C_matrix_flat_av[:,:,2,2])**(1/4.0)
-    cross_pol_bias = _np.angle(_np.mean(C_matrix_flat_av[:,:,1,2]))
-    #Solve for phi t and phi r
-    phi_t = (VV_HH_phase_bias + cross_pol_bias) / 2
-    phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
+    f, g, phi_t, phi_r = _cal.measure_imbalance(C_matrix_flat, [args.ridx, args.azidx])
     cal_dict = _od()
-    print(g)
     cal_dict['f'] = f.real
     cal_dict['g'] = g.real
     cal_dict['transmit_phase_imbalance'] = phi_t
@@ -59,16 +51,17 @@ if args.subparser_name == 'measure':
 elif args.subparser_name == 'apply_C' :
     C_matrix_flat = _mat.coherencyMatrix(args.c_root, c_par, basis='lexicographic', gamma=True, bistatic=True)
     cal_dic = _gpf.par_to_dict(args.cal_parameters)
-    f = cal_dic['f']
-    g = cal_dic['g']
-    phi_t = cal_dic['transmit_phase_imbalance']
-    phi_r = cal_dic['receive_phase_imbalance']
+    k = cal_dic['k'][0] +  1j * cal_dic['k'][1]
+    alpha = cal_dic['alpha'][0] +  1j * cal_dic['alpha'][1]
+    # phi_t = cal_dic['transmit_phase_imbalance']
+    # phi_r = cal_dic['receive_phase_imbalance']
     #Distortion matrix
-    distortion_matrix = _np.diag([1,f*g*_np.exp(1j * phi_t),f/g*_np.exp(1j * phi_r),f**2*_np.exp(1j * (phi_t + phi_r))])
+    distortion_matrix = _cal.distortion_matrix_for_covariance(k, alpha)
     #Invert it
     distortion_matrix_inv = _np.diag(1/_np.diag(distortion_matrix))
     # #Correct the matrix
-    C_matrix_c = C_matrix_flat.transform(distortion_matrix_inv,distortion_matrix_inv.T.conj())
+    C_matrix_c = C_matrix_flat.transform(distortion_matrix_inv,
+                                         distortion_matrix_inv.T.conj())
     #Write the channels to a file
     C_matrix_c.to_gamma(args.out_root, bistatic=True)
 
@@ -88,75 +81,6 @@ elif args.subparser_name == 'apply_C' :
     # _plt.show()
 
 
-# C_matrix_c_mono = _np.zeros(HH.shape + (3,3), dtype=_np.complex64)
-#
-# #Extract the submatrix (monostatic equivalent)
-# for cnt_1, idx_1 in enumerate([0,1,3]):
-#     for cnt_2,idx_2 in enumerate([0,1,3]):
-#         C_matrix_c_mono[:,:,cnt_1,cnt_2] = C_matrix_c[:,:,idx_1,idx_2]
-#
-#
-#
-# #Display nice pol signatures
-# C_matrix_c = _mat.coherencyMatrix(C_matrix_c_mono, basis='lexicographic')
-# # import polarimetricVisualization as pV
-# # pV.polarimetricVisualization(C_matrix_c, vf=_pf.pol_signature)
-# # _plt.show()
-# #
-# for idx_ref in range(len(args.ridx)):
-#     resu = _pf.pol_signature(C_matrix_c[args.ridx[ref_idx],args.azidx[ref_idx]])
-#     _vf.show_signature(resu)
-#     _plt.show()
-#
-#
-# #Read HHVV phase at the reflectors
-# HHVV_phase = C_matrix[:,:,0,3]
-# HHVV_phase_flat = C_matrix_flat[:,:,0,3]
-# HHVV_phase_flat_corr = C_matrix_c[:,:,0,3]
-# rgb, pal, c = _vf.dismph(HHVV_phase_flat_corr,k=0.3)
-# _plt.imshow(rgb, origin='lower')
-# _plt.colorbar()
-# _plt.plot(args.azidx, args.ridx,'o')
-# #Vector of incidence angles
-# inc_vec = _np.rad2deg(inc[args.azidx ,args.ridx])
-# f, (ampl_plot, ph_plot) = _plt.subplots(2,sharex=True)
-# ph_plot.plot(inc_vec,_np.rad2deg(_np.angle(HHVV_phase_flat[args.ridx, args.azidx])),'ro', label='HH-VV phase')
-# ph_plot.plot(inc_vec,_np.rad2deg(_np.angle(HHVV_phase_flat_corr[args.ridx, args.azidx])),'go', label='Calibrated')
-# ampl_plot.plot(inc_vec, (C_matrix[args.ridx, args.azidx,0,0]/C_matrix[args.ridx, args.azidx,3,3])**0.25,'o')
-# ampl_plot.set_ylim(1,1.5)
-# _plt.legend()
-# ph_plot.xaxis.set_label_text(r'Incidence Angle[deg]')
-# ph_plot.yaxis.set_label_text(r'HH-VV difference[deg]')
-# ampl_plot.yaxis.set_label_text(r'HH-VV amplitude imbalance')
-#
-# _plt.show()
 
-# T_matrix_cal = C_matrix_c.lexicographic_to_pauli()
-# rgb = T_matrix_cal.pauli_image(sf=0.1)
-# _plt.figure()
-# _plt.imshow(rgb)
-# _plt.show()
-#
-#
-# #Extract phase and range
-# HHVV_phase_range = _np.angle(HHVV_phase[args.ridx, args.azidx])
-# r = r_vec[args.ridx]
-# p =_np.polyfit(r, HHVV_phase_range,2)
-# HHVV_phase_range_model = _np.polynomial.polynomial.polyval(r,p[::-1])
-#
-# #Plot measured and modeles
-# _plt.figure()
-# _plt.plot(r, _np.rad2deg(HHVV_phase_range))
-# _plt.plot(r, _np.rad2deg(HHVV_phase_range_model))
-# _plt.show()
-#
-# # Determine the HH-VV phase imbalance
-# hhvv_phase, hh_vv_par = _gpf.load_dataset(args.HHVV_flat_par, args.HHVV_flat)
-# HH_pwr, HH_pwr_par = _gpf.load_dataset(args.HH_pwr_par, args.HH_pwr)
-# VV_pwr, VV_pwr_par = _gpf.load_dataset(args.VV_pwr_par, args.VV_pwr)
-# reflector_imbalance_phase = _np.angle(hhvv_phase[args.ridx, args.azidx].conj())
-# reflector_imbalance_amplitude = (VV_pwr[args.ridx, args.azidx] / HH_pwr[args.ridx, args.azidx])**1/4
-
-#Parameter dict
 
 
