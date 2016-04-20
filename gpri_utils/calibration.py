@@ -32,37 +32,33 @@ def remove_window(S):
     return S_corr
 
 
-def measure_imbalance(C,refpos):
+def measure_imbalance(C_tri, C):
     """
     This function measures the co and crosspolar imbalance
     Parameters
     ----------
-    C   : coherencyMatrix
+    C_tri   : coherencyMatrix
         the covariance image from which to estimate the parameters (must be averaged)
+    C   : coherencyMatrix
+    the covariance to estimate the HV VH imbalanace
     refpos  : iterable
         the position of the TCR (ridx,azidx)
     Returns
     -------
 
     """
-    alpha_abs = (_np.mean(C[:, :, 2, 2]) / _np.mean(C[:, :, 1, 1])) ** (1 / 4.0)
-    alpha_ang = 1/2.0 * _np.mean(_np.angle(C[:, :, 2, 1]))
-    alpha = alpha_abs * _np.exp(1j * alpha_ang)
-    k_abs = ( C[refpos[0], refpos[1], 0, 0] / C[refpos[0], refpos[1], 3, 3] * 1 / alpha**2) ** (1 / 2.0)
-    k_ang =  1/2.0 * _np.angle(C[refpos[0], refpos[1], 0, 3] * _np.exp(-2j*alpha_ang))
-    k = k_abs * _np.exp(1j * k_ang)
-    # f = (C[refpos[0], refpos[1], 3, 3] / C[refpos[0], refpos[1]
-    # , 0, 0]) ** (1 / 4.0)
-    # VV_HH_phase_bias = _np.angle(C[refpos[0], refpos[1], 3, 0])
-    # g = (_np.mean(C[:, :, 1, 1]) / _np.mean(C[:, :, 2, 2])) ** (1 / 4.0)
-    # cross_pol_bias = _np.mean(_np.angle((C[:, :, 1, 2])))
-    # # Solve for phi t and phi r
-    # phi_t = (VV_HH_phase_bias + cross_pol_bias) / 2
-    # phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
-    return k, alpha
+    f = (_np.abs(C_tri[3, 3]) / _np.abs(C_tri[0, 0])) ** (1 / 4.0)
+    VV_HH_phase_bias = _np.angle(C_tri[3, 0])
+    g = (_np.mean(C[:, :, 1, 1]) / _np.mean(C[:, :, 2, 2])) ** (1 / 4.0)
+    cross_pol_bias = _np.angle(_np.mean((C[:, :, 1, 2])))
+    # Solve for phi t and phi r
+    phi_t = (VV_HH_phase_bias + cross_pol_bias) / 2
+    phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
+    return phi_t, phi_r, f, g
 
-def distortion_matrix_for_covariance(k, alpha):
-    distortion_matrix = _np.diag([k * alpha, 1/alpha, alpha, 1/(alpha * k)])
+def distortion_matrix(phi_t, phi_r, f, g):
+    distortion_matrix = _np.diag([1, f * g * _np.exp(1j * phi_t), f/g * _np.exp(1j * phi_r),
+                                  f**2 * _np.exp(1j * (phi_r + phi_t))])
     return distortion_matrix
 
 def calibrate_from_parameters(S,par):

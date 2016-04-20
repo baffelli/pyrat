@@ -41,7 +41,6 @@ subparser_remove.add_argument("topo_phase_slave_par",
 
 #Subparser to apply them
 args = parser.parse_args()
-print(args)
 
 
 #Load the channels
