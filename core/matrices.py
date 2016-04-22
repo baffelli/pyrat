@@ -364,7 +364,10 @@ class coherencyMatrix(gpri_files.gammaDataset):
     def to_monostatic(self):
         self.bistatic = False
         i,j  = _np.meshgrid([0,1,3],[0,1,3])
-        return self[:,:,i,j]
+        if self.ndim is 4:
+            return self[:,:,i,j]
+        else:
+            return self[i, j]
 
     def __new__(*args,**kwargs):
         cls = args[0]
