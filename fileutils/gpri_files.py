@@ -104,6 +104,22 @@ def to_bitmap(dataset, filename):
     _sp.misc.imsave(filename, dataset, format=fmt)
 
 
+def load_plist(path):
+    """
+    Loads a point list from a gamma file
+    Parameters
+    ----------
+    path
+        the path of the point list
+    Returns
+    -------
+        the point list as a 2d array
+    """
+    dt = _np.dtype({"names": ['ridx', 'azidx'],
+                    "formats": ['>u4', '>u4']})
+    plist = _np.fromfile(path, dtype=dt)
+    return plist
+
 class gammaDataset(_np.ndarray):
     def __new__(*args, **kwargs):
         cls = args[0]
