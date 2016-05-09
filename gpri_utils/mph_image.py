@@ -60,6 +60,7 @@ class dismphPlotter:
                 1
             if self.args.no_axis:
                 _plt.axis('off')
+            _plt.tight_layout()
             f.set_size_inches(self.args.fig_size)
             f.savefig(self.args.figpath)
 

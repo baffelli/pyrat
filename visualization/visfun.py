@@ -461,7 +461,7 @@ def dismph(data, min_val=-180, max_val=180, k=1, N=24, sf=1, repeat=False, coher
         hsv[:,:,1] = _np.abs(data)
 
     mask = ampl < 0.01
-    hsv[mask] = 0
+    # hsv[mask] = 0
     #Convert back to rgb
     rgb = _mpl.colors.hsv_to_rgb(hsv)
     return rgb[:,:,:], pal, norm
