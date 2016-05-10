@@ -369,24 +369,21 @@ class coherencyMatrix(gpri_files.gammaDataset):
         else:
             return self[i, j]
 
+
+
     def __new__(*args,**kwargs):
         cls = args[0]
+        #The type of data
+        basis = kwargs.get('basis', 'lexicographic')
+        # bistatic = kwargs.get('bistatic')
         #Get keywords
         coherency = kwargs.get('coherency')
         agrisar = kwargs.get('agrisar')
         polsarpro = kwargs.get('polsarpro')
         gamma = kwargs.get('gamma')
         dim = kwargs.get('dim')
-        if 'bistatic' not in kwargs:
-            bistatic = False
-        else:
-            bistatic = kwargs.get('bistatic')
-        if 'basis' not in kwargs:
-            basis = 'pauli'
-        else:
-            basis = kwargs.get('basis')
-        if 'gamma' not in kwargs:
-            gamma=False
+        bistatic = kwargs.get('bistatic', True)
+        suffix =
         if type(args[1]) is _np.ndarray:#from array
             T = args[1]
             #TODO check why strange hermitian behavior for GPRI data
@@ -504,6 +501,9 @@ class coherencyMatrix(gpri_files.gammaDataset):
             C = self
         C = self.__array_wrap__(C)
         return C
+
+
+
 
     def to_gamma(*args, **kwargs):
         if 'bistatic' in kwargs:

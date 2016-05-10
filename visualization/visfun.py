@@ -460,10 +460,12 @@ def dismph(data, min_val=-180, max_val=180, k=1, N=24, sf=1, repeat=False, coher
     else:
         hsv[:,:,1] = _np.abs(data)
 
-    mask = ampl < 0.01
-    # hsv[mask] = 0
-    #Convert back to rgb
+    # Convert back to rgb
     rgb = _mpl.colors.hsv_to_rgb(hsv)
+    mask = _np.sum(rgb ,axis=-1) == 0
+    #RGBA alpha mask
+    alpha_chan = (1- mask)
+    rgb = _np.dstack((rgb,alpha_chan))
     return rgb[:,:,:], pal, norm
 
 
