@@ -567,12 +567,28 @@ def raster_index_to_coordinate(gs, index):
     return (coord_x, coord_y)
 
 
-def get_extent(ds):
+def get_ds_extent(ds):
     gt = ds.GetGeoTransform()
     gt_x_vec = tuple(_np.sort((gt[0], gt[0] + gt[1] * (ds.RasterXSize))))
     gt_y_vec = tuple(_np.sort(((gt[3], gt[3] + gt[5] * (ds.RasterYSize)))))
     return gt_x_vec[0], gt_x_vec[1], gt_y_vec[0], gt_y_vec[1]
 
+def get_dem_extent(par_dict):
+    gt = [par_dict['corner_east'][0], par_dict['post_east'][0],\
+        0, 0, par_dict['corner_north'][0], par_dict['post_north'][0]]
+    gt_x_vec = tuple(_np.sort((gt[0], gt[0] + gt[1] * (par_dict['width']))))
+    gt_y_vec = tuple(_np.sort(((gt[3], gt[3] + gt[5] * (par_dict['nlines'])))))
+    return gt_x_vec[0], gt_x_vec[1], gt_y_vec[0], gt_y_vec[1]
+
+
+def gt_from_dem_par(par_dict):
+    """"
+        This function computes the geotransform parameters from a gamma DEM parameters file
+
+    """
+    gt = [par_dict['corner_east'], par_dict['post_east'],\
+        0, 0, par_dict['corner_north'], par_dict['post_north']]
+    return gt
 
 def read_coordinate_extent(ds, coords, interp=None):
     """

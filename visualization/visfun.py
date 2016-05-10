@@ -371,6 +371,13 @@ def show_geocoded(geocoded_image, **kwargs):
     _plt.ylabel(r'Northing [m]')
     return a
 
+
+def mask_zeros(rgb):
+    mask = _np.sum(rgb,axis=-1) == 0
+    mask = 1 - mask
+    rgba = _np.dstack((rgb, mask))
+    return rgba
+
 def ROC(cases, scores, n_positive, n_negative):
     sort_indices = _np.argsort(scores)
     sort_cases = cases[sort_indices[::-1]]

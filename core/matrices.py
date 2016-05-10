@@ -383,7 +383,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
         gamma = kwargs.get('gamma')
         dim = kwargs.get('dim')
         bistatic = kwargs.get('bistatic', True)
-        suffix =
+        suffix = kwargs.get('suffix', '.c{i}{j}')
         if type(args[1]) is _np.ndarray:#from array
             T = args[1]
             #TODO check why strange hermitian behavior for GPRI data
@@ -415,7 +415,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
                 C = _np.zeros((shp) + (len(chan_dict),len(chan_dict)), dtype=_np.complex64)
                 for chan_1 in chan_dict.keys():
                     for chan_2 in chan_dict.keys():
-                        extension = ".c{i}{j}".format(i=chan_dict[chan_1], j=chan_dict[chan_2])
+                        extension = suffix.format(i=chan_dict[chan_1], j=chan_dict[chan_2])
                         chan_name = path + extension
                         chan, par = gpri_files.load_dataset(par_name, chan_name)
                         C[:,:,chan_1, chan_2] = chan
