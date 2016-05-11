@@ -1,4 +1,6 @@
 #!/usr/bin/python
+import pyrat.geo.geofun
+
 __author__ = 'baffelli'
 
 
@@ -31,7 +33,7 @@ def main():
     #Open the data set
     DS = _gdal.Open(args.dem)
     #Convert
-    dem_dic = _of.gdal_to_dict(DS)
+    dem_dic = _geo.gdal_to_dict(DS)
     _gpf.dict_to_par(dem_dic, args.output_dem_par)
     dem = DS.ReadAsArray()
     dem.astype(_gpf.type_mapping[dem_dic['data_format']]).tofile(args.output_dem)

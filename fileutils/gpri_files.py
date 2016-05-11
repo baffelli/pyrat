@@ -7,22 +7,21 @@ This module contains classes and function to deal with Gamma file formats
 
 @author: baffelli
 """
-import os.path as _osp
-import os as _os
-from osgeo import osr as _osr
-import mmap as _mm
 import copy as _cp
+import mmap as _mm
 import numbers as _num
-import tempfile as _tf
-import scipy.signal as _sig
-import numpy as _np
-from numpy.lib.stride_tricks import as_strided as _ast
-import scipy as _sp
-from collections import namedtuple as _nt
-from collections import OrderedDict as _od
+import os as _os
+import os.path as _osp
 import re as _re
-from . import other_files as _of
 import sys as _sys
+import tempfile as _tf
+from collections import OrderedDict as _od
+from collections import namedtuple as _nt
+
+import numpy as _np
+import scipy as _sp
+import scipy.signal as _sig
+from numpy.lib.stride_tricks import as_strided as _ast
 
 # Constants for gpri
 ra = 6378137.0000  # WGS-84 semi-major axis
@@ -448,24 +447,6 @@ def compute_phase_center(par):
     rx_number = extract_channel_number(par['title'][-1])
     ph_center = (par['GPRI_tx_coord'][2] + par['GPRI_rx{num}_coord'.format(num=rx_number)][2]) / 2.0
     return ph_center
-
-
-def geotif_to_dem(gt, par_path, bin_path):
-    """
-    This function converts a gdal dataset
-    DEM into a gamma format pair
-    of binary DEM and parameter file
-    """
-    DEM = gt.ReadAsArray()
-    GT = gt.GetGeoTransform()
-    srs = _osr.SpatialReference()
-    srs.ImportFromWkt(gt.GetProjection())
-    d = {}
-    # FOrmat information
-    # Convert
-    dem_dic = _of.gdal_to_dict(gt)
-    dict_to_par(dem_dic, par_path)
-    DEM.astype(type_mapping[dem_dic['data_format']]).tofile(bin_path)
 
 
 def gpri_raw_strides(nsamp, nchan, npat, itemsize):
