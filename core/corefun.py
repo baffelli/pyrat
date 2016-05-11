@@ -12,6 +12,7 @@ import tempfile as _tf
 import subprocess as _sp
 import os as _os
 from ..fileutils import gpri_files as _gpf
+import scipy.ndimage as _ndim
 #Set environment variables
 _os.environ['GAMMA_HOME']='/usr/local/GAMMA_SOFTWARE-20130717'
 _os.environ['ISP_HOME']=_os.environ['GAMMA_HOME'] + '/ISP'
@@ -133,6 +134,31 @@ def unwrap(intf, wgt, mask):
         return -1
     unwrapped = _np.fromfile(unw_tf.name, dtype=_gpf.type_mapping['FLOAT']).reshape(intf.shape[::-1]).T
     return unwrapped
+
+
+def ptarg(slc,ridx, azidx,rwin=32, azwin=64, osf=16):
+    sw = 4
+    search_win = (slice(ridx - sw / 2, ridx + sw / 2),
+           slice(azidx - sw / 2, azidx + sw / 2),)
+    # Find the maxium
+    ptarg = slc[search_win]
+    mx = _np.argmax(_np.abs(ptarg))
+    mx_r, mx_az = _np.unravel_index(mx, ptarg.shape)
+    #Maximum in global system
+    mx_r_glob = mx_r + ridx
+    mx_az_glob = mx_r + azidx
+    # New window
+    win_1 = (slice(mx_r_glob - rwin / 2, mx_r_glob + mx_r + rwin / 2),
+             slice(mx_az_glob - azwin / 2, mx_az_glob + azwin / 2),)
+    mx_sample = (slc[mx_r_glob, mx_az_glob])
+    ptarg = slc[win_1]
+    ptarg_zoom = _ndim.interpolation.zoom(ptarg.real, osf) + 1j * _ndim.interpolation.zoom(ptarg.imag, osf)
+    mx_zoom = _np.argmax(_np.abs(ptarg_zoom))
+    mx_r_zoom, mx_az_zoom = _np.unravel_index(mx_zoom, ptarg_zoom.shape)
+
+    rplot = ptarg_zoom[:, mx_az_zoom]
+    azplot = ptarg_zoom[mx_r_zoom, :]
+    return ptarg_zoom, rplot, azplot
 
 
 def shift_array(array,shift):
