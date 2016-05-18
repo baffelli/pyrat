@@ -137,30 +137,44 @@ def unwrap(intf, wgt, mask):
 
 
 def ptarg(slc,ridx, azidx,rwin=32, azwin=64, osf=16, ):
+    complex_interp = lambda arr, osf : _ndim.interpolation.zoom(arr.real, osf) + 1j * _ndim.interpolation.zoom(arr.imag, osf)
     sw = 4
+    #Add one ellispis in case of a ndimensional image
+    additional_dim = slc.ndim - 2 if (slc.ndim - 2) >= 0 else 0
     search_win = (slice(ridx - sw / 2, ridx + sw / 2),
-           slice(azidx - sw / 2, azidx + sw / 2),)
+           slice(azidx - sw / 2, azidx + sw / 2), ) + (Ellipsis,)*additional_dim
     # Find the maxium
     ptarg = slc[search_win]
-    if ptarg.ndim == 2:
-        mx = _np.argmax(_np.abs(ptarg))
-    else:
-        mx = _np.argmax(_np.sum(_np.abs(ptarg),axis=-1))
-    mx_r, mx_az = _np.unravel_index(mx, ptarg.shape[0:2])
+    mx = _np.argmax(_np.abs(ptarg))
+    mx_list = _np.unravel_index(mx, ptarg.shape)
+    mx_r, mx_az = mx_list[0:2]
+
     #Maximum in global system
     mx_r_glob = mx_r + ridx
     mx_az_glob = mx_r + azidx
     # New window
     win_1 = (slice(mx_r_glob - rwin / 2, mx_r_glob + mx_r + rwin / 2),
              slice(mx_az_glob - azwin / 2, mx_az_glob + azwin / 2),)
-    mx_sample = (slc[mx_r_glob, mx_az_glob])
+    mx_sample = (slc[(mx_r_glob, mx_az_glob) + (Ellipsis,)*additional_dim])
     ptarg = slc[win_1]
-    ptarg_zoom = _ndim.interpolation.zoom(ptarg.real, osf) + 1j * _ndim.interpolation.zoom(ptarg.imag, osf)
+    if slc.ndim == 2:
+        ptarg_zoom = complex_interp(ptarg, osf)
+    else:
+        if slc.ndim == 3:
+            ptarg_zoom = []
+            for i in range(slc.shape[-1]):
+                ptarg_zoom[i] = complex_interp(ptarg[:,:,i], osf)
+        elif slc.ndim == 4:
+            ptarg_zoom = [[0 for x in range(ptarg.shape[-2])] for y in range(ptarg.shape[-2])]
+            for i in range(slc.shape[-1]):
+                for j in range(slc.shape[-2]):
+                    ptarg_zoom[i][j] = complex_interp(ptarg[:,:,i,j], osf)
+            ptarg_zoom = _np.array(ptarg_zoom).transpose([2,3,0,1])
     mx_zoom = _np.argmax(_np.abs(ptarg_zoom))
-    mx_r_zoom, mx_az_zoom = _np.unravel_index(mx_zoom, ptarg_zoom.shape)
-
-    rplot = ptarg_zoom[:, mx_az_zoom]
-    azplot = ptarg_zoom[mx_r_zoom, :]
+    mx_list_zoom = _np.unravel_index(mx_zoom, ptarg_zoom.shape)
+    mx_r_zoom, mx_az_zoom = mx_list_zoom[0:2]
+    rplot = ptarg_zoom[(Ellipsis, mx_az_zoom) + (Ellipsis,)*additional_dim]
+    azplot = ptarg_zoom[(mx_r_zoom, Ellipsis) + (Ellipsis,)*additional_dim]
     return ptarg_zoom, rplot, azplot, (mx_r_zoom, mx_az_zoom)
 
 
