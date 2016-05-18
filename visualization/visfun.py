@@ -338,12 +338,14 @@ def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf = 0.3):
     if not normalized:
         data_diagonal = _np.abs(scattering_vector)
         #Compute the percentiles for all the channels
-        q = [5, 99.9]
+        q = [10, 97.9]
         RGB = _np.zeros(data_diagonal.shape)
         total_hist = _np.mean(data_diagonal, axis=2)
-        min_p, max_p = _np.percentile(total_hist, q)
         for chan in [0,1,2]:
-            RGB[:,:,chan] = scale_array(scale_array(data_diagonal[:,:,chan], min_val=min_p, max_val=max_p)**k)
+            min_p, max_p = _np.percentile(_np.abs(data_diagonal[:, :, chan]), q)
+            # RGB[:,:,chan] = scale_array(scale_array(data_diagonal[:,:,chan], min_val=min_p, max_val=max_p)**k)
+            sf_max = _np.mean(_np.abs(data_diagonal[:, :, chan]))
+            RGB[:, :, chan] = scale_array(data_diagonal[:, :, chan], min_val=min_p, max_val=max_p)
         out = RGB
     else:
         span = _np.sum(scattering_vector, axis=2)

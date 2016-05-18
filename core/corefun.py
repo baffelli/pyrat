@@ -136,14 +136,17 @@ def unwrap(intf, wgt, mask):
     return unwrapped
 
 
-def ptarg(slc,ridx, azidx,rwin=32, azwin=64, osf=16):
+def ptarg(slc,ridx, azidx,rwin=32, azwin=64, osf=16, ):
     sw = 4
     search_win = (slice(ridx - sw / 2, ridx + sw / 2),
            slice(azidx - sw / 2, azidx + sw / 2),)
     # Find the maxium
     ptarg = slc[search_win]
-    mx = _np.argmax(_np.abs(ptarg))
-    mx_r, mx_az = _np.unravel_index(mx, ptarg.shape)
+    if ptarg.ndim == 2:
+        mx = _np.argmax(_np.abs(ptarg))
+    else:
+        mx = _np.argmax(_np.sum(_np.abs(ptarg),axis=-1))
+    mx_r, mx_az = _np.unravel_index(mx, ptarg.shape[0:2])
     #Maximum in global system
     mx_r_glob = mx_r + ridx
     mx_az_glob = mx_r + azidx
@@ -158,7 +161,7 @@ def ptarg(slc,ridx, azidx,rwin=32, azwin=64, osf=16):
 
     rplot = ptarg_zoom[:, mx_az_zoom]
     azplot = ptarg_zoom[mx_r_zoom, :]
-    return ptarg_zoom, rplot, azplot
+    return ptarg_zoom, rplot, azplot, (mx_r_zoom, mx_az_zoom)
 
 
 def shift_array(array,shift):
