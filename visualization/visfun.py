@@ -8,7 +8,7 @@ import os as _os
 import matplotlib as _mpl
 import matplotlib.pyplot as _plt
 import numpy as _np
-#import pyrat.core.polfun
+# import pyrat.core.polfun
 import scipy.fftpack as _fftp
 import scipy.ndimage as _ndim
 import matplotlib.colors as _col
@@ -107,15 +107,14 @@ def scale_array(*args, **kwargs):
         maxVal = kwargs.get('max_val')
     else:
         maxVal = _np.nanmax(data)
-    scaled = (_np.clip(data, minVal, maxVal) - minVal) / _np.abs(maxVal - minVal)
+    scaled = (data - minVal) / _np.abs(maxVal - minVal)
     return scaled
 
-def format_axes(ax):
 
+def format_axes(ax):
     for spine in ['top', 'right']:
         ax.spines[spine].set_visible(False)
     return ax
-
 
 
 def segment_image(S, thresh):
@@ -267,7 +266,13 @@ def exp_im(im, k, sf):
     """
     im_pwr = _np.abs(im)
     sc = _np.nanmean(im_pwr)
-    im_pwr = scale_array((im_pwr/sc)**k,max_val=sf)
+    im_pwr = scale_array((im_pwr / sc) ** k, max_val=sf)
+    return im_pwr
+
+
+def gamma_scaling(im, k, sf):
+    im_pwr = _np.abs(im)
+    im_pwr = _np.clip(sf, 0, 1) * scale_array((im_pwr) ** k)
     return im_pwr
 
 
@@ -322,7 +327,7 @@ def auto_heading(S, pixel_coord, geo_coord):
     return pixel_az - geo_heading
 
 
-def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf = 0.3):
+def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf=1):
     """
         This function produces a rgb image from a scattering vector.
         
@@ -337,15 +342,14 @@ def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf = 0.3):
         """
     if not normalized:
         data_diagonal = _np.abs(scattering_vector)
-        #Compute the percentiles for all the channels
-        q = [10, 97.9]
+        # Compute the percentiles for all the channels
+        q = [10, 99.99]
         RGB = _np.zeros(data_diagonal.shape)
-        total_hist = _np.mean(data_diagonal, axis=2)
-        for chan in [0,1,2]:
-            min_p, max_p = _np.percentile(_np.abs(data_diagonal[:, :, chan]), q)
-            # RGB[:,:,chan] = scale_array(scale_array(data_diagonal[:,:,chan], min_val=min_p, max_val=max_p)**k)
-            sf_max = _np.mean(_np.abs(data_diagonal[:, :, chan]))
-            RGB[:, :, chan] = scale_array(data_diagonal[:, :, chan], min_val=min_p, max_val=max_p)
+        min_p, max_p = _np.percentile(data_diagonal, q)
+        for chan in [0, 1, 2]:
+            clipped = _np.clip(data_diagonal[:, :, chan], min_p, max_p)
+            gamma_scaled = clipped ** k
+            RGB[:, :, chan] = scale_array(gamma_scaled)
         out = RGB
     else:
         span = _np.sum(scattering_vector, axis=2)
@@ -375,10 +379,11 @@ def show_geocoded(geocoded_image, **kwargs):
 
 
 def mask_zeros(rgb):
-    mask = _np.sum(rgb,axis=-1) == 0
+    mask = _np.sum(rgb, axis=-1) == 0
     mask = 1 - mask
     rgba = _np.dstack((rgb, mask))
     return rgba
+
 
 def ROC(cases, scores, n_positive, n_negative):
     sort_indices = _np.argsort(scores)
@@ -413,6 +418,7 @@ def scale_coherence(c):
     #    c_sc = _np.select(((_np.sin(c * _np.pi / 2)), 0.3), (c > 0.2, c<0.2))
     return _np.sin(c * _np.pi / 2)
 
+
 # #TODO
 class gammaNormalize(_col.Normalize):
     def __init__(self, vmin=None, vmax=None, mean=None, clip=False, gamma=1.2, sf=1):
@@ -430,52 +436,51 @@ class gammaNormalize(_col.Normalize):
 
     def __call__(self, value):
         self.autoscale_None(value)
-        return ((value - self.vmin)/(self.vmax - self.vmin))**self.gamma
+        return ((value - self.vmin) / (self.vmax - self.vmin)) ** self.gamma
 
 
 def circular_palette(N=24, repeat=False):
-    radius = 38#chroma
+    radius = 38  # chroma
     if not repeat:
         theta = _np.linspace(0, 2 * _np.pi, N)
     else:
-        theta = _np.linspace(0, 2 * _np.pi, N/2)
+        theta = _np.linspace(0, 2 * _np.pi, N / 2)
     a = radius * _np.cos(theta)
     b = radius * _np.sin(theta)
     L = _np.ones(a.shape) * 70
-    LAB = _np.dstack((L,a,b))
-    rgb = color.lab2rgb(LAB[::-1,:]).squeeze()
+    LAB = _np.dstack((L, a, b))
+    rgb = color.lab2rgb(LAB[::-1, :]).squeeze()
     if repeat:
-        rgb = _np.vstack((rgb,rgb))
+        rgb = _np.vstack((rgb, rgb))
     return rgb
-
 
 
 def dismph(data, min_val=-180, max_val=180, k=1, N=24, sf=1, repeat=False, coherence=False):
     colors_hue = circular_palette(N, repeat=repeat)
-    pal = _mpl.colors.LinearSegmentedColormap.\
+    pal = _mpl.colors.LinearSegmentedColormap. \
         from_list('subs_colors', colors_hue, N=N)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
-    #Extract amplitude and phase
+    # Extract amplitude and phase
     ang = scale_array(_np.rad2deg(_np.angle(data)), min_val=min_val, max_val=max_val)
-    ampl = exp_im(_np.abs(data),k,sf)
-    #Convert angle to colors
+    ampl = exp_im(_np.abs(data), k, sf)
+    # Convert angle to colors
     rgb = pal(ang)
     # #Extract the hsv parameters
-    hsv = _mpl.colors.rgb_to_hsv(rgb[:,:,0:3])
-    #Add
-    #Scale with intensity
+    hsv = _mpl.colors.rgb_to_hsv(rgb[:, :, 0:3])
+    # Add
+    # Scale with intensity
     if not coherence:
-        hsv[:,:,2] = ampl
+        hsv[:, :, 2] = ampl
     else:
-        hsv[:,:,1] = _np.abs(data)
+        hsv[:, :, 1] = _np.abs(data)
 
     # Convert back to rgb
     rgb = _mpl.colors.hsv_to_rgb(hsv)
-    mask = _np.sum(rgb ,axis=-1) == 0
-    #RGBA alpha mask
-    alpha_chan = (1- mask)
-    rgb = _np.dstack((rgb,alpha_chan))
-    return rgb[:,:,:], pal, norm
+    mask = _np.sum(rgb, axis=-1) == 0
+    # RGBA alpha mask
+    alpha_chan = (1 - mask)
+    rgb = _np.dstack((rgb, alpha_chan))
+    return rgb[:, :, :], pal, norm
 
 
 def hsv_cp(H, alpha, span):
@@ -512,11 +517,6 @@ def extract_section(image, center, size):
     return image[xx, yy]
 
 
-
-
-
-
-
 def show_signature(signature_output, rotate=False):
     phi = signature_output[2]
     tau = signature_output[3]
@@ -529,7 +529,7 @@ def show_signature(signature_output, rotate=False):
         sig_cross = sig_cross.T
     else:
         xt = [-45, 45, -90, 90]
-    f, (ax_co, ax_x) = _plt.subplots(2,sharex=True,shary=True)
+    f, (ax_co, ax_x) = _plt.subplots(2, sharex=True, shary=True)
     ax_co.imshow(sig_co, interpolation='none', cmap='RdBu_r', extent=xt)
     ax_x.imshow(sig_cross, interpolation='none', cmap='RdBu_r', extent=xt)
     _plt.locator_params(nbins=5)
@@ -554,6 +554,7 @@ def blockshaped(arr, n_patch):
     return (arr.reshape(h // nrows, nrows, -1, ncols)
             .swapaxes(1, 2)
             .reshape(-1, nrows, ncols))
+
 
 class ROI:
     """
@@ -588,6 +589,3 @@ class ROI:
             ax_pts = display_to_ax(data_to_display(dta_pts))
             p = _plt.Polygon(ax_pts, True, transform=ax.transAxes, **kwargs)
             ax.add_patch(p)
-
-
-
