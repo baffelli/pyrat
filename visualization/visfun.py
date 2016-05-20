@@ -266,7 +266,9 @@ def exp_im(im, k, sf):
     """
     im_pwr = _np.abs(im)
     sc = _np.nanmean(im_pwr)
-    im_pwr = scale_array((im_pwr / sc) ** k, max_val=sf)
+    p, q = _np.percentile(im_pwr,[0,99.9])
+    im_pwr = _np.clip(im_pwr,0,q * sf)
+    im_pwr = scale_array((im_pwr /q) ** k)
     return im_pwr
 
 
@@ -455,7 +457,7 @@ def circular_palette(N=24, repeat=False):
     return rgb
 
 
-def dismph(data, min_val=-180, max_val=180, k=1, N=24, sf=1, repeat=False, coherence=False):
+def dismph(data, min_val=-180, max_val=180, k=0.5, N=24, sf=1, repeat=False, coherence=False):
     colors_hue = circular_palette(N, repeat=repeat)
     pal = _mpl.colors.LinearSegmentedColormap. \
         from_list('subs_colors', colors_hue, N=N)

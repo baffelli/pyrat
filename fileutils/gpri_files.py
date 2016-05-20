@@ -54,6 +54,15 @@ type_mapping = {
     'UCHAR':  _np.dtype('>b')
 }
 
+ls_mapping = {
+    0: 'NOT_TESTED',
+    1:  'TESTED',
+    2:  'TRUE_LAYOVER',
+    4:  'LAYOVER',
+    8:  'TRUE_SHADOW',
+    16: 'SHADOW'
+}
+
 # This dict defines the mapping
 # between channels in the file name and the matrix
 channel_dict = {
