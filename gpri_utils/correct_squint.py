@@ -40,8 +40,8 @@ class squintCorrector():
 
 #These function take a vector of frequencies and
 #return a vector of squint angles in degrees
-def model_squint(freq_vec, DZ):
-    return _gpf.squint_angle(freq_vec, _gpf.KU_WIDTH, DZ)
+def model_squint(freq_vec):
+    return _gpf.squint_angle(freq_vec, _gpf.KU_WIDTH, _gpf.KU_DZ, k=1.0/2.0)
 
 def linear_squint(freq_vec, sq_parameters):
     return _np.polynomial.polynomial.polyval(freq_vec, sq_parameters)

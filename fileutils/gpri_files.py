@@ -695,16 +695,17 @@ def lam(freq):
     return C / freq
 
 
-def squint_angle(freq, w, s):
+def squint_angle(freq, w, s, k=0):
     """
     This function computes the direction of the main lobe of a slotted
     waveguide antenna as a function of the frequency, the size and the slot spacing.
     It supposes a waveguide for the TE10 mode
     """
-    sq_ang = _np.arccos(lam(freq) / lamg(freq, w) - lam(freq) / (2 * s))
-    dphi = _np.pi * (2. * s / lamg(freq, w) - 1.0)  # antenna phase taper to generate squint
-    sq_ang_1 = _np.rad2deg(_np.arcsin(lam(freq) * dphi / (2. * _np.pi * s)))  # azimuth beam squint angle
-    return sq_ang_1
+    sq_ang = _np.pi/2.0 - _np.arccos(lam(freq) / lamg(freq, w) - k * lam(freq) / (s))
+    # sq_ang = 90 - _np.rad2deg(_np.arccos(lam(freq) * k / s + 2 * _np.pi * lam(freq)/lamg(freq, w)))
+    # dphi = _np.pi * (2. * s / lamg(freq, w) - 1.0)  # antenna phase taper to generate squint
+    # sq_ang_1 = _np.rad2deg(_np.arcsin(lam(freq) * dphi / (2. * _np.pi * s)))  # azimuth beam squint angle
+    return _np.rad2deg(sq_ang)
 
 
 def load_segment(file, shape, xmin, xmax, ymin, ymax, dtype=type_mapping['FCOMPLEX']):
