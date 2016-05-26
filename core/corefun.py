@@ -136,13 +136,15 @@ def unwrap(intf, wgt, mask):
     return unwrapped
 
 
-def ptarg(slc,ridx, azidx,rwin=32, azwin=64, osf=16, ):
+def ptarg(slc, ridx, azidx,rwin=32, azwin=64, osf=16, ):
     complex_interp = lambda arr, osf : _ndim.interpolation.zoom(arr.real, osf) + 1j * _ndim.interpolation.zoom(arr.imag, osf)
     sw = 4
     #Add one ellispis in case of a ndimensional image
     additional_dim = slc.ndim - 2 if (slc.ndim - 2) >= 0 else 0
     search_win = (slice(ridx - sw / 2, ridx + sw / 2),
-           slice(azidx - sw / 2, azidx + sw / 2), ) + (Ellipsis,)*additional_dim
+           slice(azidx - sw / 2, azidx + sw / 2), ) + (None,)*additional_dim
+    print(search_win)
+    print(slc.shape)
     # Find the maxium
     ptarg = slc[search_win]
     mx = _np.argmax(_np.abs(ptarg))
