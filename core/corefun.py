@@ -136,15 +136,12 @@ def unwrap(intf, wgt, mask):
     return unwrapped
 
 
-def ptarg(slc, ridx, azidx,rwin=32, azwin=64, osf=16, ):
+def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
     complex_interp = lambda arr, osf : _ndim.interpolation.zoom(arr.real, osf) + 1j * _ndim.interpolation.zoom(arr.imag, osf)
-    sw = 4
     #Add one ellispis in case of a ndimensional image
     additional_dim = slc.ndim - 2 if (slc.ndim - 2) >= 0 else 0
     search_win = (slice(ridx - sw / 2, ridx + sw / 2),
            slice(azidx - sw / 2, azidx + sw / 2), ) + (None,)*additional_dim
-    print(search_win)
-    print(slc.shape)
     # Find the maxium
     ptarg = slc[search_win]
     mx = _np.argmax(_np.abs(ptarg))
@@ -153,9 +150,9 @@ def ptarg(slc, ridx, azidx,rwin=32, azwin=64, osf=16, ):
 
     #Maximum in global system
     mx_r_glob = mx_r + ridx
-    mx_az_glob = mx_r + azidx
+    mx_az_glob = mx_az + azidx
     # New window
-    win_1 = (slice(mx_r_glob - rwin / 2, mx_r_glob + mx_r + rwin / 2),
+    win_1 = (slice(mx_r_glob - rwin / 2, mx_r_glob + rwin / 2),
              slice(mx_az_glob - azwin / 2, mx_az_glob + azwin / 2),)
     mx_sample = (slc[(mx_r_glob, mx_az_glob) + (Ellipsis,)*additional_dim])
     ptarg = slc[win_1]
