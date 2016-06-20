@@ -131,11 +131,18 @@ def load_plist(path):
 class gammaDataset(_np.ndarray):
     def __new__(*args, **kwargs):
         cls = args[0]
-        if len(args) == 3:
-            par_path = args[1]
-            bin_path = args[2]
-            memmap = kwargs.get('memmap', False)
-            image, par_dict = load_dataset(par_path, bin_path, memmap=memmap)
+        par_dict = args[1]
+        image = args[2]
+        try:
+            par_dict.values()
+        except AttributeError:
+            try:
+                par_path = args[1]
+                bin_path = args[2]
+                memmap = kwargs.get('memmap', False)
+                image, par_dict = load_dataset(par_path, bin_path, memmap=memmap)
+            except:
+                Exception("Input parameters format unrecognized ")
         obj = image.view(cls)
         d1 = _cp.deepcopy(par_dict)
         obj.__dict__ = d1
@@ -218,8 +225,9 @@ class gammaDataset(_np.ndarray):
             new_obj_1.range_pixel_spacing[0] = r_spac
         return new_obj_1
 
+
     def tofile(*args):
-        self = args[0]
+        self = args[0].astype(type_mapping[args[0].image_format])
         # In this case, we want to write both parameters and binary file
         if len(args) is 3:
             write_dataset(self, self.__dict__, args[1], args[2])
@@ -243,6 +251,20 @@ class gammaDataset(_np.ndarray):
         tf_par, tf = temp_dataset()
         self.tofile(tf_par.name, tf.name)
         return tf_par, tf
+
+    def decimate(self, dec):
+        arr_dec = _np.zeros((self.shape[0], int(self.shape[1]/dec)), dtype=_np.complex64)
+        for idx_az in range(arr_dec.shape[1]):
+            # Decimated pulse
+            dec_pulse = _np.zeros(self.slc.shape[0] * 2 - 2, dtype=_np.float32)
+            for idx_dec in range(self.dec):
+                current_idx = idx_az * self.dec + idx_dec
+                if current_idx % 1000 == 0:
+                    print('decimating line: ' + str(current_idx))
+                dec_pulse += _np.fft.irfft(self.slc[:, current_idx])
+            arr_dec[:, idx_az] = _np.fft.rfft(dec_pulse)
+        return arr_dec
+
 
     def rvec(obj):
         return obj.__dict__['near_range_slc'][0] + _np.arange(obj.__dict__['range_samples']) * \
@@ -615,24 +637,24 @@ class rawParameters:
         self.freq_vec = self.grp.RF_freq_min + _np.arange(self.grp.CHP_num_samp,
                                                           dtype=float) * self.grp.RF_chirp_rate / self.grp.ADC_sample_rate
 
-    def compute_slc_parameters(self, args):#compute the slc parameters for a given set of input parameters
+    def compute_slc_parameters(self, kbeta=3.0, rmin=50, rmax=1000, dec=5, zero=300):#compute the slc parameters for a given set of input parameters
         self.rmax = self.ns_max * self.rps;  # default maximum slant range
-        self.win = _sig.kaiser(self.nsamp, args.kbeta)
-        self.zero = args.zero
+        self.win = _sig.kaiser(self.nsamp, )
+        self.zero = zero
         self.win2 = _sig.hanning(
             2 * self.zero)  # window to remove transient at start of echo due to sawtooth frequency sweep
-        self.ns_min = int(round(args.rmin / self.rps))  # round to the nearest range sample
+        self.ns_min = int(round(rmin / self.rps))  # round to the nearest range sample
         self.ns_out = (self.ns_max - self.ns_min) + 1
         self.rmin = self.ns_min * self.rps
-        self.dec = args.d
+        self.dec = dec
         self.nl_acc = int(self.t_acc / (self.tcycle * self.dec))
         # self.nl_tot = int(self.grp.ADC_capture_time/(self.tcycle))
         self.nl_tot_dec = self.nl_tot / self.dec
         self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
         self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
-        if (args.rmax != 0.0):  # check if greater than maximum value for the selected chirp
-            if (int(round(args.rmax / self.rps)) <= self.ns_max):
-                self.ns_max = int(round(args.rmax / self.rps))
+        if (rmax != 0.0):  # check if greater than maximum value for the selected chirp
+            if (int(round(rmax / self.rps)) <= self.ns_max):
+                self.ns_max = int(round(rmax / self.rps))
                 self.rmax = self.ns_max * self.rps;
             else:
                 print(
@@ -646,6 +668,78 @@ class rawParameters:
         else:  # counter-clockwise
             self.az_start = self.grp.STP_antenna_start - self.ang_acc
 
+    def fill_dict(self):
+        """
+        This function fills the slc dict with the correct image
+        parameters
+        :return:
+        """
+        image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
+        slc_dict = default_slc_dict()
+        ts = self.grp.time_start
+        ymd = (ts.split()[0]).split('-')
+        hms_tz = (ts.split()[1]).split('+')  # split into HMS and time zone information
+        hms = (hms_tz[0]).split(':')  # split HMS string using :
+        sod = int(hms[0]) * 3600 + int(hms[1]) * 60 + float(hms[2])  # raw data starting time, seconds of day
+        st0 = sod + self.nl_acc * self.tcycle * self.dec + \
+              (self.dec / 2.0) * self.tcycle  # include time to center of decimation window
+        az_step = self.ang_per_tcycle * self.dec
+        prf = abs(1.0 / (self.tcycle * self.dec))
+        seq = self.grp.TX_RX_SEQ
+        fadc = C / (2. * self.rps)
+        # Antenna elevation angle
+        ant_elev = _np.deg2rad(self.grp.antenna_elevation)
+        # Compute antenna position
+        rx1_coord = [0., 0., 0.]
+        rx2_coord = [0., 0., 0.]
+        tx_coord = [0., 0., 0.]
+        #
+        # Topsome receiver
+        rx1_coord[0] = xoff + ant_radius * _np.cos(
+            ant_elev)  # local coordinates of the tower: x,y,z, boresight is along +X axis, +Z is up
+        rx1_coord[1] = 0.0  # +Y is to the right when looking in the direction of +X
+        rx1_coord[2] = rx1_dz[seq[1]] + ant_radius * _np.sin(
+            ant_elev)  # up is Z, all antennas have the same elevation angle!
+        # Bottomsome receiver
+        rx2_coord[0] = xoff + ant_radius * _np.cos(ant_elev)
+        rx2_coord[1] = 0.0
+        rx2_coord[2] = rx2_dz[seq[2]] + ant_radius * _np.sin(ant_elev)
+        tx_coord[0] = xoff + ant_radius * _np.cos(ant_elev)
+        tx_coord[1] = 0.0
+        tx_coord[2] = tx_dz[seq[0]] + ant_radius * _np.sin(ant_elev)
+        chan_name = 'CH1 lower' if seq[3] == 'l' else 'CH2 upper'
+        slc_dict['title'] = ts + ' ' + chan_name
+        slc_dict['date'] = [ymd[0], ymd[1], ymd[2]]
+        slc_dict['start_time'] = [st0, 's']
+        slc_dict['center_time'] = [st0 + image_time / 2, 's']
+        slc_dict['end_time'] = [st0 + image_time, 's']
+        slc_dict['range_samples'] = self.ns_out
+        slc_dict['azimuth_lines'] = self.nl_tot_dec - 2 * self.nl_acc
+        slc_dict['range_pixel_spacing'] = [self.rps, 'm']
+        slc_dict['azimuth_line_time'] = [self.tcycle * self.dec, 's']
+        slc_dict['near_range_slc'] = [self.rmin, 'm']
+        slc_dict['center_range_slc'] = [(self.rmin + self.rmax) / 2, 'm']
+        slc_dict['far_range_slc'] = [self.rmax, 'm']
+        slc_dict['radar_frequency'] = [self.grp.RF_center_freq, 'Hz']
+        slc_dict['adc_sampling_rate'] = [fadc, 'Hz']
+        slc_dict['prf'] = [prf, 'Hz']
+        slc_dict['chirp_bandwidth'] = self.grp.RF_freq_max - self.grp.RF_freq_min
+        slc_dict['receiver_gain'] = [60 - self.grp.IMA_atten_dB, 'dB']
+        slc_dict['GPRI_TX_mode'] = self.grp.TX_mode
+        slc_dict['GPRI_TX_antenna'] = seq[0]
+        slc_dict['GPRI_RX_antenna'] = seq[1] + seq[3]
+        slc_dict['GPRI_tx_coord'] = [tx_coord[0], tx_coord[1], tx_coord[2], 'm', 'm', 'm']
+        slc_dict['GPRI_rx1_coord'] = [rx1_coord[0], rx1_coord[1], rx1_coord[2], 'm', 'm', 'm']
+        slc_dict['GPRI_rx2_coord'] = [rx2_coord[0], rx2_coord[1], rx2_coord[2], 'm', 'm', 'm']
+        slc_dict['GPRI_az_start_angle'] = [self.az_start, 'degrees']
+        slc_dict['GPRI_az_angle_step'] = [az_step, 'degrees']
+        slc_dict['GPRI_ant_elev_angle'] = [self.grp.antenna_elevation, 'degrees']
+        slc_dict['GPRI_ref_north'] = [self.grp.geographic_coordinates[0], 'degrees']
+        slc_dict['GPRI_ref_east'] = [self.grp.geographic_coordinates[1], 'degrees']
+        slc_dict['GPRI_ref_alt'] = [self.grp.geographic_coordinates[2], 'm']
+        slc_dict['GPRI_geoid'] = [self.grp.geographic_coordinates[3], 'm']
+        return slc_dict
+
 
 class rawData(_np.ndarray):
     def __array_finalize__(self, obj):
@@ -657,9 +751,27 @@ class rawData(_np.ndarray):
         data, par_dict = load_raw(args[0], args[1])
         obj = data.view(cls)
         obj.__dict__ = _cp.deepcopy(par_dict)
-        # Duration of chirp
         obj.tcycle = obj.shape[0] * 1 / obj.ADC_sample_rate
+        obj.npats = len(obj.TX_RX_SEQ.split('-'))
         return obj
+
+    def tofile(*args):
+        self = args[0]
+        # In this case, we want to write both parameters and binary file
+        if len(args) is 3:
+            write_dataset(self, self.__dict__, args[1], args[2])
+
+    def extract_channel(self, pat, ant):
+        chan_idx = self.channel_index(pat, ant)
+        chan = self[:,:, chan_idx[0], chan_idx[1]]
+        chan = self.__array_wrap__(chan)
+        chan.ADC_capture_time = self.ADC_capture_time / self.npats
+        chan.TSC_rotation_speed = self.TSC_rotation_speed * self.npats
+        chan.STP_rotation_speed = self.STP_rotation_speed * self.npats
+        chan.TSC_acc_ramp_time = self.TSC_acc_ramp_time / self.npats
+        chan.TX_mode = None
+        chan.TX_RX_SEQ = pat
+        return chan
 
     def channel_index(self, pat, ant):
         chan_list = self.TX_RX_SEQ.split('-')
@@ -668,15 +780,94 @@ class rawData(_np.ndarray):
         ant_map = {'l': 0, 'u': 1}
         return [ant_map[ant], chan_idx]
 
-    def azspacing(self):
-        npat = len(self.TX_RX_SEQ.split('-'))
-        return self.tcycle * self.STP_rotation_speed * npat
+    # def azspacing(self):
+    #     return self.tcycle * self.STP_rotation_speed * self.npats
+    #
+    # def freqvec(self):
+    #     return self.RF_freq_min + _np.arange(self.CHP_num_samp, dtype=float) * self.RF_chirp_rate / self.ADC_sample_rate
+    #
+    # az_spacing = property(azspacing)
+    # freq_vec = property(freqvec)
 
-    def freqvec(self):
-        return self.RF_freq_min + _np.arange(self.CHP_num_samp, dtype=float) * self.RF_chirp_rate / self.ADC_sample_rate
+def model_squint(freq_vec):
+    return squint_angle(freq_vec, KU_WIDTH, KU_DZ, k=1.0/2.0)
 
-    az_spacing = property(azspacing)
-    freq_vec = property(freqvec)
+def linear_squint(freq_vec, sq_parameters):
+    return _np.polynomial.polynomial.polyval(freq_vec, sq_parameters)
+
+def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
+    raw_par = rawParameters(raw_channel.__dict__)
+    # We require a function to compute the squint angle
+    squint_vec = squint_function(raw_par.freq_vec, sq_rate)
+    squint_vec = squint_vec / raw_par.ang_per_tcycle
+    squint_vec = squint_vec - squint_vec[raw_par.freq_vec.shape[0] / 2]
+    # In addition, we correct for the beam motion during the chirp
+    rotation_squint = _np.linspace(0, raw_par.tcycle,
+                                   raw_par.nsamp) * raw_par.grp.TSC_rotation_speed / raw_par.ang_per_tcycle
+    # Normal angle vector
+    angle_vec = _np.arange(raw_channel.shape[1])
+    # We do not correct the squint of the first sample
+    squint_vec = _np.insert(squint_vec, 0, 0)
+    rotation_squint = _np.insert(rotation_squint, 0, 0)
+    # Interpolated raw channel
+    raw_channel_interp = _np.zeros_like(raw_channel)
+    for idx in range(0, raw_channel.shape[0]):
+        az_new = angle_vec + squint_vec[idx] - rotation_squint[idx]
+        if idx % 500 == 0:
+            print_str = "interp sample: {idx}, ,shift: {sh}".format(idx=idx, sh=az_new[0] - angle_vec[0])
+            print(print_str)
+        raw_channel_interp[idx, :] = _np.interp(az_new, angle_vec, raw_channel[idx, :], left=0.0, right=0.0)
+    return raw_channel_interp
+
+
+def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, z=300, f_c=None, bw=66e6, rvp_corr=False):
+    raw_par = rawParameters(rawdata.__dict__)
+    rvp = _np.exp(1j * 4. * _np.pi * raw_par.grp.RF_chirp_rate * (raw_par.slr / C) ** 2)
+    slc_args = _nt('params')
+    raw_par.compute_slc_parameters(kbeta=kbeta,rmin=rmin, rmax=rmax, z=z, dec=dec)
+    #Construct a filter
+    if f_c is None:
+        filt = _np.ones(raw_par.nsamp)
+    # else:
+    #     filt = self.subband_filter(f_c, bw=bw)
+    arr_compr = _np.zeros((raw_par.ns_max - raw_par.ns_min + 1, raw_par.nl_tot_dec) ,dtype=_np.complex64)
+    fshift = _np.ones(raw_par.nsamp/ 2 +1)
+    fshift[1::2] = -1
+    #For each azimuth
+    for idx_az in range(0,raw_par.nl_tot_dec):
+        #Decimated pulse
+        dec_pulse = _np.zeros(raw_par.block_length, dtype=_np.float32)
+        for idx_dec in range(raw_par.dec):
+            current_idx = idx_az * raw_par.dec + idx_dec
+            current_idx_1 = idx_az + idx_dec * raw_par.dec
+            if raw_par.dt == _np.dtype(_np.int16) or raw_par.dt == type_mapping['SHORT INTEGER']:
+                current_data = rawdata[:, current_idx ].astype(_np.float32) / TSF
+            else:
+                 current_data = rawdata[:, current_idx ].astype(_np.float32)
+            if current_idx % 1000 == 0:
+                print('Accessing azimuth index: {} '.format(current_idx))
+            try:
+                dec_pulse = dec_pulse + current_data
+            except IndexError as err:
+                print(err.message)
+                break
+        if raw_par.zero > 0:
+            dec_pulse[0:raw_par.zero] = dec_pulse[0:raw_par.zero] * raw_par.win2[0:raw_par.zero]
+            dec_pulse[-raw_par.zero:] = dec_pulse[-raw_par.zero:] * raw_par.win2[-raw_par.zero:]
+        #Emilinate the first sample, as it is used to jump back to the start freq
+        line_comp = _np.fft.rfft(dec_pulse[1::] * filt /raw_par.dec * raw_par.win) * fshift
+        if rvp_corr:
+            line_comp = line_comp * rvp
+        #Decide if applying the range scale factor or not
+        scale_factor = raw_par.scale[raw_par.ns_min:raw_par.ns_max + 1]
+
+        arr_compr[:, idx_az] = (line_comp[raw_par.ns_min:raw_par.ns_max + 1].conj() * scale_factor).astype('complex64')
+    #Remove lines used for rotational acceleration
+    arr_compr = arr_compr[:, raw_par.nl_acc:raw_par.nl_image + raw_par.nl_acc:]
+    slc_dict = raw_par.fill_dict()
+    slc_compr = gammaDataset(slc_dict, arr_compr)
+    return slc_compr
+
 
 
 def lamg(freq, w):

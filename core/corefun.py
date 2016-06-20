@@ -14,14 +14,14 @@ import os as _os
 from ..fileutils import gpri_files as _gpf
 import scipy.ndimage as _ndim
 #Set environment variables
-_os.environ['GAMMA_HOME']='/usr/local/GAMMA_SOFTWARE-20130717'
-_os.environ['ISP_HOME']=_os.environ['GAMMA_HOME'] + '/ISP'
-_os.environ['MSP_HOME']=_os.environ['GAMMA_HOME'] + '/MSP'
-_os.environ['DIFF_HOME']=_os.environ['GAMMA_HOME'] + '/DIFF'
-_os.environ['GEO_HOME']=_os.environ['GAMMA_HOME'] + '/GEO'
-_os.environ['LD_LIBRARY_PATH']=_os.environ['GAMMA_HOME'] +'/lib'
-_os.environ["PATH"] = _os.environ["PATH"] +  _os.pathsep + _os.environ['GAMMA_HOME'] + '/bin' + _os.pathsep + _os.environ['ISP_HOME'] + '/bin' + _os.pathsep + _os.environ['DIFF_HOME'] + '/bin'
-
+# _os.environ['GAMMA_HOME']='/usr/local/GAMMA_SOFTWARE-20130717'
+# _os.environ['ISP_HOME']=_os.environ['GAMMA_HOME'] + '/ISP'
+# _os.environ['MSP_HOME']=_os.environ['GAMMA_HOME'] + '/MSP'
+# _os.environ['DIFF_HOME']=_os.environ['GAMMA_HOME'] + '/DIFF'
+# _os.environ['GEO_HOME']=_os.environ['GAMMA_HOME'] + '/GEO'
+# _os.environ['LD_LIBRARY_PATH']=_os.environ['GAMMA_HOME'] +'/lib'
+# _os.environ["PATH"] = _os.environ["PATH"] +  _os.pathsep + _os.environ['GAMMA_HOME'] + '/bin' + _os.pathsep + _os.environ['ISP_HOME'] + '/bin' + _os.pathsep + _os.environ['DIFF_HOME'] + '/bin'
+#
 
 
 def outer_product(data,data1, large = False):
@@ -262,6 +262,30 @@ def transform(A,B,C):
     """
     out = B.__array_wrap__(_np.einsum("...ik,...kl,...lj->...ij",A,B,C))
     return out
+
+
+
+
+def decimate(slc, dec, mode='sum'):
+    if mode == 'sum':
+        arr_dec = _np.zeros((slc.shape[0], int(slc.shape[1] / dec)), dtype=_np.complex64)
+        for idx_az in range(arr_dec.shape[1]):
+            # Decimated pulse
+            dec_pulse = _np.zeros(slc.shape[0] * 2 - 2, dtype=_np.float32)
+            for idx_dec in range(dec):
+                current_idx = idx_az * dec + idx_dec
+                if current_idx % 1000 == 0:
+                    print('decimating line: ' + str(current_idx))
+                dec_pulse += _np.fft.irfft(slc[:, current_idx])
+            arr_dec[:, idx_az] = _np.fft.rfft(dec_pulse)
+        arr_dec = slc.__array_wrap__(arr_dec)
+    else:
+        arr_dec = slc[:, ::dec]
+        arr_dec = slc.__array_wrap__(arr_dec)
+    arr_dec /=  dec
+    arr_dec.GPRI_az_angle_step[0] *= dec
+    arr_dec.azimuth_lines /= dec
+    return arr_dec
 
 
 def matrix_root(A):
