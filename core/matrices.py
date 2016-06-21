@@ -67,8 +67,8 @@ def __general__getitem__(obj, sl_in):
         try:
             r_vec = obj.r_vec[sl[1]]
             az_vec = obj.az_vec[sl[0]]
-            new_obj_1.__setattr__('r_vec',r_vec)
-            new_obj_1.__setattr__('az_vec',az_vec)
+            new_obj_1.__setattr__('r_vec', r_vec)
+            new_obj_1.__setattr__('az_vec', az_vec)
         except:
             pass
     return new_obj_1
@@ -121,9 +121,12 @@ class scatteringMatrix(gpri_files.gammaDataset):
             lst_tx = [0,1]
             lst_rx = [0,1]
             HH_par = gpri_files.par_to_dict(base_path + "_" + "AAAl.slc.par")
+            HV_par = gpri_files.par_to_dict(base_path + "_" + "ABBl.slc.par")
+            VH_par = gpri_files.par_to_dict(base_path + "_" + "BAAl.slc.par")
+            VV_par = gpri_files.par_to_dict(base_path + "_" + "BBBl.slc.par")
             shpe = (HH_par['range_samples'], HH_par['azimuth_lines'])
             dt = gpri_files.type_mapping[HH_par['image_format']]
-            #Create memmaps
+            # #Create memmaps
             if memmap:
                 mat_path = base_path + 's_matrix_' + chan
                 open(mat_path, 'w+').close()
@@ -132,6 +135,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
                                         mode ='r+')
             else:
                 s_matrix = _np.zeros(shpe + (2,2), dtype = dt)
+            s_matrix = _np.zeros(shpe + (2, 2), dtype=dt)
             for tx, idx_tx in zip([H_ant, V_ant], lst_tx):
                 for rx, idx_rx in zip([H_ant, V_ant], lst_rx):
                     file_pattern = base_path + "_" + tx + rx + rx + chan
@@ -142,19 +146,20 @@ class scatteringMatrix(gpri_files.gammaDataset):
             obj = s_matrix.view(cls)
             #Copy attributes from one channel
             obj.__dict__ = _cp.deepcopy(HH_par)
+            obj.par_dict['HH'] = HH_par
             phase_center = []
             obj.geometry = 'polar'
-            TX_VEC = [0,0.125]
-            RX_VEC_U = [0.475,0.6]
-            RX_VEC_L = [0.725,0.85]
-            phase_center = {}
-            for polarimetric_channel, idx_tx,idx_rx in zip(['HH','HV','VH','VV'],[0,0,1,1],[0,1,0,1]):
-                if chan is 'l':
-                    rx_vec = RX_VEC_L
-                else:
-                    rx_vec = RX_VEC_U
-                phase_center[polarimetric_channel] = (rx_vec[idx_rx] + TX_VEC[idx_tx])/2
-            obj.ant_vec = phase_center
+            # TX_VEC = [0,0.125]
+            # RX_VEC_U = [0.475,0.6]
+            # RX_VEC_L = [0.725,0.85]
+            # phase_center = {}
+            # for polarimetric_channel, idx_tx,idx_rx in zip(['HH','HV','VH','VV'],[0,0,1,1],[0,1,0,1]):
+            #     if chan is 'l':
+            #         rx_vec = RX_VEC_L
+            #     else:
+            #         rx_vec = RX_VEC_U
+            #     phase_center[polarimetric_channel] = (rx_vec[idx_rx] + TX_VEC[idx_tx])/2
+            # obj.ant_vec = phase_center
         else:
             if isinstance(args[1], _np.ndarray):
                 s_matrix = args[1]            

@@ -264,7 +264,34 @@ def transform(A,B,C):
     return out
 
 
+def complex_interpolate(image, osf):
+    abs_interp = _nd.zoom(_np.abs(image), osf)
+    ang_interp = _nd.zoom(_np.angle(image), osf)
+    image_interp = abs_interp * _np.exp(1j * ang_interp)
+    image_interp = image.__array_wrap__(image_interp)
+    image_interp.GPRI_az_angle_step[0] = osf[1] * image.GPRI_az_angle_step[0]
+    image_interp.range_pixel_spacing[0] = osf[0] * image.range_pixel_spacing[0]
+    image_interp.azimuth_line_time[0] = osf[1] * image.azimuth_line_time[0]
+    image_interp.prf[0] = osf[1] * image.prf[0]
+    image_interp.azimuth_lines = image_interp.shape[1]
+    image_interp.range_samples = image_interp.shape[0]
+    return image_interp
 
+def resample_geometry(slc, reference_slc):
+    """
+    This function resamples a daraset into the geometry of
+    the other dataset by changing the azimuth & range spacing
+    Parameters
+    ----------
+    slc
+    reference_slc
+
+    Returns
+    -------
+
+    """
+    r_osf = reference_slc.range_pixel_spacing[0] / slc.range_pixel_spacing[0]
+    r_az = reference_slc.GPRI_az_angle_step[0] / slc.GPRI_az_angle_step[0]
 
 def decimate(slc, dec, mode='sum'):
     if mode == 'sum':
@@ -283,8 +310,10 @@ def decimate(slc, dec, mode='sum'):
         arr_dec = slc[:, ::dec]
         arr_dec = slc.__array_wrap__(arr_dec)
     arr_dec /=  dec
-    arr_dec.GPRI_az_angle_step[0] *= dec
-    arr_dec.azimuth_lines /= dec
+    arr_dec.GPRI_az_angle_step[0] = dec * slc.GPRI_az_angle_step[0]
+    arr_dec.azimuth_line_time[0] = dec * slc.azimuth_line_time[0]
+    arr_dec.prf[0] = dec * slc.prf[0]
+    arr_dec.azimuth_lines = arr_dec.shape[1]
     return arr_dec
 
 

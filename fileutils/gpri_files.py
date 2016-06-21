@@ -219,10 +219,15 @@ class gammaDataset(_np.ndarray):
                         r_0 = r_vec_sl
                 except:
                     pass
+            az_osf = az_spac / self.GPRI_az_angle_step[0]#azimuth over/undersampling time
+            new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
+            new_obj_1.prf[0] = az_osf * self.prf[0]
             new_obj_1.GPRI_az_start_angle[0] = az_0
             new_obj_1.near_range_slc[0] = r_0
             new_obj_1.GPRI_az_angle_step[0] = az_spac
             new_obj_1.range_pixel_spacing[0] = r_spac
+            new_obj_1.range_samples = new_obj_1.shape[0]
+            new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
         return new_obj_1
 
 

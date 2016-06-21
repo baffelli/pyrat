@@ -78,7 +78,6 @@ def coherence(im1,im2,win, fun = None):
 
 
 
-
 def temporal_coherency_matrix(stack,basis='pauli'):
     T = _np.zeros_like(stack[0].shape[0:2] + (3,))
     for image in stack:
