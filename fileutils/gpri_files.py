@@ -792,9 +792,14 @@ class rawData(_np.ndarray):
         if hasattr(obj, '__dict__'):
             self.__dict__ = _cp.deepcopy(obj.__dict__)
 
-    def __new__(cls, channel_mapping={'TX_A_position': 0, 'TX_B_position': 0.125,
+    def __new__(cls, *args, **kwargs):
+        if 'channel_mapping' not in kwargs:
+            channel_mapping =  {'TX_A_position': 0, 'TX_B_position': 0.125,
                                    'RX_Au_position': 0.475, 'RX_Al_position': 0.725,
-                                   'RX_Bu_position': 0.6,  'RX_Bl_position': 0.85}, *args, **kwargs):
+                                   'RX_Bu_position': 0.6,  'RX_Bl_position': 0.85}
+        else:
+            channel_mapping = kwargs['channel_mapping']
+
         data, par_dict = load_raw(args[0], args[1])
         obj = data.view(cls)
         obj.__dict__ = _cp.deepcopy(par_dict)
@@ -804,6 +809,7 @@ class rawData(_np.ndarray):
         return obj
 
     def tofile(*args):
+        print(args)
         self = args[0]
         # In this case, we want to write both parameters and binary file
         if len(args) is 3:
@@ -813,8 +819,8 @@ class rawData(_np.ndarray):
         chan_idx = self.channel_index(pat, ant)
         chan = self[:,:, chan_idx[0], chan_idx[1]]
         chan = self.__array_wrap__(chan)
-        chan.GPRI_TX_antenna_position = self.mapping_dict[pat[0]]
-        chan.GPRI_RX_antenna_position = self.mapping_dict[pat[0:] + ant]
+        chan.GPRI_TX_antenna_position = self.mapping_dict['TX_' + pat[0] + "_position"]
+        chan.GPRI_RX_antenna_position = self.mapping_dict['RX_' + pat[1] + ant + "_position"]
         chan.ADC_capture_time = self.ADC_capture_time / self.npats
         chan.TSC_rotation_speed = self.TSC_rotation_speed * self.npats
         chan.STP_rotation_speed = self.STP_rotation_speed * self.npats
@@ -848,7 +854,7 @@ def linear_squint(freq_vec, sq_parameters):
 def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
     raw_par = rawParameters(raw_channel.__dict__)
     # We require a function to compute the squint angle
-    squint_vec = squint_function(raw_par.freq_vec, sq_rate)
+    squint_vec = squint_function(raw_par.freq_vec, squint_rate)
     squint_vec = squint_vec / raw_par.ang_per_tcycle
     squint_vec = squint_vec - squint_vec[raw_par.freq_vec.shape[0] / 2]
     # In addition, we correct for the beam motion during the chirp
