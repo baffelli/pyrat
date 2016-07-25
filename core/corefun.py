@@ -13,6 +13,8 @@ import subprocess as _sp
 import os as _os
 from ..fileutils import gpri_files as _gpf
 import scipy.ndimage as _ndim
+from scipy.interpolate import splrep, sproot, splev
+
 #Set environment variables
 # _os.environ['GAMMA_HOME']='/usr/local/GAMMA_SOFTWARE-20130717'
 # _os.environ['ISP_HOME']=_os.environ['GAMMA_HOME'] + '/ISP'
@@ -136,18 +138,61 @@ def unwrap(intf, wgt, mask):
     return unwrapped
 
 
+def FWHM(curve):
+    x = _np.arange(-len(curve)/2, len(curve)/2)
+    y = _np.abs(curve) - _np.max(_np.abs(curve))/2
+    spline = splrep(x, y)
+    r = sproot(spline)
+    if len(r) > 2:
+        raise ArithmeticError("More than two peaks, no FWHM found.")
+    elif len(r) < 2:
+        raise ArithmeticError("No peak found, FWHM cannot be determined.")
+    else:
+        return abs(r[1] - r[0])
+
+
 def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
+    """
+    Point target analysis.
+    Parameters
+    ----------
+    slc : scatteringMatrix, coherencyMatrix
+        The dataset from which to extract the point target response
+    ridx : int
+        Range index of the point target
+    azidx : int
+        Azimuth index of the point target
+    rwin : int, optional
+        Range size of window around point target
+    azwin : int, optional
+        Azimuth  size of window around point target
+    osf : int, optional
+        Oversampling factor
+    sw : int, optional
+        Seach window to find the maximum around (`ridx`, `azidx`)
+
+    Returns
+    -------
+    ndarray
+        Oversampled point target response
+    ndarray
+        Oversampled range plot
+    ndarray
+        Oversampled azimuth plot
+    iterable
+        Location of maxiumum in oversampled response
+
+    """
     complex_interp = lambda arr, osf : _ndim.interpolation.zoom(arr.real, osf) + 1j * _ndim.interpolation.zoom(arr.imag, osf)
     #Add one ellispis in case of a ndimensional image
     additional_dim = slc.ndim - 2 if (slc.ndim - 2) >= 0 else 0
     search_win = (slice(ridx - sw / 2, ridx + sw / 2),
            slice(azidx - sw / 2, azidx + sw / 2), ) + (None,)*additional_dim
-    # Find the maxium
+    # Find the maxium whitin the search window
     ptarg = slc[search_win]
     mx = _np.argmax(_np.abs(ptarg))
     mx_list = _np.unravel_index(mx, ptarg.shape)
     mx_r, mx_az = mx_list[0:2]
-
     #Maximum in global system
     mx_r_glob = mx_r + ridx
     mx_az_glob = mx_az + azidx
@@ -155,7 +200,7 @@ def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
     win_1 = (slice(mx_r_glob - rwin / 2, mx_r_glob + rwin / 2),
              slice(mx_az_glob - azwin / 2, mx_az_glob + azwin / 2),)
     mx_sample = (slc[(mx_r_glob, mx_az_glob) + (Ellipsis,)*additional_dim])
-    ptarg = slc[win_1]
+    ptarg = slc[win_1]#slice aroudn global maximum
     if slc.ndim == 2:
         ptarg_zoom = complex_interp(ptarg, osf)
     else:
@@ -174,7 +219,26 @@ def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
     mx_r_zoom, mx_az_zoom = mx_list_zoom[0:2]
     rplot = ptarg_zoom[(Ellipsis, mx_az_zoom) + (Ellipsis,)*additional_dim]
     azplot = ptarg_zoom[(mx_r_zoom, Ellipsis) + (Ellipsis,)*additional_dim]
-    return ptarg_zoom, rplot, azplot, (mx_r_zoom, mx_az_zoom)
+
+    #analyse resolution if slc has azimuth and range parameters
+    try:
+        az_spacing = slc.GPRI_az_angle_step[0] / osf
+        r_spacing = slc.range_pixel_spacing[0] / osf
+        mx_val = _np.abs(ptarg_zoom)[(mx_az_zoom, mx_r_zoom)]
+        #range resolution
+        #Half power length
+        hpbw_r = FWHM(_np.abs(rplot)**2) * r_spacing
+        hpbw_az = FWHM(_np.abs(azplot)**2) * az_spacing
+        print(hpbw_r)
+        print(hpbw_az)
+        res_dict = {}
+        res_dict['range_resolution'] = [hpbw_r, 'm']
+        res_dict['azimuth_resolution'] = [hpbw_r, 'deg']
+
+    except AttributeError:
+        pass
+
+    return ptarg_zoom, rplot, azplot, (mx_r_zoom, mx_az_zoom), res_dict
 
 
 def shift_array(array,shift):

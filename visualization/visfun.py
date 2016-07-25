@@ -201,6 +201,10 @@ def resample_image(image, sampling_factor):
     return image_1
 
 
+
+
+
+
 def histeq(im, nbr_bins=256):
     """
     This function performs histogram equalization on a ndarray.
@@ -482,6 +486,7 @@ def dismph(data, min_val=-180, max_val=180, k=0.5, N=24, sf=1, repeat=False, coh
     # RGBA alpha mask
     alpha_chan = (1 - mask)
     rgb = _np.dstack((rgb, alpha_chan))
+    #Analyze
     return rgb[:, :, :], pal, norm
 
 

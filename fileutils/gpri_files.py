@@ -321,6 +321,46 @@ def par_to_dict(par_file):
     return par_dict
 
 
+def get_width(par_path):
+	"""
+		Helper function to get the width of a gamma format file
+	"""
+	par_dict = par_to_dict(par_path)
+	for name_string in ["width", "range_samples", "CHP_num_samp", "number_of_nonzero_range_pixels_1", "interferogram_width"]:
+		try:
+			width = par_dict[name_string]
+		except:
+			pass
+		else:
+			break
+	return width
+
+
+def datatype_from_extension(filename):
+	"""
+		Get the numeric datatype from the filename extensions
+	"""
+	mapping = {'slc':1,
+	'slc_dec':1,
+	'mli':0,
+	'mli_dec':0,
+	'inc':0,
+	'dem_seg':0,
+	'dem':0,
+	'int':1,
+	'sm':1,
+	'cc':0,
+	"sim_sar":0,
+	"ls_map":3,
+	"bmp": 2}
+	for i in [0,1,2,3]:
+		for j in [0,1,2,3]:
+			mapping["c{i}{j}".format(i=i,j=j)] = 1#covariance elements
+	#Split the file name to the latest extesnsion
+	extension = filename.split('.')[-1]
+	return mapping[extension]
+
+
 def dict_to_par(par_dict, par_file):
     """
     This function writes a dict to a gamma
@@ -752,12 +792,15 @@ class rawData(_np.ndarray):
         if hasattr(obj, '__dict__'):
             self.__dict__ = _cp.deepcopy(obj.__dict__)
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, channel_mapping={'TX_A_position': 0, 'TX_B_position': 0.125,
+                                   'RX_Au_position': 0.475, 'RX_Al_position': 0.725,
+                                   'RX_Bu_position': 0.6,  'RX_Bl_position': 0.85}, *args, **kwargs):
         data, par_dict = load_raw(args[0], args[1])
         obj = data.view(cls)
         obj.__dict__ = _cp.deepcopy(par_dict)
         obj.tcycle = obj.shape[0] * 1 / obj.ADC_sample_rate
         obj.npats = len(obj.TX_RX_SEQ.split('-'))
+        obj.mapping_dict = channel_mapping
         return obj
 
     def tofile(*args):
@@ -770,6 +813,8 @@ class rawData(_np.ndarray):
         chan_idx = self.channel_index(pat, ant)
         chan = self[:,:, chan_idx[0], chan_idx[1]]
         chan = self.__array_wrap__(chan)
+        chan.GPRI_TX_antenna_position = self.mapping_dict[pat[0]]
+        chan.GPRI_RX_antenna_position = self.mapping_dict[pat[0:] + ant]
         chan.ADC_capture_time = self.ADC_capture_time / self.npats
         chan.TSC_rotation_speed = self.TSC_rotation_speed * self.npats
         chan.STP_rotation_speed = self.STP_rotation_speed * self.npats

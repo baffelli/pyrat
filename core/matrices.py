@@ -146,7 +146,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
             obj = s_matrix.view(cls)
             #Copy attributes from one channel
             obj.__dict__ = _cp.deepcopy(HH_par)
-            obj.par_dict['HH'] = HH_par
+            # obj.par_dict['HH'] = HH_par
             phase_center = []
             obj.geometry = 'polar'
             # TX_VEC = [0,0.125]
