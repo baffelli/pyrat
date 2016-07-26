@@ -793,6 +793,19 @@ class rawParameters:
 
 
 class rawData(_np.ndarray):
+
+    def __array__wrap(self, out_arr):
+            # This is just a lazy
+            # _array_wrap_ that
+            # copies properties from
+            # the input object
+            out_arr = out_arr.view(type(self))
+            try:
+                out_arr.__dict__ = self.__dict__.copy()
+            except:
+                pass
+            return out_arr
+
     def __array_finalize__(self, obj):
         if obj is None: return
         if hasattr(obj, '__dict__'):
@@ -805,11 +818,22 @@ class rawData(_np.ndarray):
                                    'RX_Bu_position': 0.6,  'RX_Bl_position': 0.85}
         else:
             channel_mapping = kwargs['channel_mapping']
-
         data, par_dict = load_raw(args[0], args[1])
         obj = data.view(cls)
         obj.__dict__ = _cp.deepcopy(par_dict)
-        obj.tcycle = obj.shape[0] * 1 / obj.ADC_sample_rate
+        obj.nsamp = obj.CHP_num_samp
+        obj.block_length = obj.CHP_num_samp + 1
+        obj.chirp_duration = obj.block_length / obj.ADC_sample_rate
+        obj.pn1 = _np.arange(obj.nsamp / 2 + 1)  # list of slant range pixel numbers
+        obj.rps = (obj.ADC_sample_rate / obj.nsamp * C / 2.) / obj.RF_chirp_rate  # range pixel spacing
+        obj.slr = (
+                       obj.pn1 * obj.ADC_sample_rate / obj.nsamp * C / 2.) / obj.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
+        obj.scale = (abs(obj.slr) / obj.slr[obj.nsamp / 8]) ** 1.5  # cubic range weighting in power
+        obj.ns_max = int(round(0.90 * obj.nsamp / 2))  # default maximum number of range samples for this chirp
+        # obj.tcycle = (obj.block_length) / obj.ADC_sample_rate  # time/cycle
+        obj.dt = type_mapping['SHORT INTEGER']
+        obj.sizeof_data = _np.dtype(_np.int16).itemsize
+        obj.bytes_per_record = obj.sizeof_data * obj.block_length  # number of bytes per echo
         obj.npats = len(obj.TX_RX_SEQ.split('-'))
         obj.mapping_dict = channel_mapping
         return obj
@@ -825,6 +849,7 @@ class rawData(_np.ndarray):
         chan_idx = self.channel_index(pat, ant)
         chan = self[:,:, chan_idx[0], chan_idx[1]]
         chan = self.__array_wrap__(chan)
+        # chan.tcycle = chan.tcycle / self.npats
         chan.GPRI_TX_antenna_position = self.mapping_dict['TX_' + pat[0] + "_position"]
         chan.GPRI_RX_antenna_position = self.mapping_dict['RX_' + pat[1] + ant + "_position"]
         chan.ADC_capture_time = self.ADC_capture_time / self.npats
@@ -842,14 +867,41 @@ class rawData(_np.ndarray):
         ant_map = {'l': 0, 'u': 1}
         return [ant_map[ant], chan_idx]
 
-    # def azspacing(self):
-    #     return self.tcycle * self.STP_rotation_speed * self.npats
-    #
-    # def freqvec(self):
-    #     return self.RF_freq_min + _np.arange(self.CHP_num_samp, dtype=float) * self.RF_chirp_rate / self.ADC_sample_rate
-    #
-    # az_spacing = property(azspacing)
-    # freq_vec = property(freqvec)
+    #All proprerties that depend directly or indirectly on the number of patterns
+    #are computed on the fly using property decorators
+
+    @property
+    def azspacing(self):
+        return self.tcycle * self.STP_rotation_speed * self.npats
+
+    @property
+    def freqvec(self):
+        return self.RF_freq_min + _np.arange(self.CHP_num_samp, dtype=_np.double) * self.RF_chirp_rate / self.ADC_sample_rate
+
+    @property
+    def nl_tot(self):
+        return self.shape[1]
+
+    @property
+    def tcycle(self):
+        return self.shape[0] * 1 / self.ADC_sample_rate
+
+    @property
+    def ang_per_tcycle(self):
+        return self.tcycle * self.TSC_rotation_speed
+
+    @property
+    def capture_time(self):
+        if self.ADC_capture_time == 0:
+            angc = abs(
+                self.STP_antenna_end - self.STP_antenna_start) - 2 * self.TSC_acc_ramp_time  # angular sweep of constant velocity
+            tc = abs(angc / self.TSC_rotation_speed)  # duration of constant motion
+            capture_time = 2 * self.t_acc + tc  # total time for scanner to complete scan
+        return capture_time
+
+    def raw_parameters(self):
+        return rawParameters(self.__dict__, self)
+
 
 def model_squint(freq_vec):
     return squint_angle(freq_vec, KU_WIDTH, KU_DZ, k=1.0/2.0)
@@ -858,14 +910,13 @@ def linear_squint(freq_vec, sq_parameters):
     return _np.polynomial.polynomial.polyval(freq_vec, sq_parameters)
 
 def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
-    raw_par = rawParameters(raw_channel.__dict__, raw_channel)
     # We require a function to compute the squint angle
-    squint_vec = squint_function(raw_par.freq_vec, squint_rate)
-    squint_vec = squint_vec / raw_par.ang_per_tcycle
-    squint_vec = squint_vec - squint_vec[raw_par.freq_vec.shape[0] / 2]
+    squint_vec = squint_function(raw_channel.freqvec, squint_rate)
+    squint_vec = squint_vec / raw_channel.ang_per_tcycle
+    squint_vec = squint_vec - squint_vec[raw_channel.freqvec.shape[0] / 2]
     # In addition, we correct for the beam motion during the chirp
-    rotation_squint = _np.linspace(0, raw_par.tcycle,
-                                   raw_par.nsamp) * raw_par.grp.TSC_rotation_speed / raw_par.ang_per_tcycle
+    rotation_squint = _np.linspace(0, raw_channel.tcycle,
+                                   raw_channel.nsamp) * raw_channel.TSC_rotation_speed / raw_channel.ang_per_tcycle
     # Normal angle vector
     angle_vec = _np.arange(raw_channel.shape[1])
     # We do not correct the squint of the first sample
@@ -873,6 +924,7 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     rotation_squint = _np.insert(rotation_squint, 0, 0)
     # Interpolated raw channel
     raw_channel_interp = _np.zeros_like(raw_channel)
+    print(raw_channel.shape)
     for idx in range(0, raw_channel.shape[0]):
         az_new = angle_vec + squint_vec[idx] - rotation_squint[idx]
         if idx % 500 == 0:
