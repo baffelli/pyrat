@@ -659,9 +659,15 @@ class rawParameters:
         self.sizeof_data = _np.dtype(_np.int16).itemsize
         self.bytes_per_record = self.sizeof_data * self.block_length  # number of bytes per echo
         # Get file size
-        self.filesize = _os.path.getsize(raw)
+        try:
+            self.filesize = _os.path.getsize(raw)
+            self.nl_tot = int(self.filesize / (self.sizeof_data * self.block_length))
+        except:
+            try:
+                self.nl_tot = raw.shape[1]
+            except:
+                pass
         # Number of lines
-        self.nl_tot = int(self.filesize / (self.sizeof_data * self.block_length))
         # Stuff for angle
         if self.grp.STP_antenna_end != self.grp.STP_antenna_start:
             self.ang_acc = self.grp.TSC_acc_ramp_angle
@@ -852,7 +858,7 @@ def linear_squint(freq_vec, sq_parameters):
     return _np.polynomial.polynomial.polyval(freq_vec, sq_parameters)
 
 def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
-    raw_par = rawParameters(raw_channel.__dict__)
+    raw_par = rawParameters(raw_channel.__dict__, raw_channel)
     # We require a function to compute the squint angle
     squint_vec = squint_function(raw_par.freq_vec, squint_rate)
     squint_vec = squint_vec / raw_par.ang_per_tcycle
