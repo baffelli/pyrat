@@ -70,7 +70,7 @@ def azimuth_correction(slc, r_ph, ws=0.4, discard_samples=False):
             print('Processing range index: ' + str(idx_r))
     return slc_filt
 
-def measure_imbalance(C_tri, C):
+def measure_imbalance(C_tri, C, rcs):
     """
     This function measures the co and crosspolar imbalance
     Parameters
@@ -81,6 +81,8 @@ def measure_imbalance(C_tri, C):
     the covariance to estimate the HV VH imbalanace
     refpos  : iterable
         the position of the TCR (ridx,azidx)
+    rcs: Float
+        the radar crosssection (in dB) of the calibration reflector
     Returns
     -------
 
@@ -92,10 +94,11 @@ def measure_imbalance(C_tri, C):
     # Solve for phi t and phi r
     phi_t = (VV_HH_phase_bias + cross_pol_bias) / 2
     phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
-    return phi_t, phi_r, f, g
+    A =  10**(rcs/10) / (_np.abs(C_tri[0,0]))
+    return phi_t, phi_r, f, g, A
 
 def distortion_matrix(phi_t, phi_r, f, g):
-    distortion_matrix = _np.diag([1, f * g * _np.exp(1j * phi_t), f/g * _np.exp(1j * phi_r),
+    distortion_matrix =  _np.diag([1, f * g * _np.exp(1j * phi_t), f/g * _np.exp(1j * phi_r),
                                   f**2 * _np.exp(1j * (phi_r + phi_t))])
     return distortion_matrix
 

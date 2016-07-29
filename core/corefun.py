@@ -219,16 +219,22 @@ def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
     mx_r_zoom, mx_az_zoom = mx_list_zoom[0:2]
     rplot = ptarg_zoom[(Ellipsis, mx_az_zoom) + (Ellipsis,)*additional_dim]
     azplot = ptarg_zoom[(mx_r_zoom, Ellipsis) + (Ellipsis,)*additional_dim]
-
-    #analyse resolution if slc has azimuth and range parameters
     try:
+        #analyse resolution if slc has azimuth and range parameters
+        if ptarg_zoom.ndim == 2:
+            rplot_analysis = rplot
+            azplot_analysis = azplot
+        else:
+            rplot_analysis = rplot[0,0]
+            azplot_analysis = azplot[0,0]
+
         az_spacing = slc.GPRI_az_angle_step[0] / osf
         r_spacing = slc.range_pixel_spacing[0] / osf
         mx_val = _np.abs(ptarg_zoom)[(mx_az_zoom, mx_r_zoom)]
         #range resolution
         #Half power length
-        hpbw_r = FWHM(_np.abs(rplot)**2) * r_spacing
-        hpbw_az = FWHM(_np.abs(azplot)**2) * az_spacing
+        hpbw_r = FWHM(_np.abs(rplot_analysis)**2) * r_spacing
+        hpbw_az = FWHM(_np.abs(azplot_analysis)**2) * az_spacing
         print(hpbw_r)
         print(hpbw_az)
         res_dict = {}
