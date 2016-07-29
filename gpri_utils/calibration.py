@@ -57,7 +57,7 @@ def azimuth_correction(slc, r_ph, ws=0.4, discard_samples=False):
         lam = _gpf.C / 17.2e9
         # Normal matched filter
         matched_filter = _np.exp(-1j * filt) * _np.exp(-1j * 4 * _np.pi * r_sl / lam)
-        filter_output = _sig.fftconvolve(slc[idx_r, :], matched_filter, mode='same')
+        filter_output = _sig.convolve(slc[idx_r, :], matched_filter, mode='same')
         if discard_samples:
             filter_output = filter_output[::ws_samp]
             slc_filt.GPRI_az_angle_step[0] = slc.GPRI_az_angle_step[0] * ws_samp

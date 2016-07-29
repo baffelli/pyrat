@@ -52,7 +52,7 @@ type_mapping = {
     'FCOMPLEX': _np.dtype('>c8'),
     # 'SCOMPLEX': _np.dtype('>c2'),
     'FLOAT': _np.dtype('>f4'),
-    'SHORT INTEGER': _np.dtype('>i2'),
+    'SHORT INTEGER': _np.dtype('<i2'),
     'INTEGER*2': _np.dtype('>i2'),
     'INTEGER': _np.dtype('>i'),
     'REAL*4': _np.dtype('>f4'),
@@ -806,7 +806,7 @@ class rawParameters:
 
 class rawData(_np.ndarray):
 
-    def __array__wrap(self, out_arr):
+    def __array_wrap__(self, out_arr):
             # This is just a lazy
             # _array_wrap_ that
             # copies properties from
@@ -850,7 +850,6 @@ class rawData(_np.ndarray):
         return obj
 
     def tofile(*args):
-        print(args)
         self = args[0]
         # In this case, we want to write both parameters and binary file
         if len(args) is 3:
@@ -861,6 +860,7 @@ class rawData(_np.ndarray):
             chan_idx = self.channel_index(pat, ant)
             chan = self[:,:, chan_idx[0], chan_idx[1]]
             chan = self.__array_wrap__(chan)
+            print(chan.__dict__)
             # chan.tcycle = chan.tcycle / self.npats
             chan.GPRI_TX_antenna_position = self.mapping_dict['TX_' + pat[0] + "_position"]
             chan.GPRI_RX_antenna_position = self.mapping_dict['RX_' + pat[1] + ant + "_position"]
@@ -869,7 +869,7 @@ class rawData(_np.ndarray):
             chan.STP_rotation_speed = self.STP_rotation_speed * self.npats
             chan.TSC_acc_ramp_time = self.TSC_acc_ramp_time / self.npats
             chan.TX_mode = None
-            chan.TX_RX_SEQ = pat
+            chan.TX_RX_SEQ = pat + ant
             return chan
         else:
             raise IndexError('This dataset only has one channel')
@@ -912,26 +912,32 @@ class rawData(_np.ndarray):
             angc = abs(
                 self.STP_antenna_end - self.STP_antenna_start) - 2 * self.TSC_acc_ramp_time  # angular sweep of constant velocity
             tc = abs(angc / self.TSC_rotation_speed)  # duration of constant motion
-            capture_time = 2 * self.t_acc + tc  # total time for scanner to complete scan
+            capture_time = 2 * self.self.grp.TSC_acc_ramp_time + tc  # total time for scanner to complete scan
+        else:
+            capture_time = self.ADC_capture_time
         return capture_time
 
     @property
     def start_time(self):
         return  str(self.time_start)
 
-    def compute_slc_parameters(self, kbeta=3.0, rmin=50, rmax=1000, dec=5, zero=300):#compute the slc parameters for a given set of input parameters
-        self.rmax = self.ns_max * self.rps  # default maximum slant range
+    def compute_slc_parameters(self, kbeta=3.0, rmin=50, dec=5, zero=300, **kwargs):#compute the slc parameters for a given set of input parameters
+        if 'rmax' not in kwargs:
+            rmax = self.ns_max * self.rps  # default maximum slant range
+        else:
+            rmax = kwargs.get('rmax')
         self.win = _sig.kaiser(self.nsamp, kbeta)
         self.zero = zero
         self.win2 = _sig.hanning(
             2 * self.zero)  # window to remove transient at start of echo due to sawtooth frequency sweep
         self.ns_min = int(round(rmin / self.rps))  # round to the nearest range sample
+        self.ns_max = int(round(0.90 * self.nsamp / 2))  # default maximum number of range samples for this chirp
         self.ns_out = (self.ns_max - self.ns_min) + 1
         self.rmin = self.ns_min * self.rps
         self.dec = dec
-        self.nl_acc = int(self.t_acc / (self.tcycle * self.dec))
+        self.nl_acc = int(self.TSC_acc_ramp_time / (self.tcycle * self.dec))
         # self.nl_tot = int(self.grp.ADC_capture_time/(self.tcycle))
-        self.nl_tot_dec = self.nl_tot / self.dec
+        self.nl_tot_dec = int(self.nl_tot / self.dec)
         self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
         self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
         if (rmax != 0.0):  # check if greater than maximum value for the selected chirp
@@ -941,14 +947,14 @@ class rawData(_np.ndarray):
             else:
                 print(
                 "ERROR: requested maximum slant range exceeds maximum possible value with this chirp: {value:f<30}'".format(
-                    self.rmax, ))
+                    self.rmax_chirp, ))
 
         self.ns_out = (self.ns_max - self.ns_min) + 1  # number of output samples
         # Compute antenna positions
         if self.STP_antenna_end > self.STP_antenna_start:  # clockwise rotation looking down the rotation axis
-            self.az_start = self.STP_antenna_start + self.ang_acc  # offset to start of constant motion + center-freq squint
+            self.az_start = self.STP_antenna_start + self.TSC_acc_ramp_angle  # offset to start of constant motion + center-freq squint
         else:  # counter-clockwise
-            self.az_start = self.STP_antenna_start - self.ang_acc
+            self.az_start = self.STP_antenna_start - self.TSC_acc_ramp_angle
 
     def fill_dict(self):
         """
@@ -1028,14 +1034,13 @@ def model_squint(freq_vec):
     return squint_angle(freq_vec, KU_WIDTH, KU_DZ, k=1.0/2.0)
 
 def linear_squint(freq_vec, sq_parameters):
-    return _np.polynomial.polynomial.polyval(freq_vec, sq_parameters)
+    return _np.polynomial.polynomial.polyval(freq_vec, [0, sq_parameters])
 
 def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
     # We require a function to compute the squint angle
     squint_vec = squint_function(raw_channel.freqvec, squint_rate)
     squint_vec = squint_vec / raw_channel.ang_per_tcycle
-    squint_vec = squint_vec - squint_vec[raw_channel.freqvec.shape[0] / 2]
-    # In addition, we correct for the beam motion during the chirp
+    squint_vec = squint_vec - squint_vec[raw_channel.freqvec.shape[0] / 2]    # In addition, we correct for the beam motion during the chirp
     rotation_squint = _np.linspace(0, raw_channel.tcycle,
                                    raw_channel.nsamp) * raw_channel.TSC_rotation_speed / raw_channel.ang_per_tcycle
     # Normal angle vector
@@ -1049,7 +1054,7 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     for idx in range(0, raw_channel.shape[0]):
         az_new = angle_vec + squint_vec[idx] - rotation_squint[idx]
         if idx % 500 == 0:
-            print_str = "interp sample: {idx}, ,shift: {sh}".format(idx=idx, sh=az_new[0] - angle_vec[0])
+            print_str = "interp sample: {idx}, ,shift: {sh} samples".format(idx=idx, sh=az_new[0] - angle_vec[0])
             print(print_str)
         raw_channel_interp[idx, :] = _np.interp(az_new, angle_vec, raw_channel[idx, :], left=0.0, right=0.0)
     raw_channel_interp.__array_wrap__(raw_channel)
@@ -1058,7 +1063,7 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
 
 
 
-def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f_c=None, bw=66e6, rvp_corr=False):
+def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f_c=None, bw=66e6, rvp_corr=False, scale=True):
     rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
     rawdata.compute_slc_parameters(kbeta=kbeta,rmin=rmin, rmax=rmax, zero=zero, dec=dec)
     #Construct a filter
@@ -1074,9 +1079,9 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f
         #Decimated pulse
         dec_pulse = _np.zeros(rawdata.block_length, dtype=_np.float32)
         for idx_dec in range(rawdata.dec):
-            current_idx = idx_az * raw_par.dec + idx_dec
-            current_idx_1 = idx_az + idx_dec * raw_par.dec
-            if raw_par.dt == _np.dtype(_np.int16) or raw_par.dt == type_mapping['SHORT INTEGER']:
+            current_idx = idx_az * rawdata.dec + idx_dec
+            current_idx_1 = idx_az + idx_dec * rawdata.dec
+            if rawdata.dt == _np.dtype(_np.int16) or rawdata.dt == type_mapping['SHORT INTEGER']:
                 current_data = rawdata[:, current_idx ].astype(_np.float32) / TSF
             else:
                  current_data = rawdata[:, current_idx ].astype(_np.float32)
@@ -1088,15 +1093,17 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f
                 print(err.message)
                 break
         if rawdata.zero > 0:
-            dec_pulse[0:raw_par.zero] = dec_pulse[0:raw_par.zero] * raw_par.win2[0:raw_par.zero]
-            dec_pulse[-raw_par.zero:] = dec_pulse[-raw_par.zero:] * raw_par.win2[-raw_par.zero:]
+            dec_pulse[0:rawdata.zero] = dec_pulse[0:rawdata.zero] * rawdata.win2[0:rawdata.zero]
+            dec_pulse[-rawdata.zero:] = dec_pulse[-rawdata.zero:] * rawdata.win2[-rawdata.zero:]
         #Emilinate the first sample, as it is used to jump back to the start freq
-        line_comp = _np.fft.rfft(dec_pulse[1::] * filt /rawdata.dec * rawdata.win) * fshift
+        line_comp = _np.fft.rfft(dec_pulse[1::] * filt / rawdata.dec * rawdata.win) * fshift
         if rvp_corr:
             line_comp = line_comp * rvp
         #Decide if applying the range scale factor or not
-        scale_factor = rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1]
-
+        if scale:
+            scale_factor = rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1]
+        else:
+            scale_factor = 1
         arr_compr[:, idx_az] = (line_comp[rawdata.ns_min:rawdata.ns_max + 1].conj() * scale_factor).astype('complex64')
     #Remove lines used for rotational acceleration
     arr_compr = arr_compr[:, rawdata.nl_acc:rawdata.nl_image + rawdata.nl_acc:]
