@@ -94,8 +94,9 @@ def measure_imbalance(C_tri, C, rcs):
     # Solve for phi t and phi r
     phi_t = (VV_HH_phase_bias + cross_pol_bias) / 2
     phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
-    A =  10**(rcs/10) / (_np.abs(C_tri[0,0]))
+    A =  (10**(rcs/10) / (_np.abs(C_tri[0,0])))**(1/4.0)
     return phi_t, phi_r, f, g, A
+
 
 def distortion_matrix(phi_t, phi_r, f, g):
     distortion_matrix =  _np.diag([1, f * g * _np.exp(1j * phi_t), f/g * _np.exp(1j * phi_r),

@@ -233,14 +233,17 @@ def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
         mx_val = _np.abs(ptarg_zoom)[(mx_az_zoom, mx_r_zoom)]
         #range resolution
         #Half power length
-        hpbw_r = FWHM(_np.abs(rplot_analysis)**2) * r_spacing
-        hpbw_az = FWHM(_np.abs(azplot_analysis)**2) * az_spacing
-        print(hpbw_r)
-        print(hpbw_az)
+        try:
+            hpbw_r = FWHM(_np.abs(rplot_analysis)**2) * r_spacing
+        except:
+            hpbw_r = 0
+        try:
+            hpbw_az = FWHM(_np.abs(azplot_analysis)**2) * az_spacing
+        except:
+            hpbw_az = 0
         res_dict = {}
         res_dict['range_resolution'] = [hpbw_r, 'm']
         res_dict['azimuth_resolution'] = [hpbw_r, 'deg']
-
     except AttributeError:
         pass
 
