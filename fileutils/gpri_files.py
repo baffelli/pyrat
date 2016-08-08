@@ -1057,6 +1057,30 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     return raw_channel_interp
 
 
+def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9):
+    SLC_corr = SLC * 1
+    rawdata = _np.zeros((SLC.shape[0]/2 - 1, SLC.shape[1]))
+    rawdata_corr = rawdata * 1
+    #Convert the data into raw samples
+    for idx_line in range(SLC.shape[1]):
+        rawdata[:, idx_line] = _np.fft.irfft(SLC[:, idx_line])
+    #Now correct the squint
+    freqvec = SLC.radar_frequency[0]  + _np.linspace(-SLC.chirp_bandwidth[0]/2, -SLC.chirp_bandwidth[0]/2, rawdata.shape[0])
+    squint_vec = squint_function(freqvec, squint_rate)
+    squint_vec = squint_vec / SLC.GPRI_az_angle_step[0]
+    squint_vec = squint_vec - squint_vec[freqvec.shape[0] / 2]    # In addition, we correct for the beam motion during the chirp
+    # Normal angle vector
+    angle_vec = _np.arange(SLC.shape[1])
+    #Correct by interpolation
+    for idx_freq in range(rawdata.shape[0]):
+        az_new = angle_vec + squint_vec[idx_freq]
+        rawdata_corr[idx_freq, :] =  _np.interp(az_new, angle_vec, SLC[idx_freq, :], left=0.0, right=0.0)
+    #Now range compress again (this function is really boring
+    for idx_line in range(SLC.shape[1]):
+        SLC_corr[:, idx_line ] = _np.fft.rfft(rawdata_corr)
+    return SLC_corr
+
+
 
 
 def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f_c=None, bw=66e6, rvp_corr=False, scale=True):
