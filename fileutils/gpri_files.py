@@ -145,7 +145,8 @@ class gammaDataset(_np.ndarray):
                 par_path = args[1]
                 bin_path = args[2]
                 memmap = kwargs.get('memmap', False)
-                image, par_dict = load_dataset(par_path, bin_path, memmap=memmap)
+                dtype = kwargs.get('dtype', None)
+                image, par_dict = load_dataset(par_path, bin_path, memmap=memmap, dtype=dtype)
             except:
                 Exception("Input parameters format unrecognized ")
         obj = image.view(cls)
@@ -411,10 +412,12 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
     return d_image
 
 
-def load_dataset(par_file, bin_file, memmap=True, dtype=None):
+def load_dataset(par_file, bin_file, **kwargs):
+    dtype = kwargs.get('dtype', None)
+    memmap = kwargs.get('memmap', False)
     par_dict = par_to_dict(par_file)
     # Map type to gamma
-    if not dtype:
+    if dtype is None:
         try:
             dt = type_mapping[par_dict['image_format']]
         except:
@@ -425,7 +428,7 @@ def load_dataset(par_file, bin_file, memmap=True, dtype=None):
                 print(str(KeyError("This file does not contain datatype specification in a known format, using default FLOAT datatype")))
     else:
         try:
-            dt = type_mapping[dtype]
+            dt = dtype
         except KeyError:
             raise TypeError('This datatype does not exist')
     try:
@@ -446,13 +449,6 @@ def load_dataset(par_file, bin_file, memmap=True, dtype=None):
                 except:
                     raise KeyError("This file does not contain data shape specification in a known format")
     d_image = load_binary(bin_file, width, dtype=dt, memmap=memmap)
-    # shape = shape[::-1]
-    # if memmap:
-    #     with open(bin_file, 'rb') as mmp:
-    #         buffer = _mm.mmap(mmp.fileno(), 0, prot=_mm.PROT_READ)
-    #         d_image = _np.ndarray(shape, dt, buffer).T
-    # else:
-    #     d_image = _np.fromfile(bin_file, ).reshape(shape).T
     return d_image, par_dict
 
 

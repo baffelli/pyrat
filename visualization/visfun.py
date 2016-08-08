@@ -461,7 +461,7 @@ def circular_palette(N=24, repeat=False):
     return rgb
 
 
-def dismph(data, min_val=-180, max_val=180, k=0.5, N=24, sf=1, repeat=False, coherence=False):
+def dismph(data, min_val=-180, max_val=180, k=0.5, N=24, sf=1, repeat=False, coherence=False, black_background=True):
     colors_hue = circular_palette(N, repeat=repeat)
     pal = _mpl.colors.LinearSegmentedColormap. \
         from_list('subs_colors', colors_hue, N=N)
@@ -475,17 +475,22 @@ def dismph(data, min_val=-180, max_val=180, k=0.5, N=24, sf=1, repeat=False, coh
     hsv = _mpl.colors.rgb_to_hsv(rgb[:, :, 0:3])
     # Add
     # Scale with intensity
-    if not coherence:
-        hsv[:, :, 2] = ampl
-    else:
-        hsv[:, :, 1] = _np.abs(data)
-
+    # if coherence:
+    #     hsv[:, :, 1] = ampl
+    #     hsv[_np.abs(data) < 0.1] = 0
+    # else:
+    #     hsv[:, :, 2] = _np.abs(data)
+    hsv[:, :, 2] = ampl
     # Convert back to rgb
     rgb = _mpl.colors.hsv_to_rgb(hsv)
     mask = _np.sum(rgb, axis=-1) == 0
     # RGBA alpha mask
-    alpha_chan = (1 - mask)
-    rgb = _np.dstack((rgb, alpha_chan))
+    if not black_background:
+        alpha_chan = (1 - mask)
+        rgb = _np.dstack((rgb, alpha_chan))
+    else:
+        rgb[mask] = 0
+
     #Analyze
     return rgb[:, :, :], pal, norm
 
