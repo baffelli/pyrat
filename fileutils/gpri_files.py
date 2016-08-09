@@ -173,7 +173,7 @@ class gammaDataset(_np.ndarray):
     def __getitem__(self, item):
         #Try the channel dictionary
         try:
-            sl_mat = channel_dict.get(item, [])
+            sl_mat = channel_dict[item]
             sl = (Ellipsis,) * (self.ndim - len(sl_mat)) + sl_mat
         except (KeyError, TypeError):
             sl = item
@@ -182,9 +182,9 @@ class gammaDataset(_np.ndarray):
         #This concludes the part where we extract data from the array.
         #now we need to adjust the attributes to adjust to the new spacing
         try:
-            #copy range and azimuth vector
             az_vec = self.az_vec * 1
             r_vec = self.r_vec * 1
+            #copy range and azimuth vector
             #Now access the range vector
             try:
                 r_vec_sl = r_vec[sl[0]]
@@ -212,15 +212,18 @@ class gammaDataset(_np.ndarray):
                 start_r = az_vec_sl[0]
             except IndexError:
                 start_r = az_vec_sl
-            new_obj_1.near_range_slc[0] = start_r
-            new_obj_1.GPRI_az_start_angle[0] = start_angle
-            new_obj_1.GPRI_az_angle_step[0] = az_vec[0] * az_osf
-            new_obj_1.range_pixel_spacing[0] = r_vec[0] * r_osf
-            new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
-            new_obj_1.prf[0] = az_osf * self.prf[0]
-            new_obj_1.range_samples = new_obj_1.shape[0]
-            new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
-        except AttributeError:
+            try:
+                new_obj_1.near_range_slc[0] = start_r
+                new_obj_1.GPRI_az_start_angle[0] = start_angle
+                new_obj_1.GPRI_az_angle_step[0] = az_vec[0] * az_osf
+                new_obj_1.range_pixel_spacing[0] = r_vec[0] * r_osf
+                new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
+                new_obj_1.prf[0] = az_osf * self.prf[0]
+                new_obj_1.range_samples = new_obj_1.shape[0]
+                new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
+            except AttributeError:
+                pass
+        except (AttributeError, KeyError):
             pass#not a gpri dataset
 
             # # Construct temporary azimuth and  range vectors
