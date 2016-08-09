@@ -171,69 +171,110 @@ class gammaDataset(_np.ndarray):
         return self.__getitem__(slice(start, stop, None))
 
     def __getitem__(self, item):
-        if type(item) is str:
-            try:
-                sl_mat = channel_dict[item]
-                sl = (Ellipsis,) * (self.ndim - 2) + sl_mat
-            except KeyError:
-                raise IndexError('This channel does not exist')
-        else:
+        #Try the channel dictionary
+        try:
+            sl_mat = channel_dict.get(item, [])
+            sl = (Ellipsis,) * (self.ndim - len(sl_mat)) + sl_mat
+        except (KeyError, TypeError):
             sl = item
+        #Get the slice from the object by calling the corresponding numpy function
         new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).view(type(self))
-        if hasattr(new_obj_1, 'near_range_slc'):
-            # Construct temporary azimuth and  range vectors
+        #This concludes the part where we extract data from the array.
+        #now we need to adjust the attributes to adjust to the new spacing
+        try:
+            #copy range and azimuth vector
             az_vec = self.az_vec * 1
             r_vec = self.r_vec * 1
-            r_0 = self.az_vec[0]
-            az_0 = self.r_vec[0]
-            az_spac = self.GPRI_az_angle_step[0] * 1
-            r_spac = self.range_pixel_spacing[0] * 1
-            # Passing only number, slice along first dim only
-            if isinstance(sl, _num.Number):
-                az_0 = az_vec[sl]
-                r_0 = self.near_range_slc[0] * 1
-                az_spac = self.GPRI_az_angle_step[0] * 1
-                r_spac = self.range_pixel_spacing[0] * 1
-            # Tuple of slices
-            elif hasattr(sl, '__contains__'):
-                # By taking the first element, we automatically have
-                # the correct data
-                try:
-                    az_vec_sl = az_vec[sl[1]]
-                    if hasattr(az_vec_sl, '__contains__'):
-                        if len(az_vec_sl) > 1:
-                            az_spac = az_vec_sl[1] - az_vec_sl[0]
-                        else:
-                            az_spac = az_spac
-                        az_0 = az_vec_sl[0]
-                    else:
-                        az_0 = az_vec_sl
-                        az_spac = self.GPRI_az_angle_step[0] * 1
-                except:
-                    pass
-                try:
-                    r_vec_sl = r_vec[sl[0]]
-                    if hasattr(r_vec_sl, '__contains__'):
-                        if len(r_vec_sl) > 1:
-                            r_spac = r_vec_sl[1] - r_vec_sl[0]
-                        else:
-                            r_spac = r_spac
-                        r_spac = r_vec_sl[1] - r_vec_sl[0]
-                        r_0 = r_vec_sl[0]
-                    else:
-                        r_spac = self.range_pixel_spacing[0] * 1
-                        r_0 = r_vec_sl
-                except:
-                    pass
-            az_osf = az_spac / self.GPRI_az_angle_step[0]#azimuth over/undersampling time
+            #Now access the range vector
+            try:
+                r_vec_sl = r_vec[sl[0]]
+            except IndexError:
+                r_vec_sl = r_vec[sl]
+            try:
+                az_vec_sl = az_vec[sl[0]]
+            except IndexError:
+                az_vec_sl = az_vec[sl]
+            try:
+                az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step[0]#azimuth over/undersampling time
+            except IndexError:
+                az_osf = 1
+            try:
+                r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing[0]#range sampling
+            except IndexError:
+                r_osf = 1
             new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
             new_obj_1.prf[0] = az_osf * self.prf[0]
-            new_obj_1.GPRI_az_start_angle[0] = az_0
-            new_obj_1.near_range_slc[0] = r_0
-            new_obj_1.GPRI_az_angle_step[0] = az_spac
-            new_obj_1.range_pixel_spacing[0] = r_spac
+            try:
+                start_angle = az_vec_sl[0]
+            except IndexError:
+                start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
+            try:
+                start_r = az_vec_sl[0]
+            except IndexError:
+                start_r = az_vec_sl
+            new_obj_1.near_range_slc[0] = start_r
+            new_obj_1.GPRI_az_angle_start[0] = start_angle
+            new_obj_1.GPRI_az_angle_step[0] = self.GPRI_az_angle_step[0] * az_osf
+            new_obj_1.range_pixel_spacing[0] = self.range_pixel_spacing[0] * r_osf
             new_obj_1.range_samples = new_obj_1.shape[0]
             new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
+        except AttributeError:
+            pass#not a gpri dataset
+
+            # # Construct temporary azimuth and  range vectors
+            # az_vec = self.az_vec * 1
+            # r_vec = self.r_vec * 1
+            # r_0 = self.r_vec[0]
+            # az_0 = self.az_vec[0]
+            # az_spac = self.GPRI_az_angle_step[0] * 1
+            # r_spac = self.range_pixel_spacing[0] * 1
+            # # Passing only number, access the array as it were a linear index (ravel index)
+            # if isinstance(sl, _num.Number):
+            #     #compute the indices and recur
+            #     indices = _np.unravel_index(sl)
+            #     return self.__getitem__(indices)
+            #
+            # # Tuple of slices
+            # elif hasattr(sl, '__contains__'):
+            #     # By taking the first element, we automatically have
+            #     # the correct data
+            #     try:
+            #         az_vec_sl = self.az_vec[sl[1]]
+            #         if hasattr(az_vec_sl, '__contains__'):
+            #             if len(az_vec_sl) > 1:
+            #                 az_spac = az_vec_sl[1] - az_vec_sl[0]
+            #                 az_0 = az_vec_sl[0]
+            #             else:
+            #                 az_spac = self.GPRI_az_angle_step[0] * 1
+            #                 az_0 = az_vec_sl
+            #         else:
+            #             az_0 = az_vec_sl
+            #             az_spac = self.GPRI_az_angle_step[0] * 1
+            #     except:
+            #         IndexError('The slice object does not match the objects size')
+            #     try:
+            #         r_vec_sl = self.r_vec[sl[0]]
+            #         if hasattr(r_vec_sl, '__contains__'):
+            #             if len(r_vec_sl) > 1:
+            #                 r_spac = r_vec_sl[1] - r_vec_sl[0]
+            #             else:
+            #                 r_spac = self.range_pixel_spacing[0]
+            #             r_spac = r_vec_sl[1] - r_vec_sl[0]
+            #             r_0 = r_vec_sl[0]
+            #         else:
+            #             r_spac = self.range_pixel_spacing[0] * 1
+            #             r_0 = r_vec_sl
+            #     except:
+            #         pass
+            # az_osf = az_spac / self.GPRI_az_angle_step[0]#azimuth over/undersampling time
+            # new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
+            # new_obj_1.prf[0] = az_osf * self.prf[0]
+            # new_obj_1.GPRI_az_start_angle[0] = az_0
+            # new_obj_1.near_range_slc[0] = r_0
+            # new_obj_1.GPRI_az_angle_step[0] = az_spac
+            # new_obj_1.range_pixel_spacing[0] = r_spac
+            # new_obj_1.range_samples = new_obj_1.shape[0]
+            # new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
         return new_obj_1
 
 
@@ -276,17 +317,14 @@ class gammaDataset(_np.ndarray):
             arr_dec[:, idx_az] = _np.fft.rfft(dec_pulse)
         return arr_dec
 
-
-    def rvec(obj):
+    @property
+    def r_vec(obj):
         return obj.__dict__['near_range_slc'][0] + _np.arange(obj.__dict__['range_samples']) * \
                                                    obj.__dict__['range_pixel_spacing'][0]
-
-    def azvec(obj):
+    @property
+    def az_vec(obj):
         return obj.__dict__['GPRI_az_start_angle'][0] + _np.arange(obj.__dict__['azimuth_lines']) * \
                                                         obj.__dict__['GPRI_az_angle_step'][0]
-
-    r_vec = property(rvec)
-    az_vec = property(azvec)
 
 
 def par_to_dict(par_file):
