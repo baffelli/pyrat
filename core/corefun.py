@@ -193,8 +193,6 @@ def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
            slice(azidx - sw / 2, azidx + sw / 2), ) + (None,)*additional_dim
     # Find the maxium whitin the search window
     slc_section = slc[search_win]
-    print(search_win)
-    print(slc_section.shape)
     mx = _np.argmax(_np.abs(slc_section))
     mx_list = _np.unravel_index(mx, slc_section.shape)
     mx_r, mx_az = mx_list[0:2]
