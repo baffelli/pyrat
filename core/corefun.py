@@ -47,6 +47,9 @@ def outer_product(data,data1, large = False):
         return T
 
     
+def dB(arr, power=True):
+    factor = 10 if power else 20
+    return factor * _np.log10(_np.abs(arr))
 
 
 def smooth(T, window, fun = _nd.filters.uniform_filter ):
@@ -189,9 +192,11 @@ def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
     search_win = (slice(ridx - sw / 2, ridx + sw / 2),
            slice(azidx - sw / 2, azidx + sw / 2), ) + (None,)*additional_dim
     # Find the maxium whitin the search window
-    ptarg = slc[search_win]
-    mx = _np.argmax(_np.abs(ptarg))
-    mx_list = _np.unravel_index(mx, ptarg.shape)
+    slc_section = slc[search_win]
+    print(search_win)
+    print(slc_section.shape)
+    mx = _np.argmax(_np.abs(slc_section))
+    mx_list = _np.unravel_index(mx, slc_section.shape)
     mx_r, mx_az = mx_list[0:2]
     #Maximum in global system
     mx_r_glob = mx_r + ridx
@@ -200,22 +205,23 @@ def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
     win_1 = (slice(mx_r_glob - rwin / 2, mx_r_glob + rwin / 2),
              slice(mx_az_glob - azwin / 2, mx_az_glob + azwin / 2),)
     mx_sample = (slc[(mx_r_glob, mx_az_glob) + (Ellipsis,)*additional_dim])
-    ptarg = slc[win_1]#slice aroudn global maximum
+    slc_section = slc[win_1]#slice aroudn global maximum
     if slc.ndim == 2:
-        ptarg_zoom = complex_interp(ptarg, osf)
+        ptarg_zoom = complex_interp(slc_section, osf)
     else:
         if slc.ndim == 3:
             ptarg_zoom = []
             for i in range(slc.shape[-1]):
-                ptarg_zoom[i] = complex_interp(ptarg[:,:,i], osf)
+                ptarg_zoom[i] = complex_interp(slc_section[:,:,i], osf)
         elif slc.ndim == 4:
-            ptarg_zoom = [[0 for x in range(ptarg.shape[-2])] for y in range(ptarg.shape[-2])]
+            ptarg_zoom = [[0 for x in range(slc_section.shape[-2])] for y in range(slc_section.shape[-2])]
             for i in range(slc.shape[-1]):
                 for j in range(slc.shape[-2]):
-                    ptarg_zoom[i][j] = complex_interp(ptarg[:,:,i,j], osf)
+                    ptarg_zoom[i][j] = complex_interp(slc_section[:,:,i,j], osf)
             ptarg_zoom = _np.array(ptarg_zoom).transpose([2,3,0,1])
     mx_zoom = _np.argmax(_np.abs(ptarg_zoom))
     mx_list_zoom = _np.unravel_index(mx_zoom, ptarg_zoom.shape)
+    print(ptarg_zoom.shape)
     mx_r_zoom, mx_az_zoom = mx_list_zoom[0:2]
     rplot = ptarg_zoom[(Ellipsis, mx_az_zoom) + (Ellipsis,)*additional_dim]
     azplot = ptarg_zoom[(mx_r_zoom, Ellipsis) + (Ellipsis,)*additional_dim]
@@ -230,7 +236,7 @@ def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
 
         az_spacing = slc.GPRI_az_angle_step[0] / osf
         r_spacing = slc.range_pixel_spacing[0] / osf
-        mx_val = _np.abs(ptarg_zoom)[(mx_az_zoom, mx_r_zoom)]
+        # mx_val = _np.abs(ptarg_zoom)[(mx_r_zoom, mx_az_zoom)]
         #range resolution
         #Half power length
         try:
@@ -243,7 +249,7 @@ def ptarg(slc, ridx, azidx ,rwin=32, azwin=64, osf=16, sw=4):
             hpbw_az = 0
         res_dict = {}
         res_dict['range_resolution'] = [hpbw_r, 'm']
-        res_dict['azimuth_resolution'] = [hpbw_r, 'deg']
+        res_dict['azimuth_resolution'] = [hpbw_az, 'deg']
     except AttributeError:
         pass
 

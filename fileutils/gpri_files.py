@@ -188,11 +188,11 @@ class gammaDataset(_np.ndarray):
             #Now access the range vector
             try:
                 r_vec_sl = r_vec[sl[0]]
-            except IndexError:
+            except (IndexError, TypeError):
                 r_vec_sl = r_vec[sl]
             try:
-                az_vec_sl = az_vec[sl[0]]
-            except IndexError:
+                az_vec_sl = az_vec[sl[1]]
+            except (IndexError, TypeError):
                 az_vec_sl = az_vec[sl]
             try:
                 az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step[0]#azimuth over/undersampling time
@@ -213,9 +213,11 @@ class gammaDataset(_np.ndarray):
             except IndexError:
                 start_r = az_vec_sl
             new_obj_1.near_range_slc[0] = start_r
-            new_obj_1.GPRI_az_angle_start[0] = start_angle
-            new_obj_1.GPRI_az_angle_step[0] = self.GPRI_az_angle_step[0] * az_osf
-            new_obj_1.range_pixel_spacing[0] = self.range_pixel_spacing[0] * r_osf
+            new_obj_1.GPRI_az_start_angle[0] = start_angle
+            new_obj_1.GPRI_az_angle_step[0] = az_vec[0] * az_osf
+            new_obj_1.range_pixel_spacing[0] = r_vec[0] * r_osf
+            new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
+            new_obj_1.prf[0] = az_osf * self.prf[0]
             new_obj_1.range_samples = new_obj_1.shape[0]
             new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
         except AttributeError:
@@ -894,7 +896,6 @@ class rawData(_np.ndarray):
             chan_idx = self.channel_index(pat, ant)
             chan = self[:,:, chan_idx[0], chan_idx[1]]
             chan = self.__array_wrap__(chan)
-            print(chan.__dict__)
             # chan.tcycle = chan.tcycle / self.npats
             chan.GPRI_TX_antenna_position = self.mapping_dict['TX_' + pat[0] + "_position"]
             chan.GPRI_RX_antenna_position = self.mapping_dict['RX_' + pat[1] + ant + "_position"]
@@ -1084,7 +1085,6 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     rotation_squint = _np.insert(rotation_squint, 0, 0)
     # Interpolated raw channel
     raw_channel_interp = _np.zeros_like(raw_channel)
-    print(raw_channel.shape)
     for idx in range(0, raw_channel.shape[0]):
         az_new = angle_vec + squint_vec[idx] - rotation_squint[idx]
         if idx % 500 == 0:

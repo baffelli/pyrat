@@ -473,14 +473,13 @@ def dismph(data, min_val=-180, max_val=180, k=0.5, N=24, sf=1, repeat=False, coh
     rgb = pal(ang)
     # #Extract the hsv parameters
     hsv = _mpl.colors.rgb_to_hsv(rgb[:, :, 0:3])
-    # Add
-    # Scale with intensity
-    # if coherence:
-    #     hsv[:, :, 1] = ampl
-    #     hsv[_np.abs(data) < 0.1] = 0
-    # else:
-    #     hsv[:, :, 2] = _np.abs(data)
-    hsv[:, :, 2] = ampl
+    #
+    #Scale with intensity
+    if coherence:
+        hsv[:, :, 1] = ampl
+        hsv[_np.abs(data) < 0.1] = 0
+    else:
+        hsv[:, :, 2] = scale_array(_np.abs(data)**k)
     # Convert back to rgb
     rgb = _mpl.colors.hsv_to_rgb(hsv)
     mask = _np.sum(rgb, axis=-1) == 0

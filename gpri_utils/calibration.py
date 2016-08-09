@@ -33,7 +33,7 @@ def remove_window(S):
     return S_corr
 
 
-def azimuth_correction(slc, r_ph, ws=0.4, discard_samples=False):
+def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     r_ant = _gpf.xoff + _np.cos(_np.deg2rad(slc.GPRI_ant_elev_angle[0])) * _gpf.ant_radius
     # Construct range vector
     # r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
