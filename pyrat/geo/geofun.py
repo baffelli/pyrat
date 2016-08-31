@@ -1,11 +1,11 @@
 from collections import OrderedDict as _od
-from osgeo import osr as _osr, gdal
 
 import numpy as _np
-
-from ..fileutils.gpri_files import dict_to_par, type_mapping
+from osgeo import osr as _osr, gdal
 from pyrat.visualization.visfun import bilinear_interpolate
-from  ..fileutils import gpri_files as _gpf
+
+from ..fileutils import gpri_files as _gpf
+
 
 def copy_and_modify_gt(RAS, gt):
     from osgeo import gdal
@@ -57,7 +57,7 @@ def raster_to_geotiff(raster, ref_gt, path):
     else:
         dataset.GetRasterBand(1).WriteArray(raster)
         dataset.FlushCache()  # Write to disk.
-    #    dataset.GDALClose()
+    # dataset.GDALClose()
     return dataset
 
 
@@ -84,7 +84,7 @@ def upgrade_CH1903_gt(ds):
 def numeric_dt_to_gdal_dt(number):
     from osgeo import gdal
 
-    conversion_dict = { \
+    conversion_dict = {
         1: gdal.GDT_Byte,
         2: gdal.GDT_UInt16,
         3: gdal.GDT_Int16,
@@ -147,28 +147,28 @@ def reproject_gt(gt_to_project, gt_reference):
     """
     from osgeo import gdal, osr
 
-    tx = osr.CoordinateTransformation(osr.SpatialReference(gt_to_project.GetProjection()), \
+    tx = osr.CoordinateTransformation(osr.SpatialReference(gt_to_project.GetProjection()),
                                       osr.SpatialReference(gt_reference.GetProjection()))
     geo_t = gt_to_project.GetGeoTransform()
     geo_t_ref = gt_reference.GetGeoTransform()
     x_size = gt_reference.RasterXSize  # Raster xsize
     y_size = gt_reference.RasterYSize  # Raster ysize
     (ulx, uly, ulz) = tx.TransformPoint(geo_t[0], geo_t[3])
-    (lrx, lry, lrz) = tx.TransformPoint(geo_t[0] + geo_t_ref[1] * x_size, \
+    (lrx, lry, lrz) = tx.TransformPoint(geo_t[0] + geo_t_ref[1] * x_size,
                                         geo_t[3] + geo_t_ref[5] * y_size)
     # Compute new geotransform
-    new_geo = (geo_t_ref[0], geo_t_ref[1], geo_t[2], \
+    new_geo = (geo_t_ref[0], geo_t_ref[1], geo_t[2],
                geo_t_ref[3], geo_t_ref[4], geo_t_ref[5])
     mem_drv = gdal.GetDriverByName('MEM')
     pixel_spacing_x = geo_t_ref[1]
     pixel_spacing_y = geo_t_ref[5]
-    dest = mem_drv.Create('', int((lrx - ulx) / _np.abs(pixel_spacing_x)), \
-                          int((uly - lry) / _np.abs(pixel_spacing_y)), gt_to_project.RasterCount, \
+    dest = mem_drv.Create('', int((lrx - ulx) / _np.abs(pixel_spacing_x)),
+                          int((uly - lry) / _np.abs(pixel_spacing_y)), gt_to_project.RasterCount,
                           numeric_dt_to_gdal_dt(gt_to_project.GetRasterBand(1).DataType))
     dest.SetGeoTransform(new_geo)
     dest.SetProjection(gt_reference.GetProjection())
-    res = gdal.ReprojectImage(gt_to_project, dest, \
-                              gt_to_project.GetProjection(), gt_reference.GetProjection(), \
+    res = gdal.ReprojectImage(gt_to_project, dest,
+                              gt_to_project.GetProjection(), gt_reference.GetProjection(),
                               gdal.GRA_Bilinear)
     return dest
 
@@ -240,8 +240,8 @@ def compute_map_extent(MAP, center, S, heading, return_coverage=False):
     # get DEM geotransform
     GT = MAP.GetGeoTransform()
     # Convert grid limits into DEM indices
-    x_lim_idx = ((((x_lim - GT[0]) / GT[1])))
-    y_lim_idx = ((((y_lim - GT[3]) / GT[5])))
+    x_lim_idx = ((x_lim - GT[0]) / GT[1])
+    y_lim_idx = ((y_lim - GT[3]) / GT[5])
     if return_coverage:
         return x_lim, x_lim_idx, y_lim, y_lim_idx, x, y
     else:
@@ -277,13 +277,13 @@ def extract_extent(GD, ext):
     n_pix_y = int(_np.abs((ext[1][1] - ext[1][0]) / GT[5]))
     # Now, we can generate a new dataset
     mem_drv = gdal.GetDriverByName('MEM')
-    dest = mem_drv.Create('', n_pix_x, \
-                          n_pix_y, GD.RasterCount, \
+    dest = mem_drv.Create('', n_pix_x,
+                          n_pix_y, GD.RasterCount,
                           numeric_dt_to_gdal_dt(GD.GetRasterBand(1).DataType))
     dest.SetGeoTransform(gt_new)
     dest.SetProjection(GD.GetProjection())
-    res = gdal.ReprojectImage(GD, dest, \
-                              GD.GetProjection(), GD.GetProjection(), \
+    res = gdal.ReprojectImage(GD, dest,
+                              GD.GetProjection(), GD.GetProjection(),
                               gdal.GRA_Bilinear)
     return dest
 
@@ -397,7 +397,7 @@ def gc_map_bi(DEM, center_TX, center_RX, S_l, heading, interp=None, seg_DEM=True
     r_step = S_l.r_vec[1] - S_l.r_vec[0]
     az_step = S_l.az_vec[1] - S_l.az_vec[0]
     r_idx = (r_bi - S_l.r_vec[0]) / r_step
-    az_idx = (az - S_l.az_vec[0]) / (az_step)
+    az_idx = (az - S_l.az_vec[0]) / az_step
     lut = 1j * az_idx + r_idx
     #    #The slant ranges can be used to compute shadow maps
     #    #Now we can compute the reverse transformation (From DEM to Radar)
@@ -477,7 +477,7 @@ def gc_map(DEM, center, S_l, heading, interp=None, seg_DEM=True):
     r_step = S_l.r_vec[1] - S_l.r_vec[0]
     az_step = S_l.az_vec[1] - S_l.az_vec[0]
     r_idx = (r_sl - S_l.r_vec[0]) / r_step
-    az_idx = (az - S_l.az_vec[0]) / (az_step)
+    az_idx = (az - S_l.az_vec[0]) / az_step
     lut = 1j * az_idx + r_idx
     # The slant ranges can be used to compute shadow maps
     # Now we can compute the reverse transformation (From DEM to Radar)
@@ -525,7 +525,7 @@ def gc_map(DEM, center, S_l, heading, interp=None, seg_DEM=True):
         nex = ia[:, idx_r + 1]
         sh = nex < current
         shadow[:, idx_r] = sh
-        current = nex * (sh) + current * ~sh
+        current = nex * sh + current * ~sh
     return DEM_seg, lut, rev_lut, xrad, yrad, ia, area, area_beta, r_sl
 
 
@@ -547,11 +547,11 @@ def ly_sh_map(r_sl, ia):
         r_current[ly_vec] = r_next[ly_vec]
         # if we dont have shadow, the next current incidence angle
         # equals the current next
-        ia_current = ia_next * (~sh_vec) + ia_current * (sh_vec)
-        r_current = r_next * (ly_vec) + r_current * (~ly_vec)
+        ia_current = ia_next * (~sh_vec) + ia_current * sh_vec
+        r_current = r_next * ly_vec + r_current * (~ly_vec)
         ly[:, idx_r] = ly_vec
         sh[:, idx_r] = sh_vec
-    #        print ia_current
+    # print ia_current
     #        print ia_next
     #        raw_input("Press enter to continue")
     return ly, sh
@@ -561,27 +561,28 @@ def coordinate_to_raster_index(gs, coordinate):
     GT = gs.GetGeoTransform()
     idx_x = _np.ceil((coordinate[0] - GT[0]) / GT[1])
     idx_y = _np.ceil((coordinate[1] - GT[3]) / GT[5])
-    return (idx_x, idx_y)
+    return idx_x, idx_y
 
 
 def raster_index_to_coordinate(gs, index):
     GT = gs.GetGeoTransform()
     coord_x = index[0] * GT[1] + GT[0]
     coord_y = index[1] * GT[5] + GT[3]
-    return (coord_x, coord_y)
+    return coord_x, coord_y
 
 
 def get_ds_extent(ds):
     gt = ds.GetGeoTransform()
-    gt_x_vec = tuple(_np.sort((gt[0], gt[0] + gt[1] * (ds.RasterXSize))))
-    gt_y_vec = tuple(_np.sort(((gt[3], gt[3] + gt[5] * (ds.RasterYSize)))))
+    gt_x_vec = tuple(_np.sort((gt[0], gt[0] + gt[1] * ds.RasterXSize)))
+    gt_y_vec = tuple(_np.sort((gt[3], gt[3] + gt[5] * ds.RasterYSize)))
     return gt_x_vec[0], gt_x_vec[1], gt_y_vec[0], gt_y_vec[1]
 
+
 def get_dem_extent(par_dict):
-    gt = [par_dict['corner_east'][0], par_dict['post_east'][0],\
-        0, 0, par_dict['corner_north'][0], par_dict['post_north'][0]]
+    gt = [par_dict['corner_east'][0], par_dict['post_east'][0],
+          0, 0, par_dict['corner_north'][0], par_dict['post_north'][0]]
     gt_x_vec = tuple(_np.sort((gt[0], gt[0] + gt[1] * (par_dict['width']))))
-    gt_y_vec = tuple(_np.sort(((gt[3], gt[3] + gt[5] * (par_dict['nlines'])))))
+    gt_y_vec = tuple(_np.sort((gt[3], gt[3] + gt[5] * (par_dict['nlines']))))
     return gt_x_vec[0], gt_x_vec[1], gt_y_vec[0], gt_y_vec[1]
 
 
@@ -590,9 +591,10 @@ def gt_from_dem_par(par_dict):
         This function computes the geotransform parameters from a gamma DEM parameters file
 
     """
-    gt = [par_dict['corner_east'], par_dict['post_east'],\
-        0, 0, par_dict['corner_north'], par_dict['post_north']]
+    gt = [par_dict['corner_east'], par_dict['post_east'],
+          0, 0, par_dict['corner_north'], par_dict['post_north']]
     return gt
+
 
 def read_coordinate_extent(ds, coords, interp=None):
     """
@@ -612,8 +614,8 @@ def read_coordinate_extent(ds, coords, interp=None):
             px = _np.int(px)
             py = _np.int(py)
         else:
-            px = _np.clip((px), 0, RAS.shape[1] - 1).astype(_np.int)
-            py = _np.clip((py), 0, RAS.shape[0] - 1).astype(_np.int)
+            px = _np.clip(px, 0, RAS.shape[1] - 1).astype(_np.int)
+            py = _np.clip(py, 0, RAS.shape[0] - 1).astype(_np.int)
         return RAS[py, px]
     else:
         return interp(RAS, px, py)
@@ -684,11 +686,11 @@ def geocode_image(image, pixel_size, *args):
 def shadow_map(u, lv_theta, inc):
     import matplotlib.pyplot as plt
     sh_map = lv_theta * 0
-    current_max = lv_theta[0,:] * 1
+    current_max = lv_theta[0, :] * 1
     for idx_r in range(1, lv_theta.shape[0]):
         current_inc = lv_theta[idx_r, :]
         sh_map[idx_r, current_inc < current_max] = 1
-        current_max = _np.select([current_inc <= current_max, current_inc > current_max], [current_max, current_inc ])
+        current_max = _np.select([current_inc <= current_max, current_inc > current_max], [current_max, current_inc])
     plt.imshow(sh_map)
     plt.show()
 
@@ -700,6 +702,7 @@ def shadow_map(u, lv_theta, inc):
     # plt.imshow(sh_map)
     # plt.show()
     return sh_map.astype(_np.int8)
+
 
 def resample_DEM(DEM, new_posting):
     """
@@ -721,15 +724,15 @@ def resample_DEM(DEM, new_posting):
     y_size = DEM.RasterYSize * _np.int(_np.abs(geo_t[5] / new_posting[1]))  # Raster ysize
 
     # Compute new geotransform
-    new_geo = (geo_t[0], new_posting[0], geo_t[2], \
+    new_geo = (geo_t[0], new_posting[0], geo_t[2],
                geo_t[3], geo_t[4], new_posting[1])
     mem_drv = gdal.GetDriverByName('MEM')
-    dest = mem_drv.Create('', x_size, y_size, DEM.RasterCount, \
+    dest = mem_drv.Create('', x_size, y_size, DEM.RasterCount,
                           numeric_dt_to_gdal_dt(DEM.GetRasterBand(1).DataType))
     dest.SetGeoTransform(new_geo)
     dest.SetProjection(DEM.GetProjection())
-    res = gdal.ReprojectImage(DEM, dest, \
-                              DEM.GetProjection(), DEM.GetProjection(), \
+    res = gdal.ReprojectImage(DEM, dest,
+                              DEM.GetProjection(), DEM.GetProjection(),
                               gdal.GRA_Bilinear)
     return dest
 
@@ -759,8 +762,8 @@ def write_gt(arr, GT, proj):
         nbands = 1
     # Create a memory driver
     mem_drv = gdal.GetDriverByName('MEM')
-    dest = mem_drv.Create('', x_size, \
-                          y_size, nbands, \
+    dest = mem_drv.Create('', x_size,
+                          y_size, nbands,
                           numeric_dt_to_gdal_dt(numpy_dt_to_numeric_dt(arr.dtype.name)))
     # Set geotransform and projection
     dest.SetGeoTransform(GT)
@@ -800,7 +803,7 @@ def paletted_to_rgb(gt):
 
 
 def gdal_to_dict(ds):
-    #Mapping from wkt to parameters
+    # Mapping from wkt to parameters
     """
      * [0]  Spheroid semi major axis
      * [1]  Spheroid semi minor axis
@@ -812,19 +815,19 @@ def gdal_to_dict(ds):
      * [7]  False Northing
      * [8]  Scale Factor
     """
-    #Get projection information from wkt
+    # Get projection information from wkt
     wkt = ds.GetProjection()
     srs = _osr.SpatialReference()
     srs.ImportFromWkt(wkt)
     proj_arr = srs.ExportToPCI()
-    #Array for the ellipsoid
+    # Array for the ellipsoid
     ell_arr = proj_arr[2]
-    #Create new dict
+    # Create new dict
     proj_dict = _od()
-    #Part 1: General Parameters
+    # Part 1: General Parameters
     proj_dict['title'] = 'DEM'
     proj_dict['DEM_projection'] = 'OMCH'
-    #Set the type according to the dem type
+    # Set the type according to the dem type
     tp = gdal.GetDataTypeName(ds.GetRasterBand(1).DataType)
     print(tp)
     if tp == 'Float32':
@@ -842,14 +845,14 @@ def gdal_to_dict(ds):
     proj_dict['corner_north'] = [gt[3], 'm']
     proj_dict['post_north'] = [gt[5], 'm']
     proj_dict['post_east'] = [gt[1], 'm']
-    #TODO allow using other ellipsods
-    #Part 2: Ellipsoid Parameters
+    # TODO allow using other ellipsods
+    # Part 2: Ellipsoid Parameters
     proj_dict['ellipsoid_name'] = 'Bessel 1841'
     proj_dict['ellipsoid_ra'] = [ell_arr[0], 'm']
     rf = ell_arr[0] / (ell_arr[0] - ell_arr[1])
     proj_dict['ellipsoid_reciprocal_flattening'] = rf
-    #TODO allow using other datums
-    #Part 3: Datum Parameters
+    # TODO allow using other datums
+    # Part 3: Datum Parameters
     proj_dict['datum_name'] = 'SWiss National 3PAR'
     proj_dict['datum_shift_dx'] = [679.396, 'm']
     proj_dict['datum_shift_dy'] = [-0.095, 'm']
@@ -858,7 +861,7 @@ def gdal_to_dict(ds):
     proj_dict['datum_rotation_alpha'] = [0.0, 'arc-sec']
     proj_dict['datum_rotation_beta'] = [0.0, 'arc-sec']
     proj_dict['datum_rotation_gamma'] = [0.0, 'arc-sec']
-    #Part 4: Projection Parameters for UTM, TM, OMCH, LCC, PS, PC, AEAC, LCC2, OM, HOM coordinates
+    # Part 4: Projection Parameters for UTM, TM, OMCH, LCC, PS, PC, AEAC, LCC2, OM, HOM coordinates
     proj_dict['projection_name'] = 'OM - Switzerland'
     if proj_dict['DEM_projection'] in ['UTM', "TM", "OMCH", "LCC", "PS", "PC", "AEAC", "LCC2", "OM", "HOM"]:
         proj_dict['center_latitude'] = ell_arr[2]
@@ -876,9 +879,9 @@ def geotif_to_dem(gt, par_path, bin_path):
     DEM into a gamma format pair
     of binary DEM and parameter file
     """
-    #Open the data set
+    # Open the data set
     DS = gdal.Open(gt)
-    #Convert
+    # Convert
     dem_dic = gdal_to_dict(DS)
     _gpf.dict_to_par(dem_dic, par_path)
     dem = DS.ReadAsArray()

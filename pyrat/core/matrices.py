@@ -51,7 +51,7 @@ def __general__getitem__(obj, sl_in):
     # Contstruct indices
     if type(sl_in) is str:
         try:
-            sl_mat = channel_dict[sl_in]
+            sl_mat = gpri_files.channel_dict[sl_in]
             sl = (Ellipsis,) * (obj.ndim - 2) + sl_mat
         except KeyError:
             raise IndexError('This channel does not exist')
@@ -85,7 +85,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
     lexicographic_basis = [_np.array([[1, 0], [0, 0]]) * 2, _np.array([[0, 1], [0, 0]]) * 2 * _np.sqrt(2),
                            _np.array([[0, 0], [0, 1]]) * 2]
 
-    def __new__(*args, gpri=False, suffix='slc', H_ant='A', memmap=False, sl=[Ellipsis] * 2, chan='l'):
+    def __new__(cls, *args, gpri=False, suffix='slc', H_ant='A', memmap=False, sl=[Ellipsis] * 2, chan='l'):
         """
         This function loads data saved as scattering matrix from a file or initialised it from a 3X3 / nXmX3X3 array
 
@@ -105,8 +105,6 @@ class scatteringMatrix(gpri_files.gammaDataset):
         scatteringMatrix
             A scattering matrix object loaded from the specified path. The attributes are taken from the HH channel fileutils.gpri_files.gammaDataset
         """
-        cls = args[0]
-        gpri = gpri
         if gpri:
             chan = chan
             sl = sl
@@ -114,7 +112,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
             H_ant = H_ant
             V_ant = 'B' if H_ant == 'A' else 'A'
             suffix = suffix
-            base_path = args[1]
+            base_path = args[0]
             # Used to index the matrix
             lst_tx = [0, 1]
             lst_rx = [0, 1]
@@ -226,7 +224,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
         This function computes the polarimetric span of the scattering matrix
         Parameters
         ----------
-        None
+
         Returns
         -------
         sp: ndarray
@@ -248,7 +246,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
         self['HV'] = Z_hv
         self['VH'] = Z_hv
 
-    def to_coherency_matrix(self, bistatic=False, basis='pauli',):
+    def to_coherency_matrix(self, bistatic=False, basis='pauli', ):
         """ 
         This function converst the scattering matrix into a coherency matrix
         using the chosen basis. It does not perform any averaging, so the resulting
@@ -256,12 +254,15 @@ class scatteringMatrix(gpri_files.gammaDataset):
         
         Parameters
         ----------
+
         bistatic : bool
             If set to true, the bistatci coherency matric is computed
         basis : string
             Allows to choose the basis for the scattering vector
-        -----
+
         Returns
+        -------
+
         coherencyMatrix
             the resulting coherency matrix
         """
@@ -282,7 +283,6 @@ class scatteringMatrix(gpri_files.gammaDataset):
 
 
 class coherencyMatrix(gpri_files.gammaDataset):
-    global U3LP, U3PL, U4PL, U4LP
     U3LP = 1 / _np.sqrt(2) * _np.array([[1, 0, 1], [1, 0, -1], [0, _np.sqrt(2), 0]])
     U4LP = 1 / _np.sqrt(2) * _np.array([[1, 0, 0, 1], [1, 0, 0, -1], [0, 1, 1, 0], [0, 1j, -1j, 0]])
     U4PL = U4LP.T.conj()
@@ -391,14 +391,14 @@ class coherencyMatrix(gpri_files.gammaDataset):
             elif gamma:
                 basis = 'lexicographic'
                 par_name = args[2]
-                if bistatic == True:
+                if bistatic:
                     chan_dict = {0: 0, 1: 1, 2: 2, 3: 3}
                 else:
                     chan_dict = {0: 1, 1: 1, 2: 3}
                 # Load shape
                 par_dict = gpri_files.par_to_dict(par_name)
                 shp = (par_dict['range_samples'], par_dict['azimuth_lines'])
-                C = _np.zeros((shp) + (len(chan_dict), len(chan_dict)), dtype=_np.complex64)
+                C = _np.zeros(shp + (len(chan_dict), len(chan_dict)), dtype=_np.complex64)
                 for chan_1 in chan_dict.keys():
                     for chan_2 in chan_dict.keys():
                         extension = suffix.format(i=chan_dict[chan_1], j=chan_dict[chan_2])
@@ -446,7 +446,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
     def generateRealizations(self, n_real, n_looks):
         #        #Generate unit vectors
         n_tot = n_real * n_looks
-        k = _np.random.multivariate_normal(_np.zeros((3)), self, n_tot)
+        k = _np.random.multivariate_normal(_np.zeros(3), self, n_tot)
         k = k.transpose()
         outers = _np.einsum('i...,j...', k, k.conj())
         outers = _np.reshape(outers, (n_real, n_looks, 3, 3))
@@ -461,9 +461,9 @@ class coherencyMatrix(gpri_files.gammaDataset):
         """
         if self.basis == 'pauli':
             if self.shape[-1] is 3:
-                C = self.transform(U3PL, U3LP)
+                C = self.transform(self.U3PL, self.U3LP)
             else:
-                C = self.transform(U4PL, U4LP)
+                C = self.transform(self.U4PL, self.U4LP)
             C.basis = 'lexicographic'
         else:
             C = self
@@ -476,9 +476,9 @@ class coherencyMatrix(gpri_files.gammaDataset):
         """
         if self.basis == 'lexicographic':
             if self.shape[-1] is 3:
-                C = self.transform(U3LP, U3PL)
+                C = self.transform(self.U3LP, self.U3PL)
             else:
-                C = self.transform(U4LP, U4PL)
+                C = self.transform(self.U4LP, self.U4PL)
             C.basis = 'pauli'
         else:
             C = self
@@ -486,18 +486,14 @@ class coherencyMatrix(gpri_files.gammaDataset):
         return C
 
     def to_gamma(*args, **kwargs):
-        if 'bistatic' in kwargs:
-            bistatic = kwargs.get('bistatic')
-        else:
-            bistatic = False
-
+        bistatic = kwargs.get('bistatic', False)
         self = args[0]
         root_name = args[1]
         if self.basis is 'lexicographic':
             ending = 'c'
         else:
             ending = 't'
-        if bistatic == True:
+        if bistatic:
             chan_dict = {0: 0, 1: 1, 2: 2, 3: 3}
         else:
             chan_dict = {0: 0, 1: 1, 2: 3}
@@ -565,7 +561,7 @@ class block_array:
             # Compute number of block
             N_block = _np.ceil((ars - wins + 1) / (bs - wins + 1))
             block_idx = _np.arange(N_block)
-            rs = (block_idx) * (bs - wins + 1)
+            rs = block_idx * (bs - wins + 1)
             re = rs + bs - 1
             re[-1] = ars - 1
             ws = _np.zeros(N_block) + (wins - 1) / 2

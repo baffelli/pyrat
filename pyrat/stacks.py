@@ -6,26 +6,26 @@ Created on Tue Jul 29 16:37:53 2014
 
 Function to operate on stacks of images
 """
-import numpy as np
 import gpri_utils.calibration as calibration
+import numpy as np
+
+
 class stack:
-    
-    def __init__(self,stack):
+    def __init__(self, stack):
         try:
             iterator = iter(stack)
         except TypeError:
             pass
         else:
             self.stack = stack
-            
+
     def __iter__(self):
         return iter(self.stack)
-    
+
     def __getitem__(self, key):
         return self.stack.__getitem__(key)
 
-
-    def scattering_to_coherency(self, win = None, **kwargs):
+    def scattering_to_coherency(self, win=None, **kwargs):
         """
         Converts a stack of scattering matrices into a stack of coherency matrices
         Parameters
@@ -45,7 +45,7 @@ class stack:
                 pass
             coherency_stack.append(T)
         return stack(coherency_stack)
-    
+
     def calibrate_stack(self, parameter_path):
         cal_stack = []
         for s in self:
@@ -75,4 +75,3 @@ class stack:
         alpha = np.dstack(alpha_stack)
         beta = np.dstack(beta_stack)
         return entropy, anisotropy, alpha, beta
-        

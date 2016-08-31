@@ -6,14 +6,12 @@ KU_DZ = 10.682e-3  # Ku-Band Waveguide slot spacing VV
 
 RANGE_OFFSET = 3
 
-import sys, os
-import numpy as _np
 import argparse
-import scipy as _sp
-import scipy.signal as _sig
+import sys
+
+import numpy as _np
 import pyrat.fileutils.gpri_files as _gpf
-from collections import namedtuple as _nt
-import matplotlib.pyplot as plt
+import scipy.signal as _sig
 
 
 #
@@ -27,15 +25,16 @@ class gpriRVPProcessor:
         self.fshift = _np.ones(self.raw_par.nsamp / 2 + 1)
         self.fshift[1::2] = -1
         self.rvp = _np.exp(1j * 4. * _np.pi * self.raw_par.grp.RF_chirp_rate * (
-        self.raw_par.slr / C) ** 2)  # residual video phase correction
+            self.raw_par.slr / C) ** 2)  # residual video phase correction
         # Fast (chirp) time
-        self.fast_time = _np.arange(self.raw_par.nsamp) * 1/self.raw_par.grp.ADC_sample_rate
+        self.fast_time = _np.arange(self.raw_par.nsamp) * 1 / self.raw_par.grp.ADC_sample_rate
         # Chirsp duration
         chirp_duration = 1 / self.raw_par.grp.ADC_sample_rate * self.raw_par.nsamp
         # Slow time
         self.slow_time = _np.linspace(0, self.raw_par.grp.ADC_capture_time, self.raw_par.nl_tot)
         # Range frequency
-        self.range_freq = _np.linspace(self.raw_par.grp.RF_freq_min,self.raw_par.grp.RF_freq_max, self.raw_par.nsamp) - self.raw_par.grp.RF_center_freq
+        self.range_freq = _np.linspace(self.raw_par.grp.RF_freq_min, self.raw_par.grp.RF_freq_max,
+                                       self.raw_par.nsamp) - self.raw_par.grp.RF_center_freq
         print(self.range_freq)
 
     def correct(self):
@@ -102,7 +101,6 @@ def main():
         raw_rmc.astype(_gpf.type_mapping['SHORT INTEGER']).T.tofile(of)
     _gpf.dict_to_par(_gpf.par_to_dict(args.raw_par), args.raw_par_out)
     _gpf.dict_to_par(_gpf.par_to_dict(args.raw_par), args.raw_par_out_rmc)
-
 
 
 if __name__ == "__main__":

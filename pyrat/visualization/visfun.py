@@ -4,14 +4,12 @@ Created on Thu May 15 16:32:36 2014
 
 @author: baffelli
 """
-import os as _os
 import matplotlib as _mpl
+import matplotlib.colors as _col
 import matplotlib.pyplot as _plt
 import numpy as _np
-# import pyrat.core.polfun
 import scipy.fftpack as _fftp
 import scipy.ndimage as _ndim
-import matplotlib.colors as _col
 from skimage import color
 
 
@@ -156,7 +154,7 @@ def shift_image(image, shift):
     x = _np.arange(image.shape[0]) + shift[0]
     y = _np.arange(image.shape[1]) + shift[1]
     x, y = _np.meshgrid(x, y, indexing='xy')
-    image_1 = image.__array_wrap__( \
+    image_1 = image.__array_wrap__(
         bilinear_interpolate(_np.array(image), y.T, x.T))
     image_1[_np.isnan(image_1)] = 0
     return image_1
@@ -195,14 +193,10 @@ def resample_image(image, sampling_factor):
     x = _np.linspace(0, image.shape[0], num=image.shape[0] * sampling_factor[0])
     y = _np.linspace(0, image.shape[1], num=image.shape[1] * sampling_factor[1])
     x, y = _np.meshgrid(x, y, order='xy')
-    image_1 = image.__array_wrap__( \
+    image_1 = image.__array_wrap__(
         bilinear_interpolate(_np.array(image), y.T, x.T))
     image_1[_np.isnan(image_1)] = 0
     return image_1
-
-
-
-
 
 
 def histeq(im, nbr_bins=256):
@@ -270,15 +264,15 @@ def exp_im(im, k, sf):
     """
     im_pwr = _np.abs(im)
     sc = _np.nanmean(im_pwr)
-    p, q = _np.percentile(im_pwr,[0,99.9])
-    im_pwr = _np.clip(im_pwr,0,q * sf)
-    im_pwr = scale_array((im_pwr /q) ** k)
+    p, q = _np.percentile(im_pwr, [0, 99.9])
+    im_pwr = _np.clip(im_pwr, 0, q * sf)
+    im_pwr = scale_array((im_pwr / q) ** k)
     return im_pwr
 
 
 def gamma_scaling(im, k, sf):
     im_pwr = _np.abs(im)
-    im_pwr = _np.clip(sf, 0, 1) * scale_array((im_pwr) ** k)
+    im_pwr = _np.clip(sf, 0, 1) * scale_array(im_pwr ** k)
     return im_pwr
 
 
@@ -474,12 +468,12 @@ def dismph(data, min_val=-180, max_val=180, k=0.5, N=24, sf=1, repeat=False, coh
     # #Extract the hsv parameters
     hsv = _mpl.colors.rgb_to_hsv(rgb[:, :, 0:3])
     #
-    #Scale with intensity
+    # Scale with intensity
     if coherence:
         hsv[:, :, 1] = ampl
         hsv[_np.abs(data) < 0.1] = 0
     else:
-        hsv[:, :, 2] = scale_array(_np.abs(data)**k)
+        hsv[:, :, 2] = scale_array(_np.abs(data) ** k)
     # Convert back to rgb
     rgb = _mpl.colors.hsv_to_rgb(hsv)
     mask = _np.sum(rgb, axis=-1) == 0
@@ -490,7 +484,7 @@ def dismph(data, min_val=-180, max_val=180, k=0.5, N=24, sf=1, repeat=False, coh
     else:
         rgb[mask] = 0
 
-    #Analyze
+    # Analyze
     return rgb[:, :, :], pal, norm
 
 

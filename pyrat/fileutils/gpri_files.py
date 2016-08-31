@@ -9,7 +9,6 @@ This module contains classes and function to deal with Gamma file formats
 """
 import copy as _cp
 import mmap as _mm
-import numbers as _num
 import os as _os
 import os.path as _osp
 import re as _re
@@ -41,8 +40,8 @@ rx2_dz = {'A': 0.125, 'B': 0}
 # Scaling factor short integer <-> float
 TSF = 32768
 
-#This dict defines the mapping between
-#upper and lower channels and indices used to access them
+# This dict defines the mapping between
+# upper and lower channels and indices used to access them
 # raw file are interleaved, ch1, ch2, ch1, ch2
 ant_map = {'l': 0, 'u': 1}
 
@@ -56,15 +55,15 @@ type_mapping = {
     'INTEGER*2': _np.dtype('>i2'),
     'INTEGER': _np.dtype('>i'),
     'REAL*4': _np.dtype('>f4'),
-    'UCHAR':  _np.dtype('>b')
+    'UCHAR': _np.dtype('>b')
 }
 
 ls_mapping = {
     0: 'NOT_TESTED',
-    1:  'TESTED',
-    2:  'TRUE_LAYOVER',
-    4:  'LAYOVER',
-    8:  'TRUE_SHADOW',
+    1: 'TESTED',
+    2: 'TRUE_LAYOVER',
+    4: 'LAYOVER',
+    8: 'TRUE_SHADOW',
     16: 'SHADOW'
 }
 
@@ -78,32 +77,32 @@ channel_dict = {
 }
 
 
-def  gamma_datatype_code_from_extension(filename):
-	"""
-		Get the numeric datatype from the filename extensions
-	"""
-	mapping = {'slc':1,
-	'slc_dec':1,
-	'mli':0,
-	'mli_dec':0,
-	'inc':0,
-	'dem_seg':0,
-	'dem':0,
-	'int':1,
-	'sm':1,
-	'cc':0,
-	"sim_sar":0,
-	"ls_map":3,
-    "sh_map":3,
-    "u":0,
-    "lv_theta":0,
-	"bmp": 2}
-	for i in [0,1,2,3]:
-		for j in [0,1,2,3]:
-			mapping["c{i}{j}".format(i=i,j=j)] = 1#covariance elements
-	#Split the file name to the latest extesnsion
-	extension = filename.split('.')[-1]
-	return mapping[extension]
+def gamma_datatype_code_from_extension(filename):
+    """
+        Get the numeric datatype from the filename extensions
+    """
+    mapping = {'slc': 1,
+               'slc_dec': 1,
+               'mli': 0,
+               'mli_dec': 0,
+               'inc': 0,
+               'dem_seg': 0,
+               'dem': 0,
+               'int': 1,
+               'sm': 1,
+               'cc': 0,
+               "sim_sar": 0,
+               "ls_map": 3,
+               "sh_map": 3,
+               "u": 0,
+               "lv_theta": 0,
+               "bmp": 2}
+    for i in [0, 1, 2, 3]:
+        for j in [0, 1, 2, 3]:
+            mapping["c{i}{j}".format(i=i, j=j)] = 1  # covariance elements
+            # Split the file name to the latest extesnsion
+    extension = filename.split('.')[-1]
+    return mapping[extension]
 
 
 def gt_mapping_from_extension(filename):
@@ -113,17 +112,13 @@ def gt_mapping_from_extension(filename):
     """
     mapping = {
         'slc': 4,
-        'mli': 2,
         'mli_dec': 2,
-        'inc': 2,
         'bmp': 0,
-        'mli': 2,
-        'sim_sar':2,
+        'sim_sar': 2,
         'ls_map': 5,
-        'dem_seg':4,
-        'inc':2,
-        'u':2,
-        'lv_theta':2,
+        'dem_seg': 4,
+        'u': 2,
+        'lv_theta': 2,
         'sh_map': 5,
     }
     extension = filename.split('.')[-1]
@@ -132,12 +127,12 @@ def gt_mapping_from_extension(filename):
     return mapping[extension]
 
 
-ls_map_dic = {0:"NOT_TESTED",
-              1:"TESTED",
-              2:"TRUE_LAYOVER",
-              4:"LAYOVER",
-              8:'TRUE_SHADOW',
-              16:'SHADOW'
+ls_map_dic = {0: "NOT_TESTED",
+              1: "TESTED",
+              2: "TRUE_LAYOVER",
+              4: "LAYOVER",
+              8: 'TRUE_SHADOW',
+              16: 'SHADOW'
               }
 
 
@@ -150,9 +145,8 @@ def get_image_size(path, width, type_name):
     :param type:
     :return:
     """
-    import os as _os
     fc = _os.path.getsize(path) / type_mapping[type_name].itemsize
-    shape = [width, int(fc / (width))]
+    shape = [width, int(fc / width)]
     computed_size = shape[0] * shape[1] * type_mapping[type_name].itemsize
     measured_size = _os.path.getsize(path)
     return shape
@@ -196,11 +190,11 @@ def load_plist(path):
     plist = _np.fromfile(path, dtype=dt)
     return plist
 
+
 class gammaDataset(_np.ndarray):
-    def __new__(*args, **kwargs):
-        cls = args[0]
-        par_dict = args[1]
-        image = args[2]
+    def __new__(cls, *args, **kwargs):
+        par_dict = args[0]
+        image = args[1]
         try:
             par_dict.values()
         except AttributeError:
@@ -234,14 +228,14 @@ class gammaDataset(_np.ndarray):
         return self.__getitem__(slice(start, stop, None))
 
     def __getitem__(self, item):
-        #Try the channel dictionary
+        # Try the channel dictionary
         try:
             sl_mat = channel_dict[item]
             sl = (Ellipsis,) * (self.ndim - len(sl_mat)) + sl_mat
         except (KeyError, TypeError):
             sl = item
-        #TODO Fix spacing
-        #Get the slice from the object by calling the corresponding numpy function
+        # TODO Fix spacing
+        # Get the slice from the object by calling the corresponding numpy function
         new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).view(type(self))
         # #This concludes the part where we extract data from the array.
         # #now we need to adjust the attributes to adjust to the new spacing
@@ -297,62 +291,61 @@ class gammaDataset(_np.ndarray):
         # except (AttributeError, KeyError):
         #     pass#not a gpri dataset
 
-            # # Construct temporary azimuth and  range vectors
-            # az_vec = self.az_vec * 1
-            # r_vec = self.r_vec * 1
-            # r_0 = self.r_vec[0]
-            # az_0 = self.az_vec[0]
-            # az_spac = self.GPRI_az_angle_step[0] * 1
-            # r_spac = self.range_pixel_spacing[0] * 1
-            # # Passing only number, access the array as it were a linear index (ravel index)
-            # if isinstance(sl, _num.Number):
-            #     #compute the indices and recur
-            #     indices = _np.unravel_index(sl)
-            #     return self.__getitem__(indices)
-            #
-            # # Tuple of slices
-            # elif hasattr(sl, '__contains__'):
-            #     # By taking the first element, we automatically have
-            #     # the correct data
-            #     try:
-            #         az_vec_sl = self.az_vec[sl[1]]
-            #         if hasattr(az_vec_sl, '__contains__'):
-            #             if len(az_vec_sl) > 1:
-            #                 az_spac = az_vec_sl[1] - az_vec_sl[0]
-            #                 az_0 = az_vec_sl[0]
-            #             else:
-            #                 az_spac = self.GPRI_az_angle_step[0] * 1
-            #                 az_0 = az_vec_sl
-            #         else:
-            #             az_0 = az_vec_sl
-            #             az_spac = self.GPRI_az_angle_step[0] * 1
-            #     except:
-            #         IndexError('The slice object does not match the objects size')
-            #     try:
-            #         r_vec_sl = self.r_vec[sl[0]]
-            #         if hasattr(r_vec_sl, '__contains__'):
-            #             if len(r_vec_sl) > 1:
-            #                 r_spac = r_vec_sl[1] - r_vec_sl[0]
-            #             else:
-            #                 r_spac = self.range_pixel_spacing[0]
-            #             r_spac = r_vec_sl[1] - r_vec_sl[0]
-            #             r_0 = r_vec_sl[0]
-            #         else:
-            #             r_spac = self.range_pixel_spacing[0] * 1
-            #             r_0 = r_vec_sl
-            #     except:
-            #         pass
-            # az_osf = az_spac / self.GPRI_az_angle_step[0]#azimuth over/undersampling time
-            # new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
-            # new_obj_1.prf[0] = az_osf * self.prf[0]
-            # new_obj_1.GPRI_az_start_angle[0] = az_0
-            # new_obj_1.near_range_slc[0] = r_0
-            # new_obj_1.GPRI_az_angle_step[0] = az_spac
-            # new_obj_1.range_pixel_spacing[0] = r_spac
-            # new_obj_1.range_samples = new_obj_1.shape[0]
-            # new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
+        # # Construct temporary azimuth and  range vectors
+        # az_vec = self.az_vec * 1
+        # r_vec = self.r_vec * 1
+        # r_0 = self.r_vec[0]
+        # az_0 = self.az_vec[0]
+        # az_spac = self.GPRI_az_angle_step[0] * 1
+        # r_spac = self.range_pixel_spacing[0] * 1
+        # # Passing only number, access the array as it were a linear index (ravel index)
+        # if isinstance(sl, _num.Number):
+        #     #compute the indices and recur
+        #     indices = _np.unravel_index(sl)
+        #     return self.__getitem__(indices)
+        #
+        # # Tuple of slices
+        # elif hasattr(sl, '__contains__'):
+        #     # By taking the first element, we automatically have
+        #     # the correct data
+        #     try:
+        #         az_vec_sl = self.az_vec[sl[1]]
+        #         if hasattr(az_vec_sl, '__contains__'):
+        #             if len(az_vec_sl) > 1:
+        #                 az_spac = az_vec_sl[1] - az_vec_sl[0]
+        #                 az_0 = az_vec_sl[0]
+        #             else:
+        #                 az_spac = self.GPRI_az_angle_step[0] * 1
+        #                 az_0 = az_vec_sl
+        #         else:
+        #             az_0 = az_vec_sl
+        #             az_spac = self.GPRI_az_angle_step[0] * 1
+        #     except:
+        #         IndexError('The slice object does not match the objects size')
+        #     try:
+        #         r_vec_sl = self.r_vec[sl[0]]
+        #         if hasattr(r_vec_sl, '__contains__'):
+        #             if len(r_vec_sl) > 1:
+        #                 r_spac = r_vec_sl[1] - r_vec_sl[0]
+        #             else:
+        #                 r_spac = self.range_pixel_spacing[0]
+        #             r_spac = r_vec_sl[1] - r_vec_sl[0]
+        #             r_0 = r_vec_sl[0]
+        #         else:
+        #             r_spac = self.range_pixel_spacing[0] * 1
+        #             r_0 = r_vec_sl
+        #     except:
+        #         pass
+        # az_osf = az_spac / self.GPRI_az_angle_step[0]#azimuth over/undersampling time
+        # new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
+        # new_obj_1.prf[0] = az_osf * self.prf[0]
+        # new_obj_1.GPRI_az_start_angle[0] = az_0
+        # new_obj_1.near_range_slc[0] = r_0
+        # new_obj_1.GPRI_az_angle_step[0] = az_spac
+        # new_obj_1.range_pixel_spacing[0] = r_spac
+        # new_obj_1.range_samples = new_obj_1.shape[0]
+        # new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
         return new_obj_1
-
 
     def tofile(*args):
         self = args[0].astype(type_mapping[args[0].image_format])
@@ -381,7 +374,7 @@ class gammaDataset(_np.ndarray):
         return tf_par, tf
 
     def decimate(self, dec):
-        arr_dec = _np.zeros((self.shape[0], int(self.shape[1]/dec)), dtype=_np.complex64)
+        arr_dec = _np.zeros((self.shape[0], int(self.shape[1] / dec)), dtype=_np.complex64)
         for idx_az in range(arr_dec.shape[1]):
             # Decimated pulse
             dec_pulse = _np.zeros(self.slc.shape[0] * 2 - 2, dtype=_np.float32)
@@ -394,16 +387,17 @@ class gammaDataset(_np.ndarray):
         return arr_dec
 
     @property
-    def r_vec(obj):
-        return obj.__dict__['near_range_slc'][0] + _np.arange(obj.__dict__['range_samples']) * \
-                                                   obj.__dict__['range_pixel_spacing'][0]
-    @property
-    def az_vec(obj):
-        return obj.__dict__['GPRI_az_start_angle'][0] + _np.arange(obj.__dict__['azimuth_lines']) * \
-                                                        obj.__dict__['GPRI_az_angle_step'][0]
+    def r_vec(self):
+        return self.__dict__['near_range_slc'][0] + _np.arange(self.__dict__['range_samples']) * \
+                                                    self.__dict__['range_pixel_spacing'][0]
 
     @property
-    def phase_center(obj):
+    def az_vec(self):
+        return self.__dict__['GPRI_az_start_angle'][0] + _np.arange(self.__dict__['azimuth_lines']) * \
+                                                         self.__dict__['GPRI_az_angle_step'][0]
+
+    @property
+    def phase_center(self):
 
         """
         This function computes the phase center position for a given slc
@@ -418,13 +412,12 @@ class gammaDataset(_np.ndarray):
 
         """
         try:
-            rx_number = extract_channel_number(obj.title[-1])
-            ph_center = (_np.array(obj.GPRI_tx_coord[0:3]) + _np.array(getattr(obj, "GPRI_rx{num}_coord".format(num=rx_number))[0:3]))/2
+            rx_number = extract_channel_number(self.title[-1])
+            ph_center = (_np.array(self.GPRI_tx_coord[0:3]) + _np.array(
+                getattr(self, "GPRI_rx{num}_coord".format(num=rx_number))[0:3])) / 2
             return ph_center
         except AttributeError:
             return 0
-
-
 
 
 def par_to_dict(par_file):
@@ -466,43 +459,44 @@ def par_to_dict(par_file):
 
 
 def get_width(par_path):
-	"""
-		Helper function to get the width of a gamma format file
-	"""
-	par_dict = par_to_dict(par_path)
-	for name_string in ["width", "range_samples", "CHP_num_samp", "number_of_nonzero_range_pixels_1", "interferogram_width"]:
-		try:
-			width = par_dict[name_string]
-		except:
-			pass
-		else:
-			break
-	return width
+    """
+        Helper function to get the width of a gamma format file
+    """
+    par_dict = par_to_dict(par_path)
+    for name_string in ["width", "range_samples", "CHP_num_samp", "number_of_nonzero_range_pixels_1",
+                        "interferogram_width"]:
+        try:
+            width = par_dict[name_string]
+        except:
+            pass
+        else:
+            break
+    return width
 
 
 def datatype_from_extension(filename):
-	"""
-		Get the numeric datatype from the filename extensions
-	"""
-	mapping = {'slc':1,
-	'slc_dec':1,
-	'mli':0,
-	'mli_dec':0,
-	'inc':0,
-	'dem_seg':0,
-	'dem':0,
-	'int':1,
-	'sm':1,
-	'cc':0,
-	"sim_sar":0,
-	"ls_map":3,
-	"bmp": 2}
-	for i in [0,1,2,3]:
-		for j in [0,1,2,3]:
-			mapping["c{i}{j}".format(i=i,j=j)] = 1#covariance elements
-	#Split the file name to the latest extesnsion
-	extension = filename.split('.')[-1]
-	return mapping[extension]
+    """
+        Get the numeric datatype from the filename extensions
+    """
+    mapping = {'slc': 1,
+               'slc_dec': 1,
+               'mli': 0,
+               'mli_dec': 0,
+               'inc': 0,
+               'dem_seg': 0,
+               'dem': 0,
+               'int': 1,
+               'sm': 1,
+               'cc': 0,
+               "sim_sar": 0,
+               "ls_map": 3,
+               "bmp": 2}
+    for i in [0, 1, 2, 3]:
+        for j in [0, 1, 2, 3]:
+            mapping["c{i}{j}".format(i=i, j=j)] = 1  # covariance elements
+            # Split the file name to the latest extesnsion
+    extension = filename.split('.')[-1]
+    return mapping[extension]
 
 
 def dict_to_par(par_dict, par_file):
@@ -521,26 +515,26 @@ def dict_to_par(par_dict, par_file):
             par = par_dict[key]
             out = str(key) + ":" + '\t'
             if isinstance(par, str):
-                out = out + par
+                out += par
             else:
                 try:
                     for p in par:
                         out = out + ' ' + str(p)
                 except TypeError:
-                    out = out + str(par)
+                    out += str(par)
             fout.write(out + '\n')
 
 
 def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
-    #Get filesize
+    # Get filesize
     filesize = _osp.getsize(bin_file)
-    #Get itemsize
+    # Get itemsize
     itemsize = dtype.itemsize
-    #Compute the number of lines
+    # Compute the number of lines
     nlines = filesize / (itemsize * width)
-    #Shape of binary
+    # Shape of binary
     shape = (width, nlines)
-    #load binary
+    # load binary
     if memmap:
         with open(bin_file, 'rb') as mmp:
             buffer = _mm.mmap(mmp.fileno(), 0, prot=_mm.PROT_READ)
@@ -563,7 +557,8 @@ def load_dataset(par_file, bin_file, **kwargs):
                 dt = type_mapping[par_dict['data_format']]
             except:
                 dt = type_mapping['FLOAT']
-                print(str(KeyError("This file does not contain datatype specification in a known format, using default FLOAT datatype")))
+                print(str(KeyError(
+                    "This file does not contain datatype specification in a known format, using default FLOAT datatype")))
     else:
         try:
             dt = dtype
@@ -646,9 +641,6 @@ def extract_channel_number(title):
     return idx
 
 
-
-
-
 def gpri_raw_strides(nsamp, nchan, npat, itemsize):
     """
     This function computes the array strides for 
@@ -665,11 +657,12 @@ def gpri_raw_strides(nsamp, nchan, npat, itemsize):
     # To move in azimuth to the subsequent record with the same
     # pattern , we have to jump npat times a range record
     st_az = st_pat * npat
-    return (st_rg, st_az, st_chan, st_pat)
+    return st_rg, st_az, st_chan, st_pat
 
 
 def count_pat(TX_RX_SEQ):
     return len(TX_RX_SEQ.split('-'))
+
 
 def load_raw(par_path, path, nchan=2):
     """
@@ -681,7 +674,7 @@ def load_raw(par_path, path, nchan=2):
     par = par_to_dict(par_path)
     nsamp = par['CHP_num_samp']
     npat = count_pat(par['TX_RX_SEQ'])
-    #If multiplexed data, we have two channels
+    # If multiplexed data, we have two channels
     if npat > 1:
         nchan = 2
     else:
@@ -691,7 +684,7 @@ def load_raw(par_path, path, nchan=2):
     filesize = _osp.getsize(path)
     raw = _np.memmap(path, dtype=type_mapping['SHORT INTEGER'], mode='r')
     nl_tot = int(filesize / bytes_per_record)
-    sh = (nsamp + 1, nl_tot / npat, \
+    sh = (nsamp + 1, nl_tot / npat,
           nchan, npat)
     stride = gpri_raw_strides(nsamp, nchan, npat, itemsize)
     raw_shp = _ast(raw, shape=sh, strides=stride).squeeze()
@@ -771,7 +764,7 @@ class rawParameters:
     """
 
     def __init__(self, raw_dict, raw):
-        if hasattr(raw_dict, 'iteritems'):#if the user passes a string, first load the corresponding dict
+        if hasattr(raw_dict, 'iteritems'):  # if the user passes a string, first load the corresponding dict
             pass
         else:
             raw_dict = par_to_dict(raw_dict)
@@ -785,7 +778,7 @@ class rawParameters:
                        self.pn1 * self.grp.ADC_sample_rate / self.nsamp * C / 2.) / self.grp.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
         self.scale = (abs(self.slr) / self.slr[self.nsamp / 8]) ** 1.5  # cubic range weighting in power
         self.ns_max = int(round(0.90 * self.nsamp / 2))  # default maximum number of range samples for this chirp
-        self.tcycle = (self.block_length) / self.grp.ADC_sample_rate  # time/cycle
+        self.tcycle = self.block_length / self.grp.ADC_sample_rate  # time/cycle
         self.dt = type_mapping['SHORT INTEGER']
         self.sizeof_data = _np.dtype(_np.int16).itemsize
         self.bytes_per_record = self.sizeof_data * self.block_length  # number of bytes per echo
@@ -819,9 +812,10 @@ class rawParameters:
         self.freq_vec = self.grp.RF_freq_min + _np.arange(self.grp.CHP_num_samp,
                                                           dtype=float) * self.grp.RF_chirp_rate / self.grp.ADC_sample_rate
 
-    def compute_slc_parameters(self, kbeta=3.0, rmin=50, rmax=1000, dec=5, zero=300):#compute the slc parameters for a given set of input parameters
-        self.rmax = self.ns_max * self.rps;  # default maximum slant range
-        self.win = _sig.kaiser(self.nsamp, kbeta )
+    def compute_slc_parameters(self, kbeta=3.0, rmin=50, rmax=1000, dec=5,
+                               zero=300):  # compute the slc parameters for a given set of input parameters
+        self.rmax = self.ns_max * self.rps  # default maximum slant range
+        self.win = _sig.kaiser(self.nsamp, kbeta)
         self.zero = zero
         self.win2 = _sig.hanning(
             2 * self.zero)  # window to remove transient at start of echo due to sawtooth frequency sweep
@@ -834,14 +828,14 @@ class rawParameters:
         self.nl_tot_dec = self.nl_tot / self.dec
         self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
         self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
-        if (rmax != 0.0):  # check if greater than maximum value for the selected chirp
-            if (int(round(rmax / self.rps)) <= self.ns_max):
+        if rmax != 0.0:  # check if greater than maximum value for the selected chirp
+            if int(round(rmax / self.rps)) <= self.ns_max:
                 self.ns_max = int(round(rmax / self.rps))
-                self.rmax = self.ns_max * self.rps;
+                self.rmax = self.ns_max * self.rps
             else:
                 print(
-                "ERROR: requested maximum slant range exceeds maximum possible value with this chirp: {value:f<30}'".format(
-                    self.rmax, ))
+                    "ERROR: requested maximum slant range exceeds maximum possible value with this chirp: {value:f<30}'".format(
+                        self.rmax, ))
 
         self.ns_out = (self.ns_max - self.ns_min) + 1  # number of output samples
         # Compute antenna positions
@@ -924,29 +918,28 @@ class rawParameters:
 
 
 class rawData(_np.ndarray):
-
     def __array_wrap__(self, out_arr):
-            # This is just a lazy
-            # _array_wrap_ that
-            # copies properties from
-            # the input object
-            out_arr = out_arr.view(type(self))
-            try:
-                out_arr.__dict__ = self.__dict__.copy()
-            except:
-                pass
-            return out_arr
+        # This is just a lazy
+        # _array_wrap_ that
+        # copies properties from
+        # the input object
+        out_arr = out_arr.view(type(self))
+        try:
+            out_arr.__dict__ = self.__dict__.copy()
+        except:
+            pass
+        return out_arr
 
     def __array_finalize__(self, obj):
         if obj is None: return
         if hasattr(obj, '__dict__'):
             self.__dict__ = _cp.deepcopy(obj.__dict__)
 
-    def __new__(cls, *args, **kwargs ):
+    def __new__(cls, *args, **kwargs):
         if 'channel_mapping' not in kwargs:
-            channel_mapping =  {'TX_A_position': 0, 'TX_B_position': 0.125,
-                                   'RX_Au_position': 0.475, 'RX_Al_position': 0.725,
-                                   'RX_Bu_position': 0.6,  'RX_Bl_position': 0.85}
+            channel_mapping = {'TX_A_position': 0, 'TX_B_position': 0.125,
+                               'RX_Au_position': 0.475, 'RX_Al_position': 0.725,
+                               'RX_Bu_position': 0.6, 'RX_Bl_position': 0.85}
         else:
             channel_mapping = kwargs['channel_mapping']
         data, par_dict = load_raw(args[0], args[1])
@@ -958,7 +951,7 @@ class rawData(_np.ndarray):
         obj.pn1 = _np.arange(obj.nsamp / 2 + 1)  # list of slant range pixel numbers
         obj.rps = (obj.ADC_sample_rate / obj.nsamp * C / 2.) / obj.RF_chirp_rate  # range pixel spacing
         obj.slr = (
-                       obj.pn1 * obj.ADC_sample_rate / obj.nsamp * C / 2.) / obj.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
+                      obj.pn1 * obj.ADC_sample_rate / obj.nsamp * C / 2.) / obj.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
         obj.scale = (abs(obj.slr) / obj.slr[obj.nsamp / 8]) ** 1.5  # cubic range weighting in power
         obj.ns_max = int(round(0.90 * obj.nsamp / 2))  # default maximum number of range samples for this chirp
         # obj.tcycle = (obj.block_length) / obj.ADC_sample_rate  # time/cycle
@@ -977,7 +970,7 @@ class rawData(_np.ndarray):
     def extract_channel(self, pat, ant):
         if self.npats > 1:
             chan_idx = self.channel_index(pat, ant)
-            chan = self[:,:, chan_idx[0], chan_idx[1]]
+            chan = self[:, :, chan_idx[0], chan_idx[1]]
             chan = self.__array_wrap__(chan)
             # chan.tcycle = chan.tcycle / self.npats
             chan.GPRI_TX_antenna_position = self.mapping_dict['TX_' + pat[0] + "_position"]
@@ -998,8 +991,8 @@ class rawData(_np.ndarray):
         chan_idx = chan_list.index(pat)
         return [ant_map[ant], chan_idx]
 
-    #All proprerties that depend directly or indirectly on the number of patterns
-    #are computed on the fly using property decorators
+    # All proprerties that depend directly or indirectly on the number of patterns
+    # are computed on the fly using property decorators
 
     @property
     def npats(self):
@@ -1011,7 +1004,8 @@ class rawData(_np.ndarray):
 
     @property
     def freqvec(self):
-        return self.RF_freq_min + _np.arange(self.CHP_num_samp, dtype=_np.double) * self.RF_chirp_rate / self.ADC_sample_rate
+        return self.RF_freq_min + _np.arange(self.CHP_num_samp,
+                                             dtype=_np.double) * self.RF_chirp_rate / self.ADC_sample_rate
 
     @property
     def nl_tot(self):
@@ -1038,9 +1032,10 @@ class rawData(_np.ndarray):
 
     @property
     def start_time(self):
-        return  str(self.time_start)
+        return str(self.time_start)
 
-    def compute_slc_parameters(self, kbeta=3.0, rmin=50, dec=5, zero=300, **kwargs):#compute the slc parameters for a given set of input parameters
+    def compute_slc_parameters(self, kbeta=3.0, rmin=50, dec=5, zero=300,
+                               **kwargs):  # compute the slc parameters for a given set of input parameters
         if 'rmax' not in kwargs:
             rmax = self.ns_max * self.rps  # default maximum slant range
         else:
@@ -1059,14 +1054,14 @@ class rawData(_np.ndarray):
         self.nl_tot_dec = int(self.nl_tot / self.dec)
         self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
         self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
-        if (rmax != 0.0):  # check if greater than maximum value for the selected chirp
-            if (int(round(rmax / self.rps)) <= self.ns_max):
+        if rmax != 0.0:  # check if greater than maximum value for the selected chirp
+            if int(round(rmax / self.rps)) <= self.ns_max:
                 self.ns_max = int(round(rmax / self.rps))
-                self.rmax = self.ns_max * self.rps;
+                self.rmax = self.ns_max * self.rps
             else:
                 print(
-                "ERROR: requested maximum slant range exceeds maximum possible value with this chirp: {value:f<30}'".format(
-                    self.rmax_chirp, ))
+                    "ERROR: requested maximum slant range exceeds maximum possible value with this chirp: {value:f<30}'".format(
+                        self.rmax_chirp, ))
 
         self.ns_out = (self.ns_max - self.ns_min) + 1  # number of output samples
         # Compute antenna positions
@@ -1148,18 +1143,20 @@ class rawData(_np.ndarray):
         return slc_dict
 
 
-
 def model_squint(freq_vec):
-    return squint_angle(freq_vec, KU_WIDTH, KU_DZ, k=1.0/2.0)
+    return squint_angle(freq_vec, KU_WIDTH, KU_DZ, k=1.0 / 2.0)
+
 
 def linear_squint(freq_vec, sq_parameters):
     return _np.polynomial.polynomial.polyval(freq_vec, [0, sq_parameters])
+
 
 def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
     # We require a function to compute the squint angle
     squint_vec = squint_function(raw_channel.freqvec, squint_rate)
     squint_vec = squint_vec / raw_channel.ang_per_tcycle
-    squint_vec = squint_vec - squint_vec[raw_channel.freqvec.shape[0] / 2]    # In addition, we correct for the beam motion during the chirp
+    squint_vec = squint_vec - squint_vec[
+        raw_channel.freqvec.shape[0] / 2]  # In addition, we correct for the beam motion during the chirp
     rotation_squint = _np.linspace(0, raw_channel.tcycle,
                                    raw_channel.nsamp) * raw_channel.TSC_rotation_speed / raw_channel.ang_per_tcycle
     # Normal angle vector
@@ -1181,52 +1178,53 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
 
 def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9):
     SLC_corr = SLC * 1
-    rawdata = _np.zeros((SLC.shape[0]/2 - 1, SLC.shape[1]))
+    rawdata = _np.zeros((SLC.shape[0] / 2 - 1, SLC.shape[1]))
     rawdata_corr = rawdata * 1
-    #Convert the data into raw samples
+    # Convert the data into raw samples
     for idx_line in range(SLC.shape[1]):
         rawdata[:, idx_line] = _np.fft.irfft(SLC[:, idx_line])
-    #Now correct the squint
-    freqvec = SLC.radar_frequency[0]  + _np.linspace(-SLC.chirp_bandwidth[0]/2, -SLC.chirp_bandwidth[0]/2, rawdata.shape[0])
+    # Now correct the squint
+    freqvec = SLC.radar_frequency[0] + _np.linspace(-SLC.chirp_bandwidth[0] / 2, -SLC.chirp_bandwidth[0] / 2,
+                                                    rawdata.shape[0])
     squint_vec = squint_function(freqvec, squint_rate)
     squint_vec = squint_vec / SLC.GPRI_az_angle_step[0]
-    squint_vec = squint_vec - squint_vec[freqvec.shape[0] / 2]    # In addition, we correct for the beam motion during the chirp
+    squint_vec = squint_vec - squint_vec[
+        freqvec.shape[0] / 2]  # In addition, we correct for the beam motion during the chirp
     # Normal angle vector
     angle_vec = _np.arange(SLC.shape[1])
-    #Correct by interpolation
+    # Correct by interpolation
     for idx_freq in range(rawdata.shape[0]):
         az_new = angle_vec + squint_vec[idx_freq]
-        rawdata_corr[idx_freq, :] =  _np.interp(az_new, angle_vec, SLC[idx_freq, :], left=0.0, right=0.0)
-    #Now range compress again (this function is really boring
+        rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, SLC[idx_freq, :], left=0.0, right=0.0)
+    # Now range compress again (this function is really boring
     for idx_line in range(SLC.shape[1]):
-        SLC_corr[:, idx_line ] = _np.fft.rfft(rawdata_corr)
+        SLC_corr[:, idx_line] = _np.fft.rfft(rawdata_corr)
     return SLC_corr
 
 
-
-
-def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f_c=None, bw=66e6, rvp_corr=False, scale=True):
+def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f_c=None, bw=66e6, rvp_corr=False,
+                      scale=True):
     rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
-    rawdata.compute_slc_parameters(kbeta=kbeta,rmin=rmin, rmax=rmax, zero=zero, dec=dec)
-    #Construct a filter
+    rawdata.compute_slc_parameters(kbeta=kbeta, rmin=rmin, rmax=rmax, zero=zero, dec=dec)
+    # Construct a filter
     if f_c is None:
         filt = _np.ones(rawdata.nsamp)
     # else:
     #     filt = self.subband_filter(f_c, bw=bw)
-    arr_compr = _np.zeros((rawdata.ns_max - rawdata.ns_min + 1, rawdata.nl_tot_dec) ,dtype=_np.complex64)
-    fshift = _np.ones(rawdata.nsamp/ 2 +1)
+    arr_compr = _np.zeros((rawdata.ns_max - rawdata.ns_min + 1, rawdata.nl_tot_dec), dtype=_np.complex64)
+    fshift = _np.ones(rawdata.nsamp / 2 + 1)
     fshift[1::2] = -1
-    #For each azimuth
-    for idx_az in range(0,rawdata.nl_tot_dec):
-        #Decimated pulse
+    # For each azimuth
+    for idx_az in range(0, rawdata.nl_tot_dec):
+        # Decimated pulse
         dec_pulse = _np.zeros(rawdata.block_length, dtype=_np.float32)
         for idx_dec in range(rawdata.dec):
             current_idx = idx_az * rawdata.dec + idx_dec
             current_idx_1 = idx_az + idx_dec * rawdata.dec
             if rawdata.dt == _np.dtype(_np.int16) or rawdata.dt == type_mapping['SHORT INTEGER']:
-                current_data = rawdata[:, current_idx ].astype(_np.float32) / TSF
+                current_data = rawdata[:, current_idx].astype(_np.float32) / TSF
             else:
-                 current_data = rawdata[:, current_idx ].astype(_np.float32)
+                current_data = rawdata[:, current_idx].astype(_np.float32)
             if current_idx % 1000 == 0:
                 print('Accessing azimuth index: {} '.format(current_idx))
             try:
@@ -1237,22 +1235,21 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f
         if rawdata.zero > 0:
             dec_pulse[0:rawdata.zero] = dec_pulse[0:rawdata.zero] * rawdata.win2[0:rawdata.zero]
             dec_pulse[-rawdata.zero:] = dec_pulse[-rawdata.zero:] * rawdata.win2[-rawdata.zero:]
-        #Emilinate the first sample, as it is used to jump back to the start freq
+        # Emilinate the first sample, as it is used to jump back to the start freq
         line_comp = _np.fft.rfft(dec_pulse[1::] * filt / rawdata.dec * rawdata.win) * fshift
         if rvp_corr:
             line_comp = line_comp * rvp
-        #Decide if applying the range scale factor or not
+        # Decide if applying the range scale factor or not
         if scale:
             scale_factor = rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1]
         else:
             scale_factor = 1
         arr_compr[:, idx_az] = (line_comp[rawdata.ns_min:rawdata.ns_max + 1].conj() * scale_factor).astype('complex64')
-    #Remove lines used for rotational acceleration
+    # Remove lines used for rotational acceleration
     arr_compr = arr_compr[:, rawdata.nl_acc:rawdata.nl_image + rawdata.nl_acc:]
     slc_dict = rawdata.fill_dict()
     slc_compr = gammaDataset(slc_dict, arr_compr)
     return slc_compr
-
 
 
 def lamg(freq, w):
@@ -1277,7 +1274,7 @@ def squint_angle(freq, w, s, k=0):
     waveguide antenna as a function of the frequency, the size and the slot spacing.
     It supposes a waveguide for the TE10 mode
     """
-    sq_ang = _np.pi/2.0 - _np.arccos(lam(freq) / lamg(freq, w) - k * lam(freq) / (s))
+    sq_ang = _np.pi / 2.0 - _np.arccos(lam(freq) / lamg(freq, w) - k * lam(freq) / s)
     # sq_ang = 90 - _np.rad2deg(_np.arccos(lam(freq) * k / s + 2 * _np.pi * lam(freq)/lamg(freq, w)))
     # dphi = _np.pi * (2. * s / lamg(freq, w) - 1.0)  # antenna phase taper to generate squint
     # sq_ang_1 = _np.rad2deg(_np.arcsin(lam(freq) * dphi / (2. * _np.pi * s)))  # azimuth beam squint angle
@@ -1354,11 +1351,13 @@ def ant_pos(t0, angle_start, angle_end, gear_ratio, max_speed):
     else:
         if gear_ratio == 80:  # 80:1 gear ratio
             rate = (
-                0.49938, 0.99876, 1.50240, 1.99751, 2.49335, 3.00481, 3.51563, 3.99503, 4.50721, 5.02232, 5.49316, 5.95869,
+                0.49938, 0.99876, 1.50240, 1.99751, 2.49335, 3.00481, 3.51563, 3.99503, 4.50721, 5.02232, 5.49316,
+                5.95869,
                 6.51042, 6.99627, 7.48005, 7.99006, 8.52273, 9.01442, 9.50169, 9.97340)
             #     rate = (0.50224, 1.00447, 1.51537, 2.00894, 2.51117, 3.03072, 3.55115, 4.04096, 4.56577, 5.09513, 5.58038, 6.06145, 6.54070, 7.03126, 7.52006, 8.03572, 8.57470, 9.07259, 9.56634, 10.04465)
             ramp = (
-                0.00000, 0.01125, 0.03375, 0.06750, 0.11250, 0.16875, 0.23625, 0.31500, 0.40500, 0.50625, 0.61875, 0.74250,
+                0.00000, 0.01125, 0.03375, 0.06750, 0.11250, 0.16875, 0.23625, 0.31500, 0.40500, 0.50625, 0.61875,
+                0.74250,
                 0.87750, 1.02375, 1.18125, 1.35000, 1.53000, 1.72125, 1.92375, 2.13750)
             tstep = 0.0225  # time step for velocities
         else:
@@ -1369,7 +1368,7 @@ def ant_pos(t0, angle_start, angle_end, gear_ratio, max_speed):
 
     ix = int(max_speed / 0.5 - 1)  # num steps of approx 0.5 deg/s to max speed, initial velocity is approx 0.5 deg/s
     if ix == -1:  # tower is stationary
-        return (0., 0., 0., 0., 0.)
+        return 0., 0., 0., 0., 0.
 
     t_acc = ix * tstep  # time interval for acceleration to max_speed
     ang_acc = ramp[ix]  # angle at the end of the acceleration phase
@@ -1398,16 +1397,16 @@ def ant_pos(t0, angle_start, angle_end, gear_ratio, max_speed):
             ang = angle_start + ramp1 + td * rate1
         else:
             ang = angle_start - (ramp1 + td * rate1)
-        return (ang, rate1, t_acc, ang_acc, rate_max)
+        return ang, rate1, t_acc, ang_acc, rate_max
 
-    if t0 > t_acc and t0 <= t_dec:  # constant velocity phase
+    if t_acc < t0 <= t_dec:  # constant velocity phase
         if angle_end > angle_start:
             ang = angle_start + (ang_acc + (t0 - t_acc) * rate_max)
         else:
             ang = angle_start - (ang_acc + (t0 - t_acc) * rate_max)
-        return (ang, rate_max, t_acc, ang_acc, rate_max)
+        return ang, rate_max, t_acc, ang_acc, rate_max
 
-    if t0 > t_dec and t0 <= t_total:  # decceleration phase
+    if t_dec < t0 <= t_total:  # decceleration phase
         td = (t0 - t_dec)  # time since start of deceleration
         itx = ix - (int(td / tstep) + 1)  # already deccelerating
 
@@ -1419,7 +1418,7 @@ def ant_pos(t0, angle_start, angle_end, gear_ratio, max_speed):
         else:
             ang = angle_start - (ang_acc + angc + ramp1 + (td - int(td / tstep) * tstep) * rate1)
 
-        return (ang, rate1, t_acc, ang_acc, rate_max)
+        return ang, rate1, t_acc, ang_acc, rate_max
 
     if t0 >= t_total:
-        return (angle_end, 0.0, t_acc, ang_acc, rate_max)
+        return angle_end, 0.0, t_acc, ang_acc, rate_max

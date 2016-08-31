@@ -26,19 +26,20 @@ def load_dat(path):
     dt_head = _np.dtype('>i4')
     temp_path = path
     f = open(temp_path)
-    dim_vec = _np.zeros(2,dtype = dt_head)
-    dim_vec = _np.fromfile(f,dtype=dt_head,count = 2)
-    #Compute sizes
+    dim_vec = _np.zeros(2, dtype=dt_head)
+    dim_vec = _np.fromfile(f, dtype=dt_head, count=2)
+    # Compute sizes
     n_range = dim_vec[0]
     n_az = dim_vec[1]
-    #Skip header
+    # Skip header
     f.seek(8, 0)  # seek
-    #Define new data type
+    # Define new data type
     dt_data = _np.dtype('>c8')
-    data =  _np.fromfile(f,dtype=dt_data)
-    data = data.reshape([n_az,n_range])
+    data = _np.fromfile(f, dtype=dt_data)
+    data = data.reshape([n_az, n_range])
     return data
-    
+
+
 def load_geotiff(path):
     from osgeo import gdal
     ds = gdal.Open(path)
@@ -47,7 +48,7 @@ def load_geotiff(path):
 
 def load_shapefile(path, mode=0):
     from osgeo import ogr
-    #Create driver
+    # Create driver
     driver = ogr.GetDriverByName('ESRI Shapefile')
     dataSource = driver.Open(path, mode)
     if dataSource is None:
@@ -55,7 +56,8 @@ def load_shapefile(path, mode=0):
     else:
         return dataSource
 
-#TODO make it work for other cuntries
+
+# TODO make it work for other cuntries
 
 def new_to_old_gt(gt):
     """
@@ -67,11 +69,12 @@ def new_to_old_gt(gt):
     gt_new[3] = gt[3] - 1e6
     return gt_new
 
+
 def dict_to_gt(dic):
     pass
-    
-    
-def save_dem(ds,path):
+
+
+def save_dem(ds, path):
     """
     This function saves a geotiff file in the gamma format
     Parameters
@@ -112,7 +115,7 @@ def wkt_to_dict(wkt):
     srs.ImportFromWkt(wkt)
     proj_arr = srs.ExportToPCI()
     proj_dict = _od()
-    #TODO fix dem projection to be flexible
+    # TODO fix dem projection to be flexible
     proj_dict['DEM_projection'] = 'OMCH'
     ell_arr = proj_arr[2]
     proj_dict['ellipsoid_ra'] = ell_arr[0]
@@ -125,7 +128,8 @@ def wkt_to_dict(wkt):
     proj_dict['false_northing'] = ell_arr[7]
     return proj_dict
 
-def load_bin(path,dim):
+
+def load_bin(path, dim):
     """
     Load bin SAR image in the format saved by POLSARPro
     
@@ -144,7 +148,8 @@ def load_bin(path,dim):
     read_data = _np.fromfile(file=path, dtype=_np.complex64).reshape(dim)
     return read_data
 
-def load_scattering(paths,fun=load_dat,other_args=[]):
+
+def load_scattering(paths, fun=load_dat, other_args=[]):
     """
     Load scattering matrices from a list of paths
     
@@ -164,10 +169,11 @@ def load_scattering(paths,fun=load_dat,other_args=[]):
     """
     read_data = []
     for path in paths:
-        temp_args = [path,] + other_args
+        temp_args = [path, ] + other_args
         temp_data = fun(*temp_args)
-        read_data = read_data + [temp_data,]
+        read_data = read_data + [temp_data, ]
     return read_data
+
 
 def load_coherency(path, dim):
     """
@@ -185,35 +191,35 @@ def load_coherency(path, dim):
         the data as a list of numpy arrays
     """
     data_type = _np.float32
-    data = _np.zeros( dim + [3,3], dtype = _np.complex64)
-    #Load channel
-    path_name = path  + "T11.bin"
+    data = _np.zeros(dim + [3, 3], dtype=_np.complex64)
+    # Load channel
+    path_name = path + "T11.bin"
     read_data = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
-    data[:,:,0,0] = read_data
-    path_name = path  + "T22.bin"
+    data[:, :, 0, 0] = read_data
+    path_name = path + "T22.bin"
     read_data = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
-    data[:,:,1,1] = read_data
-    path_name = path  + "T33.bin"
+    data[:, :, 1, 1] = read_data
+    path_name = path + "T33.bin"
     read_data = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
-    data[:,:,2,2] = read_data
-    path_name = path  + "T12_real.bin"
+    data[:, :, 2, 2] = read_data
+    path_name = path + "T12_real.bin"
     read_data_real = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
-    path_name = path  + "T12_imag.bin"
+    path_name = path + "T12_imag.bin"
     read_data_imag = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
-    data[:,:,0,1] = read_data_real + 1j* read_data_imag
-    data[:,:,1,0] = read_data_real - 1j* read_data_imag
-    path_name = path  + "T13_real.bin"
+    data[:, :, 0, 1] = read_data_real + 1j * read_data_imag
+    data[:, :, 1, 0] = read_data_real - 1j * read_data_imag
+    path_name = path + "T13_real.bin"
     read_data_real = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
-    path_name = path  + "T13_imag.bin"
+    path_name = path + "T13_imag.bin"
     read_data_imag = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
-    data[:,:,0,2] = read_data_real + 1j* read_data_imag
-    data[:,:,2,0] = read_data_real - 1j* read_data_imag
-    path_name = path  + "T23_real.bin"
+    data[:, :, 0, 2] = read_data_real + 1j * read_data_imag
+    data[:, :, 2, 0] = read_data_real - 1j * read_data_imag
+    path_name = path + "T23_real.bin"
     read_data_real = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
-    path_name = path  + "T23_imag.bin"
+    path_name = path + "T23_imag.bin"
     read_data_imag = _np.fromfile(file=path_name, dtype=data_type).reshape(dim)
-    data[:,:,1,2] = read_data_real + 1j* read_data_imag
-    data[:,:,2,1] = read_data_real - 1j* read_data_imag
+    data[:, :, 1, 2] = read_data_real + 1j * read_data_imag
+    data[:, :, 2, 1] = read_data_real - 1j * read_data_imag
     return data
 
 

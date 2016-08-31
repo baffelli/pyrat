@@ -8,17 +8,15 @@ Created on Thu May 15 14:56:18 2014
 """
 Utilities for GPRI calibration
 """
+import itertools as _itertools
+
 import numpy as _np
 from scipy import fftpack as _fftp
 from scipy import signal as _sig
 
 from .. import core
-from .. import fileutils as gpf
 from ..core import corefun
 from ..fileutils import gpri_files as _gpf
-from ..visualization import visfun as _vf
-
-import itertools as _itertools
 
 
 def calibrate_from_r_and_t(S, R, T):
@@ -33,7 +31,7 @@ def remove_window(S):
     spectrum = corefun.smooth(spectrum, 5)
     spectrum[spectrum < 1e-6] = 1
     S_f = _fftp.fft(S, axis=1)
-    S_corr = _fftp.ifft(S_f / (spectrum), axis=1)
+    S_corr = _fftp.ifft(S_f / spectrum, axis=1)
     return S_corr
 
 
@@ -45,7 +43,6 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     # Azimuth vector for the entire image
     # az_vec_image = _np.deg2rad(self.slc.GPRI_az_start_angle[0]) + _np.arange(self.slc.shape[0]) * _np.deg2rad(
     #     self.slc.GPRI_az_angle_step[0])
-    az_vec = slc.az_vec
     # Compute integration window size in samples
     ws_samp = int(ws / slc.GPRI_az_angle_step[0])
     # Filtered slc has different sizes depending
@@ -125,9 +122,9 @@ def gpri_radcal(mli, tri_pos, sigma):
 
 
 def distortion_matrix(phi_t, phi_r, f, g):
-    distortion_matrix = _np.diag([1, f * g * _np.exp(1j * phi_t), f / g * _np.exp(1j * phi_r),
+    dm = _np.diag([1, f * g * _np.exp(1j * phi_t), f / g * _np.exp(1j * phi_r),
                                   f ** 2 * _np.exp(1j * (phi_r + phi_t))])
-    return distortion_matrix
+    return dm
 
 
 def calibrate_from_parameters(S, par):
@@ -161,10 +158,8 @@ def calibrate_from_parameters(S, par):
 
 
 def scattering_matrix_to_flat_covariance(S, flat_ifgram, B_if):
-    import matplotlib.pyplot as plt
-
     C = S.to_coherency_matrix(basis='lexicographic', bistatic=True)
-    #Convert mapping into list of tuples
+    # Convert mapping into list of tuples
     mapping_list = [(key, value) for key, value in _gpf.channel_dict.items()]
     for (name_chan_1, idx_chan_1), (name_chan_2, idx_chan_2) in _itertools.product(mapping_list, mapping_list):
         # convert the indices of the two channels into the indices to access the covariance component
@@ -183,7 +178,7 @@ def coregister_channels(S):
     
     Parameters
     ----------
-    S : scatteringMatrix
+    S : pyrat.core.matrices.scatteringMatrix
         The scattering matrix to be coregistered.
     
     Returns
@@ -191,7 +186,7 @@ def coregister_channels(S):
     scatteringMatrix
         The image after coregistration.
     """
-    S1 = S * 1
+    S1 = S
     S1['VV'] = corefun.shift_array(S['VV'], (3, 0))
     S1['HV'] = corefun.shift_array(S['HV'], (1, 0))
     S1['VH'] = corefun.shift_array(S['VH'], (2, 0))
@@ -232,7 +227,7 @@ def coregister_channels(S):
 
 def remove_window(S):
     spectrum = _np.mean(_np.abs(_fftp.fftshift(_fftp.fft(S, axis=1), axes=(1,))), axis=0)
-    spectrum = core.corefun.smooth(spectrum, 5)
+    spectrum = corefun.smooth(spectrum, 5)
     spectrum[spectrum < 1e-6] = 1
     S_f = _fftp.fft(S, axis=1)
     S_corr = _fftp.ifft(S_f / _fftp.fftshift(spectrum), axis=1)
@@ -335,7 +330,7 @@ def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
     This function computes the phase caused by a shifted
     phase center in the antenna
     """
-    lam = gpf.gpri_files.C / 17.2e9
+    lam = _gpf.C / 17.2e9
     r_ant = _np.sqrt(r_arm ** 2 + r_ph ** 2)
     alpha = _np.arctan(r_ph / r_arm)
     # Chord length

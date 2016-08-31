@@ -1,10 +1,10 @@
 #!/usr/bin/python
 __author__ = 'baffelli'
 
-import sys, os
 import argparse
+import sys
+
 import pyrat.fileutils.gpri_files as _gpf
-from collections import OrderedDict as _od
 
 
 def main():

@@ -1,14 +1,12 @@
 #!/usr/bin/python
 __author__ = 'baffelli'
 
-
-import sys, os
-import numpy as _np
 import argparse
+import sys
+
+import numpy as _np
 import pyrat.fileutils.gpri_files as _gpf
 import scipy.signal as _sig
-
-
 
 
 def hilbert(arr):
@@ -19,17 +17,18 @@ def hilbert(arr):
         arr_h[:, idx_az] = _sig.hilbert(arr[:, idx_az].astype(_np.float32))
     return arr_h
 
+
 def main():
-    #Read the arguments
+    # Read the arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('input',
-                help="Input file")
+                        help="Input file")
     parser.add_argument('width', type=int, help='complex samples per line')
     parser.add_argument('output',
-                help="Output file with hilbert transformation")
+                        help="Output file with hilbert transformation")
     parser.add_argument('dt',
-                help="Data type 0 int16 \n 1 float 32", default=0)
-    #Read arguments
+                        help="Data type 0 int16 \n 1 float 32", default=0)
+    # Read arguments
     try:
         args = parser.parse_args()
     except:

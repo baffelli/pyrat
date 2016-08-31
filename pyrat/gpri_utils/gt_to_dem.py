@@ -1,18 +1,19 @@
 #!/usr/bin/python
-import sys, os
 import argparse
+import sys
+
 from osgeo import gdal
 
 
 def main():
-    #Read the arguments
+    # Read the arguments
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('dem_gt',
-                help="DEM geotiff path")
+                        help="DEM geotiff path")
     parser.add_argument('dem_par',
-                help="DEM parameters")
+                        help="DEM parameters")
     parser.add_argument('dem', type=str,
-                help="Output dem binary")
+                        help="Output dem binary")
     try:
         args = parser.parse_args()
     except:

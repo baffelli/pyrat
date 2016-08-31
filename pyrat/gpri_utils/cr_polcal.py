@@ -5,22 +5,12 @@ according to the method in
 http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7012094
 """
 
-import sys, os
-import numpy as _np
 import argparse
-import scipy as _sp
-import scipy.signal as _sig
+
+import numpy as _np
 import pyrat.fileutils.gpri_files as _gpf
-import pyrat.gpri_utils.calibration as _cal
-from collections import namedtuple as _nt
-import scipy.signal as _sig
-import scipy.ndimage as _ndim
-import matplotlib.pyplot as _plt
-import pyrat.visualization.visfun as _vf
 
-
-
-#Argument parser
+# Argument parser
 parser = argparse.ArgumentParser(description='Determine calibration parameters using a single TCR.')
 parser.add_argument("HHHH", help="The path of the HHHH channel [FCOMPLEX]", type=str)
 parser.add_argument("HHVV", help="The path of the HHVV channel [FCOMPLEX]", type=str)
@@ -37,14 +27,13 @@ parser.add_argument("f_out", help="The path where to save the f calibration para
 parser.add_argument("g_out", help="The path where to save the g calibration parameter [string]", type=str)
 args = parser.parse_args()
 
-#Get shape
+# Get shape
 shape = _gpf.get_image_size(args.HHHH, args.width, 'FCOMPLEX')
 print(shape)
 
+image = _np.fromfile(args.image, dtype=_gpf.type_mapping['FCOMPLEX']).reshape(shape[::-1]).T
 
-image = _np.fromfile(args.image, dtype= _gpf.type_mapping['FCOMPLEX']).reshape(shape[::-1]).T
-
-correction = _np.exp(1j*phase * args.baseline_ratio)
+correction = _np.exp(1j * phase * args.baseline_ratio)
 
 correction = correction / _np.abs(correction)
 
