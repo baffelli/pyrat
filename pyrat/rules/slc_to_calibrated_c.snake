@@ -1,0 +1,191 @@
+import os
+import glob
+import pyrat.fileutils.gpri_files as gpf
+import pyrat
+import pyrat.core.matrices as mat
+import pyrat.geo as geo
+import pyrat.gpri_utils.calibration as cal
+import pyrat.gpri_utils
+from types import SimpleNamespace
+import re
+import json
+import numpy as np
+
+
+
+
+#this workflow takes case of the processing up to the corrected slc stage
+
+
+
+##############################################################################
+## Interferogram 		
+rule interferogram:
+    input:
+        master = "slc_{proc}/{slcname}_{chan1}.slc_dec",
+        slave =  "slc_{proc}/{slcname}_{chan2}.slc_dec"
+    output:
+        ifgram = "diff_{proc}/{slcname}_{chan1}_{chan2}.int",
+        diff_par="diff_{proc}/{slcname}_{chan1}_{chan2}.diff_par",
+        int_par="diff_{proc}/{slcname}_{chan1}_{chan2}.int_par",
+    params:
+        rlks = config['interferogram']['rlks'],
+        azlks = config['interferogram']['azlks'],
+    run:
+        shell("create_diff_par {input.master}.par {input.slave}.par {output.diff_par} 1 0")
+        shell("create_offset {input.master}.par {input.slave}.par {output.int_par} 1 {config[interferogram][rlks]} {config[interferogram][azlks]} 0")
+        S1 = gpf.gammaDataset(input.master + '.par', input.master)
+        S2 = gpf.gammaDataset(input.slave + '.par', input.slave)
+        diff_par = gpf.par_to_dict(output.diff_par)
+        baseline = S1.phase_center - S2.phase_center
+        diff_par['baseline_vector'] =  baseline
+        gpf.dict_to_par(diff_par, output.diff_par)
+        ifgram = S1 * S2.conj()
+        ifgram.T.astype(gpf.type_mapping['FCOMPLEX']).tofile(output.ifgram)
+
+
+
+##############################################################################
+## Smooth interferogram
+rule smooth:
+	input:
+		ifgram = "{name}.int",
+		ifgram_par = "{name}.diff_par"
+	output:
+		ifgram_smooth = "{name}.int.sm"
+	run:
+		shell("adf {input.ifgram} {output.ifgram_smooth} - $(get_value {input.ifgram_par} number_of_nonzero_range_pixels_1:) -")
+
+##############################################################################
+## Compute coherence
+rule coherence:
+    input:
+        ifgram = "{name}.int.sm",
+        ifgram_par = "{name}.diff_par"
+    output:
+        cc = "{name}.cc",
+        mask = "{name}.bmp",
+        ifgram_pwr = "{name}.pwr"
+    run:
+        width=gpf.get_width(input.ifgram_par)
+        shell("cpx_to_real {{input.ifgram}} {{output.ifgram_pwr}} {width} 3".format(width=width))
+        shell("cc_wave {{input.ifgram}} - - {{output.cc}} {width} - -".format(width=width))
+        shell("rascc_mask {{output.cc}} {{output.ifgram_pwr}} {width} - - - - - 0.3 0.5 - - - - - {{output.mask}}".format(width=width))
+
+##############################################################################
+## Unwrap
+rule unwrap:
+    input:
+        ifgram = '{ifgram_name}.int.sm',
+        ifgram_par = '{ifgram_name}.diff_par',
+        mask = "{ifgram_name}.bmp",
+        cc = '{ifgram_name}.cc',
+    output:
+        unwrapped = '{ifgram_name}.unw',
+    run:
+        width=gpf.get_width(input.ifgram_par)
+        shell("mcf {{input.ifgram}} - {{input.mask}} {{output.unwrapped}} {width} 0 - - - - 1 1 -  - - 0".format(width=width))
+
+
+
+
+
+##############################################################################
+## Produce a covariance matrix (optionally flattened)
+rule covariance:
+    input:
+        HH = "slc_corr/{slcname}_AAA{rx}.slc_dec",
+        VV = "slc_corr/{slcname}_BBB{rx}.slc_dec",
+        HV = "slc_corr/{slcname}_ABB{rx}.slc_dec",
+        VH = "slc_corr/{slcname}_BAA{rx}.slc_dec",
+        topo= "diff_corr/{slcname}_AAAl_AAAu.unw",
+        topo_params= "diff_corr/{slcname}_AAAl_AAAu.diff_par"
+    output:
+        C = expand("cov_{{type, (flat|normal)}}/{{slcname}}_{{rx}}.c{i}{j}", i=[0,1,2,3],
+        j=[0,1,2,3]),
+        par = "cov_{type, (flat|normal)}/{slcname}_{rx}.par",
+    params:
+        master_par = "slc_corr/{slcname}_AAAl.slc_dec.par",
+        slave_par = "slc_corr/{slcname}_AAAu.slc_dec.par",
+        master = "slc_corr/{slcname}_AAAl.slc_dec",
+        slave = "slc_corr/{slcname}_AAAu.slc_dec",
+        C_root = "cov_{type}/{slcname}_{rx}",
+        S_root = "slc_corr/{slcname}",
+    run:
+        import matplotlib.pyplot as plt
+        S = mat.scatteringMatrix(params.S_root, gpri=True, suffix='slc_dec')
+        topography = gpf.gammaDataset(input.topo_params, input.topo)
+        if wildcards.type == 'flat':
+            print(topography.__dict__)
+            C_flat = cal.scattering_matrix_to_flat_covariance(S, topography, topography.baseline_vector[2])
+            C_flat.to_gamma(params.C_root, bistatic=True)
+        else:
+            C_mat = S.to_coherency_matrix(bistatic=True, basis='lexicographic')
+            C_mat.to_gamma(params.C_root, bistatic=True)
+
+
+##############################################################################
+## Determine polarimetric calibration parameters
+rule polcal_parameters:
+    input:
+        C = expand("cov_flat/{{slcname}}_{{rx}}.c{i}{j}",i=[0,1,2,3],j=[0,1,2,3]),
+    output:
+        cal_par= "pol_cal_{slcname}_{rx}.par",
+    params:
+        C_par = "cov_flat/{slcname}_{rx}.par",
+        C_root = "cov_flat/{slcname}_{rx}",
+    run:
+        C_matrix_flat = mat.coherencyMatrix(params['C_root'], params['C_par'], basis='lexicographic', gamma=True, bistatic=True)
+        #The indices are in the raw coordinates, needs to decimate
+        ref_pos, ref_coord = config['list_of_reflectors'][config['calibration']['reflector_index']]
+        azidx = int(ref_pos[1]) / int(config['range_compression']['dec'])
+        ridx = int(ref_pos[0])
+        C_ptarg, rplot, azplot, mx_pos, ptarg_info = cf.ptarg(C_matrix_flat, ridx, azidx, azwin=5, rwin=4)
+        av_win = [5,5]#averaging window
+        C_matrix_flat_av = C_matrix_flat.boxcar_filter(av_win)
+        #determine imbalance
+        phi_t, phi_r, f, g = cal.measure_imbalance(C_ptarg[mx_pos[0], mx_pos[1]], C_matrix_flat_av)
+        #determine radiometric calibration parameter
+        K = cal.gpri_radcal(C_matrix_flat[:,:,0,0], [ridx, azidx], 10**(config['calibration']['reflector_rcs']/ 10 ))
+        cal_dict = {}
+        cal_dict['phi_t'] = phi_t
+        cal_dict['phi_r'] = phi_r
+        cal_dict['f'] = f.real
+        cal_dict['g'] = g.real
+        cal_dict['K'] = K.real
+        gpf.dict_to_par(cal_dict, output.cal_par)
+
+
+##############################################################################
+### Apply polarimetric calibration
+rule polcal:
+    input:
+        C = expand("cov_flat/{{slcname}}_{{rx}}.c{i}{j}",i=[0,1,2,3],j=[0,1,2,3]),
+        cal_par= "pol_cal_{slcname}_{rx}.par",
+    output:
+        C = expand("cov_cal/{{slcname}}_{{rx}}.c{i}{j}",i=[0,1,2,3],j=[0,1,2,3]),
+    params:
+        C_input_root = "cov_flat/{slcname}_{rx}",
+        C_output_root = "cov_cal/{slcname}_{rx}",
+    run:
+        C_matrix_flat = mat.coherencyMatrix(params['C_input_root'], params['C_input_root'] + '.par', basis='lexicographic', gamma=True, bistatic=True)
+        cal_dict = gpf.par_to_dict(input.cal_par)
+        phi_t = cal_dict['phi_t']
+        phi_r = cal_dict['phi_r']
+        f = cal_dict['f']
+        g = cal_dict['g']
+        K = cal_dict['K']
+        D = cal.distortion_matrix(phi_t, phi_r, f, g)
+        D_inv = np.diag(1/np.diag(D))
+        C_cal = np.float(K) * C_matrix_flat.transform(D_inv,D_inv.T.conj())
+        C_cal.to_gamma(params['C_output_root'], bistatic=True)
+
+
+
+
+
+
+
+
+
+

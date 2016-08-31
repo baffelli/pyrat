@@ -1,0 +1,234 @@
+import os
+import glob
+import pyrat.fileutils.gpri_files as gpf
+import pyrat
+import pyrat.geo.geofun as geo
+import pyrat.gpri_utils
+from types import SimpleNamespace
+import re
+import json
+import gdal
+
+def geocode_rule(input, output, log):
+    dem_width = gpf.get_width(input.dem_seg_par)
+    data_width = gpf.get_width(input.reference_mli_par)
+    dem_par_dict = gpf.par_to_dict(input.dem_seg_par)
+    par_dict = gpf.par_to_dict(input.reference_mli_par)
+    nlines = dem_par_dict['nlines']
+    filetype = gpf.gamma_datatype_code_from_extension(input.data)
+    cmd = "geocode_back  {{input.data}} {data_width} {{input.lut}} {{output.geocoded_file}} {out_width} {nlines} 0 {dtype} >> {{log}}".format(data_width=data_width,
+    out_width=dem_width, nlines=nlines, dtype=filetype)
+    shell(cmd)
+
+
+
+
+###############################################################################
+##	Convert tif dem to gamma format
+rule convert_dem:
+    input:
+        dem = "{name}.tif",
+    output:
+        gamma_dem = "{name}.dem",
+        gamma_dem_par = "{name}.dem_par"
+    run:
+        import scipy.ndimage.filters as ndf
+        #Open the data set
+        DS = gdal.Open(input.dem)
+        #Convert
+        dem_dic = geo.gdal_to_dict(DS)
+        gpf.dict_to_par(dem_dic, output.gamma_dem_par)
+        dem = DS.ReadAsArray()
+#        print(dem.shape)
+#        dem = ndf.gaussian_filter(dem[0,:,:], [2, 2])
+        dem.astype(gpf.type_mapping[dem_dic['data_format']]).tofile(output.gamma_dem)
+
+##############################################################################
+##	This rule produces the geocoding LUT
+rule geocoding_table:
+    input:
+        dem = config['geocoding']['DEM'],
+        dem_par = config['geocoding']['DEM'] + '_par',
+        reference_mli_par = config['geocoding']['ref_mli_par']
+    output:
+        lut = "geo/{tablename}.gpri_to_dem",
+        dem_seg = "geo/{tablename}.dem_seg",
+        dem_seg_par = "geo/{tablename}.dem_seg.par",
+        sim_sar = "geo/{tablename}.sim_sar",
+        lv_theta = "geo/{tablename}.lv_theta",
+        lv_phi = "geo/{tablename}.lv_phi",
+        u = "geo/{tablename}.u",
+        v = "geo/{tablename}.v",
+        inc = "geo/{tablename}.inc",
+        psi = "geo/{tablename}.psi",
+        pix = "geo/{tablename}.pix",
+        ls_map = "geo/{tablename}.ls_map"
+    log:
+        "logs/gc.log"
+    params:
+        lat_ovr = 3,
+        lon_ovr = 3,
+    run:
+        #Determine tiepoints
+        scan_heading = config['geocoding']['scan_heading']
+        ref_mli_par = gpf.par_to_dict(input.reference_mli_par)
+        ref_mli_par['GPRI_scan_heading'] = scan_heading
+        gpf.dict_to_par(ref_mli_par, input.reference_mli_par)
+        cmd = "gc_GPRI_map {input.reference_mli_par} {input.dem_par} {input.dem} {output.dem_seg_par} {output.dem_seg} {output.lut} {params.lat_ovr} {params.lon_ovr} {output.sim_sar} {output.lv_theta} {output.lv_phi} {output.u} {output.v} {output.inc} {output.psi} {output.pix} {output.ls_map} - > {log}"
+        shell(cmd)
+
+
+##############################################################################
+##	This rule geocodes an image in radar coordinates into dem coordinates
+rule geocode_back:
+    input:
+        dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
+        lut	= 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem',
+        reference_mli_par =  config['geocoding']['ref_mli_par'],
+        data = "{data}"
+    output:
+        geocoded_file = "{data}_{ext,(gct)|(gc)}"
+    log:
+        "logs/gc.log"
+    run:
+        geocode_rule(input, output, log)
+
+##############################################################################
+##	This is the forward transformation (DEM -> radar coordinates)
+rule geocode_forward:
+    input:
+        dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
+        lut	= 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem',
+        reference_mli_par =  config['geocoding']['ref_mli_par'],
+        data = "{data}"
+    output:
+        geocoded_file = "{data}_{ext,(fgct)|(fgc)}"
+    log:
+        "logs/gc.log"
+    run:
+        dem_width = gpf.get_width(input.dem_seg_par)
+        data_width = gpf.get_width(input.reference_mli_par)
+        dem_par_dict = gpf.par_to_dict(input.dem_seg_par)
+        par_dict = gpf.par_to_dict(input.reference_mli_par)
+        nlines = par_dict['azimuth_lines']
+        filetype = gpf.gamma_datatype_code_from_extension(input.data)
+        cmd = "geocode {{input.lut}} {{input.data}} {out_width} {{output.geocoded_file}} {data_width} {nlines} 0 {dtype} >> {{log}}".format(data_width=data_width,
+        out_width=dem_width, nlines=nlines, dtype=filetype)
+        shell(cmd)
+
+rule sh_map:
+    input:
+        reference_mli_par =  config['geocoding']['ref_mli_par'],
+        u = 'geo/{dataname}.u_fgc',
+        theta = 'geo/{dataname}.lv_theta_fgc',
+        inc = 'geo/{dataname}.inc_fgc'
+    output:
+        sh_map = 'geo/{dataname}.sh_map'
+    run:
+        u, inc_par = gpf.load_dataset(input.reference_mli_par, input.u)
+        theta, inc_par = gpf.load_dataset(input.reference_mli_par, input.theta)
+        inc, inc_par = gpf.load_dataset(input.reference_mli_par, input.inc)
+        sh_map = geo.shadow_map(u, theta, inc)
+        sh_map.T.astype(gpf.type_mapping['UCHAR']).tofile(output.sh_map)
+
+
+rule to_gt:
+	input:
+		file = "{filename}",
+		dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par'
+	output:
+		gt = "{filename}.tif"
+	run:
+		dt_code = gpf.gt_mapping_from_extension(input.file)
+		gt_cmd = "data2geotiff {input.dem_seg_par} {input.file} " + str(dt_code) +  " {output.gt}"
+		shell(gt_cmd)
+
+##############################################################################
+###	This rule gproduces a geotiff from the data
+#TODO fix it to make work with other file types
+#rule to_geotiff:
+#	input:
+#		file = "{filename}.{ext}",
+#		dem_seg_par = "geo/{location}.dem_seg.par",
+#	output:
+#		gt = "{filename}.tif"
+#	run:
+#		dt_code = gpf.gamma_datatype_code_from_extension(input.file)
+#		gt_cmd = "data2geotiff {input.dem_seg_par} {input.file}" + str(dt_code) +  "{output.gt}"
+#		shell(gt_cmd)
+#
+
+
+
+
+
+#TODO fix refinement of LUT
+###############################################################################
+###	This rule refines the LUT
+#rule refine_geocoding:
+#	input:
+#		lut = "geo/{slcname}.gpri_to_dem",
+#		dem_seg_par = "geo/{slcname}.dem_seg.par",
+#		dem = "geo/{slcname}.dem_seg",
+#		sim = "geo/{slcname}.sim_sar",
+#		reference_mli = "slc_corr/{date}_{time}_AAAl.mli",
+#		reference_mli_par =  "slc_corr/{date}_{time}_AAAl.slc.par",
+#	output:
+#		lut_fine = "geo/{date}_{time}_fine.gpri_to_dem",
+#		sim_radar = "geo/{date}_{time}.sim_sar_gc",
+#		diff_par = "geo/{date}_{time}_dem_ref_offset.diff_par",
+#		sim_radar_ras = "geo/{date}_{time}.sim_sar_gc.ras",
+#		#gcp = "{location}/{date}/geo/{location}.gcp"
+#	params:
+##		reference_ras = temp(reference_mli[0] + '.ras'),
+#	shell:
+#		"""
+##			lut_width=$(get_value {input.dem_seg_par} width)
+##			radar_width=$(get_value {input.reference_mli}'.par' range_samples)
+##			#Geocode using unrefined LUT
+##			geocode {input.lut} {input.sim} ${{lut_width}} {output.sim_radar} ${{radar_width}} - 0 0
+##			#Convert the two images to rasters
+###			raspwr {output.sim_radar} ${{radar_width}} - - - - - - - {output.sim_radar_ras}
+###			raspwr {input.reference_mli} ${{radar_width}} - - - - 0.5 0.2 - {params.reference_ras}
+##			#find gcp
+##			create_diff_par {input.dem_seg_par} - {output.diff_par} 2 0
+###			init_offsetm {input.reference_mli} {output.sim_radar} {output.diff_par} - - {params.ridx} {params.azidx} - - 0.1 128
+##			gc_map_fine {input.lut}  ${{lut_width}}  {output.diff_par}  {output.lut_fine} 1
+#			cp {input.lut} {output.lut_fine}
+#		"""
+
+
+##############################################################################
+###	This produces the inverted geocoding map (dem to radar)
+#rule gc_map_inversion:
+#	input:
+#			lut = "{location}/{date}/geo/{date}_{time}.gpri_to_dem",
+#			dem_seg_par = "{location}/{date}/geo/{date}_{time}.dem_seg.par",
+#			dem = "{location}/{date}/geo/{date}_{time}.dem_seg",
+#			reference_mli_par = "{location}/{date}/slc_corr/{date}_{time}_AAAl.slc_dec.par",
+#	output:
+#			inverse_lut = "{location}/{date}/geo/{date}_{time}.dem_to_gpri"
+#	run:
+#			dem_width = get_width(input.dem_seg_par)
+#			data_width = get_width(input.reference_mli_par)
+#			par_dict = gpf.par_to_dict(input.reference_mli_par)
+#			nlines = par_dict['azimuth_lines']
+#			cmd = "gc_map_inversion  {{input.lut}} {dem_width} {{output.inverse_lut}} {data_width} {nlines} 0".format(data_width=data_width,
+#			dem_width=dem_width, nlines=nlines)
+#			shell(cmd)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

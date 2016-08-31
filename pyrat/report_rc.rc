@@ -1,0 +1,13 @@
+# Style for report (e.g calibration report). Corresponds to the "article" class in LaTeX
+font.family     : serif
+font.serif      : Times
+font.sans-serif       : Helvetica
+font.size       : 11
+text.usetex     : True  # use latex for all text handling
+axes.unicode_minus  : True
+savefig.format  : pdf
+savefig.bbox    : tight
+image.aspect : equal             # equal | auto | a number
+image.interpolation  : none  # see help(imshow) for options
+#figure.figsize : 3.166943406669434, 1.9572786657690908
+figure.figsize : 7.6, 4.69

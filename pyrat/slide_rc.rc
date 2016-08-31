@@ -1,0 +1,41 @@
+# Style for poster
+font.family     : sans-serif
+font.serif      : computer modern roman
+font.sans-serif : Arial
+font.size       : 10
+text.usetex     : False  # use latex for all text handling
+axes.unicode_minus  : True
+savefig.format  : pdf
+savefig.bbox    : tight
+image.aspect : equal             # equal | auto | a number
+image.interpolation  : none  # see help(imshow) for options
+figure.figsize :  3.68503939,  2.27747959
+savefig.dpi : 400
+#Legend
+legend.frameon: True
+legend.framealpha : 0.8
+legend.handletextpad : 0.4
+legend.fancybox : True
+legend.fontsize : medium
+#Grid 
+grid.color : gray
+grid.linestyle : solid
+grid.linewidth: 0.3
+#Axes
+axes.edgecolor: gray
+axes.linewidth: 0.3
+axes.labelsize      : small
+#color cycle
+#ticks
+xtick.color: black
+ytick.color: black
+xtick.major.width: 0.3
+ytick.major.width: 0.3
+xtick.labelsize: x-small
+ytick.labelsize: x-small
+#Lines
+lines.linewidth : 0.5
+#Math text
+mathtext.fontset: custom
+mathtext.cal : sans
+

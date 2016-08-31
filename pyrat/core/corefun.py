@@ -4,26 +4,17 @@ Created on Thu May 15 14:34:25 2014
 
 @author: baffelli
 """
+import os as _os
+import subprocess as _sp
+
 import numpy as _np
 import scipy as _sp
-from scipy import ndimage as _nd
-from numpy.lib.stride_tricks import as_strided as _ast
-import tempfile as _tf
-import subprocess as _sp
-import os as _os
-from ..fileutils import gpri_files as _gpf
 import scipy.ndimage as _ndim
-from scipy.interpolate import splrep, sproot, splev
+from numpy.lib.stride_tricks import as_strided as _ast
+from scipy import ndimage as _nd
+from scipy.interpolate import splrep, sproot
 
-#Set environment variables
-# _os.environ['GAMMA_HOME']='/usr/local/GAMMA_SOFTWARE-20130717'
-# _os.environ['ISP_HOME']=_os.environ['GAMMA_HOME'] + '/ISP'
-# _os.environ['MSP_HOME']=_os.environ['GAMMA_HOME'] + '/MSP'
-# _os.environ['DIFF_HOME']=_os.environ['GAMMA_HOME'] + '/DIFF'
-# _os.environ['GEO_HOME']=_os.environ['GAMMA_HOME'] + '/GEO'
-# _os.environ['LD_LIBRARY_PATH']=_os.environ['GAMMA_HOME'] +'/lib'
-# _os.environ["PATH"] = _os.environ["PATH"] +  _os.pathsep + _os.environ['GAMMA_HOME'] + '/bin' + _os.pathsep + _os.environ['ISP_HOME'] + '/bin' + _os.pathsep + _os.environ['DIFF_HOME'] + '/bin'
-#
+from ..fileutils import gpri_files as _gpf
 
 
 def outer_product(data,data1, large = False):

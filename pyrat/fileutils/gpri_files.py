@@ -78,6 +78,69 @@ channel_dict = {
 }
 
 
+def  gamma_datatype_code_from_extension(filename):
+	"""
+		Get the numeric datatype from the filename extensions
+	"""
+	mapping = {'slc':1,
+	'slc_dec':1,
+	'mli':0,
+	'mli_dec':0,
+	'inc':0,
+	'dem_seg':0,
+	'dem':0,
+	'int':1,
+	'sm':1,
+	'cc':0,
+	"sim_sar":0,
+	"ls_map":3,
+    "sh_map":3,
+    "u":0,
+    "lv_theta":0,
+	"bmp": 2}
+	for i in [0,1,2,3]:
+		for j in [0,1,2,3]:
+			mapping["c{i}{j}".format(i=i,j=j)] = 1#covariance elements
+	#Split the file name to the latest extesnsion
+	extension = filename.split('.')[-1]
+	return mapping[extension]
+
+
+def gt_mapping_from_extension(filename):
+    """
+        Get numeric datatype from file extension for
+        conversion into geotiff
+    """
+    mapping = {
+        'slc': 4,
+        'mli': 2,
+        'mli_dec': 2,
+        'inc': 2,
+        'bmp': 0,
+        'mli': 2,
+        'sim_sar':2,
+        'ls_map': 5,
+        'dem_seg':4,
+        'inc':2,
+        'u':2,
+        'lv_theta':2,
+        'sh_map': 5,
+    }
+    extension = filename.split('.')[-1]
+    extension = _re.sub("(_(f)*(gc))+", "", extension)
+    print(filename)
+    return mapping[extension]
+
+
+ls_map_dic = {0:"NOT_TESTED",
+              1:"TESTED",
+              2:"TRUE_LAYOVER",
+              4:"LAYOVER",
+              8:'TRUE_SHADOW',
+              16:'SHADOW'
+              }
+
+
 def get_image_size(path, width, type_name):
     """
     This function gets the shape of an image given the witdh
@@ -339,6 +402,30 @@ class gammaDataset(_np.ndarray):
         return obj.__dict__['GPRI_az_start_angle'][0] + _np.arange(obj.__dict__['azimuth_lines']) * \
                                                         obj.__dict__['GPRI_az_angle_step'][0]
 
+    @property
+    def phase_center(obj):
+
+        """
+        This function computes the phase center position for a given slc
+        file by computing (rx_pos + tx_pos)/2
+        Parameters
+        ----------
+        par, dict
+        Dictionary of slc parameters in the gamma format
+
+        Returns
+        -------
+
+        """
+        try:
+            rx_number = extract_channel_number(obj.title[-1])
+            ph_center = (_np.array(obj.GPRI_tx_coord[0:3]) + _np.array(getattr(obj, "GPRI_rx{num}_coord".format(num=rx_number))[0:3]))/2
+            return ph_center
+        except AttributeError:
+            return 0
+
+
+
 
 def par_to_dict(par_file):
     """
@@ -559,22 +646,7 @@ def extract_channel_number(title):
     return idx
 
 
-def compute_phase_center(par):
-    """
-    This function computes the phase center position for a given slc
-    file by computing (rx_pos + tx_pos)/2
-    Parameters
-    ----------
-    par, dict
-    Dictionary of slc parameters in the gamma format
 
-    Returns
-    -------
-
-    """
-    rx_number = extract_channel_number(par['title'][-1])
-    ph_center = (par['GPRI_tx_coord'][2] + par['GPRI_rx{num}_coord'.format(num=rx_number)][2]) / 2.0
-    return ph_center
 
 
 def gpri_raw_strides(nsamp, nchan, npat, itemsize):

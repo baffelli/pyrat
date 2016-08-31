@@ -8,6 +8,7 @@ import numpy as np
 import scipy
 from .. import core
 # from .. import core.corefun
+from  ..fileutils import gpri_files as _gpf
 """
 Pyrat module for interferometric processing
 """
@@ -46,3 +47,6 @@ def patch_correlation(image1, image2, oversampling = 4, block_size = (10,10)):
             idx = B1.center_index(B1.current)
             shifts[idx[0],idx[1]] = sh[0] + 1j*sh[1]
         return shifts
+
+def compute_baseline(slc1, slc2):
+    bl = slc1.phase_center - slc2.phase_center

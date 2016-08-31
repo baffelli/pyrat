@@ -5,7 +5,7 @@ import numpy as _np
 
 from ..fileutils.gpri_files import dict_to_par, type_mapping
 from pyrat.visualization.visfun import bilinear_interpolate
-
+from  ..fileutils import gpri_files as _gpf
 
 def copy_and_modify_gt(RAS, gt):
     from osgeo import gdal
@@ -681,6 +681,26 @@ def geocode_image(image, pixel_size, *args):
     return gc, x_vec, y_vec
 
 
+def shadow_map(u, lv_theta, inc):
+    import matplotlib.pyplot as plt
+    sh_map = lv_theta * 0
+    current_max = lv_theta[0,:] * 1
+    for idx_r in range(1, lv_theta.shape[0]):
+        current_inc = lv_theta[idx_r, :]
+        sh_map[idx_r, current_inc < current_max] = 1
+        current_max = _np.select([current_inc <= current_max, current_inc > current_max], [current_max, current_inc ])
+    plt.imshow(sh_map)
+    plt.show()
+
+    # sh_map = u * 0
+    # lay_map = u * 0
+    # sh_map[-u >= lv_theta] = 8
+    # lay_map[u > lv_theta] = 7
+    # sh_map += lay_map
+    # plt.imshow(sh_map)
+    # plt.show()
+    return sh_map.astype(_np.int8)
+
 def resample_DEM(DEM, new_posting):
     """
     This function reporjects a gtiff
@@ -856,13 +876,10 @@ def geotif_to_dem(gt, par_path, bin_path):
     DEM into a gamma format pair
     of binary DEM and parameter file
     """
-    DEM = gt.ReadAsArray()
-    GT = gt.GetGeoTransform()
-    srs = _osr.SpatialReference()
-    srs.ImportFromWkt(gt.GetProjection())
-    d = {}
-    # FOrmat information
-    # Convert
-    dem_dic = geo.geofun.gdal_to_dict(gt)
-    dict_to_par(dem_dic, par_path)
-    DEM.astype(type_mapping[dem_dic['data_format']]).tofile(bin_path)
+    #Open the data set
+    DS = gdal.Open(gt)
+    #Convert
+    dem_dic = gdal_to_dict(DS)
+    _gpf.dict_to_par(dem_dic, par_path)
+    dem = DS.ReadAsArray()
+    dem.astype(_gpf.type_mapping[dem_dic['data_format']]).tofile(bin_path)
