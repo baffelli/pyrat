@@ -195,17 +195,18 @@ class gammaDataset(_np.ndarray):
     def __new__(cls, *args, **kwargs):
         par_dict = args[0]
         image = args[1]
-        try:
-            par_dict.values()
-        except AttributeError:
-            try:
-                par_path = args[1]
-                bin_path = args[2]
+        if isinstance(par_dict, str):#user passes paths
+            print('hier')
+            try:#user passes file paths
+                par_path = args[0]
+                bin_path = args[1]
                 memmap = kwargs.get('memmap', False)
                 dtype = kwargs.get('dtype', None)
                 image, par_dict = load_dataset(par_path, bin_path, memmap=memmap, dtype=dtype)
             except:
                 Exception("Input parameters format unrecognized ")
+        else:#user passes binary and dictionary
+            pass
         obj = image.view(cls)
         d1 = _cp.deepcopy(par_dict)
         obj.__dict__ = d1
