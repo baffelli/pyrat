@@ -89,6 +89,7 @@ rule extract_channel:
         chan = "raw_chan/{dataname}_{chan}.raw",
         chan_par = "raw_chan/{dataname}_{chan}.raw_par"
     run:
+        print(wildcards.chan)
         raw = gpf.rawData(input.raw_par, input.raw, channel_mapping=config['channel_mapping'])
         raw_chan = raw.extract_channel(wildcards.chan[0:3], wildcards.chan[-1])
         raw_chan.tofile(output.chan_par, output.chan)
@@ -183,11 +184,12 @@ rule polarimetric_coregistration:
         slave_slc_par = 'slc_desq/{slcname}_{chan}.slc.par',
         master_slc_par = 'slc_desq/{slcname}_AAAl.slc.par',
     output:
-        coreg_slave_slc = 'slc_coreg/{slcname}_{chan}.slc',
-        coreg_slave_slc_par = 'slc_coreg/{slcname}_{chan}.slc.par',
-        offs = "diff/{slcname}_AAAl_{chan}.offs",
-        snr =  "diff/{slcname}_AAAl_{chan}.ccp",
-        shift_par = "diff/{slcname}_AAAl_{chan}.off_par"
+        #add a postfix to the coregistered files
+        coreg_slave_slc = 'slc_coreg{temp,.*}/{slcname}_{chan}.slc',
+        coreg_slave_slc_par = 'slc_coreg{temp,.*}/{slcname}_{chan}.slc.par',
+        offs = "diff{temp,.*}/{slcname}_AAAl_{chan}.offs",
+        snr =  "diff{temp,.*}/{slcname}_AAAl_{chan}.ccp",
+        shift_par = "diff{temp,.*}/{slcname}_AAAl_{chan}.off_par"
     params:
         rlks=1,
         azlks=1,
@@ -198,7 +200,7 @@ rule polarimetric_coregistration:
         rwin=16,
         azwin=32,
         noff_r=50,
-        noff_az=50
+        noff_az=50,
     log:
         "logs/{slcname}_coreg.log"
     run:
@@ -220,15 +222,14 @@ rule polarimetric_coregistration:
         shell(interp_cmd)
 
 
-#
+ruleorder: coregister_to_master > polarimetric_coregistration
 if 'master_slc' in config:
-    print('performing second coregistration step')
     rule coregister_to_master:
         input:
-            slave_slc = 'slc_coreg/{slcname}.slc',
-            master_slc = 'slc_coreg/' + config['master_slc'] + '.slc',
-            slave_slc_par = 'slc_coreg/{slcname}.slc.par',
-            master_slc_par = 'slc_coreg/' + config['master_slc'] + '.slc.par'
+            slave_slc = 'slc_coreg_temp/{slcname}.slc',
+            master_slc = 'slc_coreg_temp/' + config['master_slc'] + '.slc',
+            slave_slc_par = 'slc_coreg_temp/{slcname}.slc.par',
+            master_slc_par = 'slc_coreg_temp/' + config['master_slc'] + '.slc.par'
         output:
             coreg_slave_slc = 'slc_coreg/{slcname}.slc',
             coreg_slave_slc_par = 'slc_coreg/{slcname}.slc.par',
@@ -245,7 +246,7 @@ if 'master_slc' in config:
             rwin=256,
             azwin=256,
             noff_r=50,
-            noff_az=50
+            noff_az=50,
         log:
             "logs/{slcname}_coreg.log"
         run:
