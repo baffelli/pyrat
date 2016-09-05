@@ -421,7 +421,31 @@ class gammaDataset(_np.ndarray):
             return ph_center
         except AttributeError:
             return 0
-
+def dict_to_par(par_dict, par_file):
+    """
+    This function writes a dict to a gamma
+    format parameter file
+    :param par_dict:
+    A dict of parameters
+    :param par_file:
+    A string with the path to the parameter file
+    :return:
+    None
+    """
+    with open(par_file, 'w') as fout:
+        fout.write(_yaml.dump(par_dict))
+        # for key in iter(par_dict):
+        #     par = par_dict[key]
+        #     out = str(key) + ":" + '\t'
+        #     if isinstance(par, str):
+        #         out += par
+        #     else:
+        #         try:
+        #             for p in par:
+        #                 out = out + ' ' + str(p)
+        #         except TypeError:
+        #             out += str(par)
+        #     fout.write(out + '\n')
 
 def par_to_dict(par_file):
     """
@@ -438,16 +462,17 @@ def par_to_dict(par_file):
     float_re = "[-+]?([0 - 9] *\.[0 - 9] + | [0 - 9] +)."
 
     with open(par_file, 'r') as fin:
-        next(fin)
-        next(fin)
         par_dict = _yaml.load(fin)
         for key, value in par_dict.items():
                 l = []
-                for p in value.split():
-                    try:
-                        l.append(float(p))
-                    except ValueError:
-                        l.append(p)
+                try:
+                    for p in value.split():
+                        try:
+                            l.append(float(p))
+                        except ValueError:
+                            l.append(p)
+                except AttributeError:
+                    l = value
                 try:
                     if len(l) > 1:
                         par_dict[key] = l
@@ -523,30 +548,7 @@ def datatype_from_extension(filename):
     return mapping[extension]
 
 
-def dict_to_par(par_dict, par_file):
-    """
-    This function writes a dict to a gamma
-    format parameter file
-    :param par_dict:
-    A dict of parameters
-    :param par_file:
-    A string with the path to the parameter file
-    :return:
-    None
-    """
-    with open(par_file, 'w') as fout:
-        for key in iter(par_dict):
-            par = par_dict[key]
-            out = str(key) + ":" + '\t'
-            if isinstance(par, str):
-                out += par
-            else:
-                try:
-                    for p in par:
-                        out = out + ' ' + str(p)
-                except TypeError:
-                    out += str(par)
-            fout.write(out + '\n')
+
 
 
 def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
