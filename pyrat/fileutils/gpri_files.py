@@ -22,6 +22,8 @@ import scipy as _sp
 import scipy.signal as _sig
 from numpy.lib.stride_tricks import as_strided as _ast
 
+import yaml as _yaml
+
 # Constants for gpri
 ra = 6378137.0000  # WGS-84 semi-major axis
 rb = 6356752.3141  # WGS-84 semi-minor axis
@@ -431,24 +433,21 @@ def par_to_dict(par_file):
     A dict of parameters
     """
     par_dict = _od()
+    #this regex matches floats
+
+    float_re = "[-+]?([0 - 9] *\.[0 - 9] + | [0 - 9] +)."
+
     with open(par_file, 'r') as fin:
-        # Skip first line
-        # fin.readline()
-        for line in fin:
-            if line:
-                split_array = line.replace('\n', '').split(':', 1)
-                if len(split_array) > 1:
-                    key = split_array[0]
-                    if key == 'time_start':  # The utc time string should not be split
-                        l = split_array[1:]
-                    else:
-                        l = []
-                        param = split_array[1].split()
-                        for p in param:
-                            try:
-                                l.append(float(p))
-                            except ValueError:
-                                l.append(p)
+        next(fin)
+        next(fin)
+        par_dict = _yaml.load(fin)
+        for key, value in par_dict.items():
+                l = []
+                for p in value.split():
+                    try:
+                        l.append(float(p))
+                    except ValueError:
+                        l.append(p)
                 try:
                     if len(l) > 1:
                         par_dict[key] = l
@@ -456,6 +455,30 @@ def par_to_dict(par_file):
                         par_dict[key] = l[0]
                 except:
                     pass
+        # # Skip first line
+        # # fin.readline()
+        # for line in fin:
+        #     if line:
+        #         split_array = line.replace('\n', '').split(':', 1)
+        #         if len(split_array) > 1:
+        #             key = split_array[0]
+        #             if key == 'time_start':  # The utc time string should not be split
+        #                 l = split_array[1:]
+        #             else:
+        #                 l = []
+        #                 param = split_array[1].split()
+        #                 for p in param:
+        #                     try:
+        #                         l.append(float(p))
+        #                     except ValueError:
+        #                         l.append(p)
+        #         try:
+        #             if len(l) > 1:
+        #                 par_dict[key] = l
+        #             else:
+        #                 par_dict[key] = l[0]
+        #         except:
+        #             pass
     return par_dict
 
 

@@ -8,7 +8,8 @@ import pyrat.core.matrices as mat
 from snakemake.remote.SFTP import RemoteProvider
 SFTP = RemoteProvider(username="baffelli", private_key="/home/baffelli/.ssh/id_rsa")
 
-
+#this matches a slc name in the form YYYYMMDD_HHMMSS or YYYYMMDD_HHMMSS_TXRXRX{upper or lower}
+slc_regex = "(\d{8})_(\d{6})((_[A-B]{3}[l-u]))?"
 
 #ruleorder: copy_raw > extract_channel
 #ruleorder: range_compression > coregister_channels
@@ -175,21 +176,22 @@ rule range_compression:
 #        interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
 #        shell(interp_cmd)
 
-##############################################################################
-## Coregister squint-corrected channels to the HH channel
-rule polarimetric_coregistration:
+
+###############################################################################
+### Find the shift between two SLCs
+rule slc_shift:
     input:
-        slave_slc = 'slc_desq/{slcname}_{chan}.slc',
-        master_slc = 'slc_desq/{slcname}_AAAl.slc',
-        slave_slc_par = 'slc_desq/{slcname}_{chan}.slc.par',
-        master_slc_par = 'slc_desq/{slcname}_AAAl.slc.par',
+        slave_slc = 'slc_desq/{slcname1}.slc',
+        master_slc = 'slc_desq/{slcname2}.slc',
+        slave_slc_par = 'slc_desq/{slcname2}.slc.par',
+        master_slc_par = 'slc_desq/{slcname2}.slc.par',
     output:
-        #add a postfix to the coregistered files
-        coreg_slave_slc = 'slc_coreg{temp,.*}/{slcname}_{chan}.slc',
-        coreg_slave_slc_par = 'slc_coreg{temp,.*}/{slcname}_{chan}.slc.par',
-        offs = "diff{temp,.*}/{slcname}_AAAl_{chan}.offs",
-        snr =  "diff{temp,.*}/{slcname}_AAAl_{chan}.ccp",
-        shift_par = "diff{temp,.*}/{slcname}_AAAl_{chan}.off_par"
+        offs = "diff/{slcname1}_{slcname2}.offs",
+        snr =  "diff/{slcname1}_{slcname2}.ccp",
+        shift_par = "diff/{slcname1}_{slcname2}.off_par"
+    wildcard_constraints:
+        slcname1=slc_regex,
+        slcname2=slc_regex
     params:
         rlks=1,
         azlks=1,
@@ -199,73 +201,141 @@ rule polarimetric_coregistration:
         azwin_init=512,
         rwin=16,
         azwin=32,
-        noff_r=50,
-        noff_az=50,
-    log:
-        "logs/{slcname}_coreg.log"
+        noff_r=10,
+        noff_az=10,
     run:
-        shell("> {log}")
         #Create offset parameters
         diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {params.rlks} {params.azlks} 0"
         shell(diff_cmd)
         #Initial offset estimate
-        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks_init} {params.azlks_init} - - 0 10 0.2 {params.rwin_init} {params.azwin_init} 1"
+        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks_init} {params.azlks_init} - - 0 10 0.1 {params.rwin_init} {params.azwin_init} 1"
         shell(init_offset_cmd)
         #Compute offset field
         offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {params.rwin} {params.azwin} - - {params.noff_r} {params.noff_az} 0.15 "
         shell(offset_cmd)
-#        #Fit offset polynomial
+        #        #Fit offset polynomial
         fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
         shell(fit_cmd)
-        #Resample
-        interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
+
+
+
+###############################################################################
+### Using the found shift data, correct the shift (supposing HV shift is 1/2 of HH-VV shift)
+rule correct_polarimetric_shift:
+    input:
+        slc = 'slc_desq/{slcname}_{chan}{rx}.slc',
+        slc_par = 'slc_desq/{slcname}_{chan}{rx}.slc.par',
+        off_par = 'diff/{slcname}_AAA{rx}_{slcname}_BBB{rx}.off_par',
+    output:
+        #add a postfix to the coregistered files for the case where an additional coregistration step to a common master is necessary
+        coreg_slc = 'slc_coreg{temp,.*}/{slcname}_{chan}{rx,(l|u)}.slc',
+        coreg_slc_par = 'slc_coreg{temp,.*}/{slcname}_{chan}{rx, (l|u)}.slc.par',
+    params:
+        coreg_off_par = temp('diff/{slcname}_AAA{rx}_{slcname}_{chan}{rx}.off_par',)#temporary offset parameter for resampling
+    run:
+        #Compute the amount of shift (0 for AAA, the full for BBB and 1/2 for the remaining)
+        off_multiplier = {'AAA':0.0, 'BBB':1.0, 'BAA':0.5, 'ABB':0.5}
+        az_mutliplier = off_multiplier[wildcards.chan]
+        coreg_off_par = gpf.par_to_dict(input.off_par)
+        #Modify the azimuth shift using the multplier
+        coreg_off_par['azimuth_offset_polynomial'][0] *= az_mutliplier
+        gpf.dict_to_par(coreg_off_par, params.coreg_off_par)
+        interp_cmd = "SLC_interp {input.slc} {input.slc_par} {input.slc_par} {params.coreg_off_par} {output.coreg_slc} {output.coreg_slc_par}"
         shell(interp_cmd)
 
 
-ruleorder: coregister_to_master > polarimetric_coregistration
-if 'master_slc' in config:
-    rule coregister_to_master:
-        input:
-            slave_slc = 'slc_coreg_temp/{slcname}.slc',
-            master_slc = 'slc_coreg_temp/' + config['master_slc'] + '.slc',
-            slave_slc_par = 'slc_coreg_temp/{slcname}.slc.par',
-            master_slc_par = 'slc_coreg_temp/' + config['master_slc'] + '.slc.par'
-        output:
-            coreg_slave_slc = 'slc_coreg/{slcname}.slc',
-            coreg_slave_slc_par = 'slc_coreg/{slcname}.slc.par',
-            offs = "diff/{{slcname}}_{master}.offs".format(master=config['master_slc']),
-            snr = "diff/{{slcname}}_{master}.ccp".format(master=config['master_slc']),
-            shift_par = "diff/{{slcname}}_{master}.off_par".format(master=config['master_slc']),
-        params:
-            rlks=1,
-            azlks=1,
-            rlks_init=1,
-            azlks_init=5,
-            rwin_init=512,
-            azwin_init=512,
-            rwin=256,
-            azwin=256,
-            noff_r=50,
-            noff_az=50,
-        log:
-            "logs/{slcname}_coreg.log"
-        run:
-            shell("> {log}")
-            #Create offset parameters
-            diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {params.rlks} {params.azlks} 0"
-            shell(diff_cmd)
-            #Initial offset estimate
-            init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks_init} {params.azlks_init} - - 0 10 0.2 {params.rwin_init} {params.azwin_init} 1"
-            shell(init_offset_cmd)
-            #Compute offset field
-            offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {params.rwin} {params.azwin} - - {params.noff_r} {params.noff_az} 0.15 "
-            shell(offset_cmd)
-        #        #Fit offset polynomial
-            fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
-            shell(fit_cmd)
-            #Resample
-            interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
-            shell(interp_cmd)
+
+###############################################################################
+### Coregister squint-corrected channels to the HH channel
+#rule polarimetric_coregistration:
+#    input:
+#        slave_slc = 'slc_desq/{slcname}_{chan}.slc',
+#        master_slc = 'slc_desq/{slcname}_AAAl.slc',
+#        slave_slc_par = 'slc_desq/{slcname}_{chan}.slc.par',
+#        master_slc_par = 'slc_desq/{slcname}_AAAl.slc.par',
+#    output:
+#        #add a postfix to the coregistered files
+#        coreg_slave_slc = 'slc_coreg{temp,.*}/{slcname}_{chan}.slc',
+#        coreg_slave_slc_par = 'slc_coreg{temp,.*}/{slcname}_{chan}.slc.par',
+#        offs = "diff{temp,.*}/{slcname}_AAAl_{chan}.offs",
+#        snr =  "diff{temp,.*}/{slcname}_AAAl_{chan}.ccp",
+#        shift_par = "diff{temp,.*}/{slcname}_AAAl_{chan}.off_par"
+#    params:
+#        rlks=1,
+#        azlks=1,
+#        rlks_init=1,
+#        azlks_init=5,
+#        rwin_init=512,
+#        azwin_init=512,
+#        rwin=16,
+#        azwin=32,
+#        noff_r=10,
+#        noff_az=10,
+#    log:
+#        "logs/{slcname}_coreg.log"
+#    run:
+#        shell("> {log}")
+#        #Create offset parameters
+#        diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {params.rlks} {params.azlks} 0"
+#        shell(diff_cmd)
+#        #Initial offset estimate
+#        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks_init} {params.azlks_init} - - 0 10 0.1 {params.rwin_init} {params.azwin_init} 1"
+#        shell(init_offset_cmd)
+#        #Compute offset field
+#        offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {params.rwin} {params.azwin} - - {params.noff_r} {params.noff_az} 0.15 "
+#        shell(offset_cmd)
+##        #Fit offset polynomial
+#        fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
+#        shell(fit_cmd)
+#        #Resample
+#        interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
+#        shell(interp_cmd)
+
+
+#ruleorder: coregister_to_master > polarimetric_coregistration
+#if 'master_slc' in config:
+#    rule coregister_to_master:
+#        input:
+#            slave_slc = 'slc_coreg_temp/{slcname}.slc',
+#            master_slc = 'slc_coreg_temp/' + config['master_slc'] + '.slc',
+#            slave_slc_par = 'slc_coreg_temp/{slcname}.slc.par',
+#            master_slc_par = 'slc_coreg_temp/' + config['master_slc'] + '.slc.par'
+#        output:
+#            coreg_slave_slc = 'slc_coreg/{slcname}.slc',
+#            coreg_slave_slc_par = 'slc_coreg/{slcname}.slc.par',
+#            offs = "diff/{{slcname}}_{master}.offs".format(master=config['master_slc']),
+#            snr = "diff/{{slcname}}_{master}.ccp".format(master=config['master_slc']),
+#            shift_par = "diff/{{slcname}}_{master}.off_par".format(master=config['master_slc']),
+#        params:
+#            rlks=1,
+#            azlks=1,
+#            rlks_init=1,
+#            azlks_init=5,
+#            rwin_init=512,
+#            azwin_init=512,
+#            rwin=256,
+#            azwin=256,
+#            noff_r=50,
+#            noff_az=50,
+#        log:
+#            "logs/{slcname}_coreg.log"
+#        run:
+#            shell("> {log}")
+#            #Create offset parameters
+#            diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {params.rlks} {params.azlks} 0"
+#            shell(diff_cmd)
+#            #Initial offset estimate
+#            init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks_init} {params.azlks_init} - - 0 0 0.15 {params.rwin_init} {params.azwin_init} 1"
+#            shell(init_offset_cmd)
+#            #Compute offset field
+#            offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {params.rwin} {params.azwin} - - {params.noff_r} {params.noff_az} 0.15 "
+#            shell(offset_cmd)
+#        #        #Fit offset polynomial
+#            fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
+#            shell(fit_cmd)
+#            #Resample
+#            interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
+#            shell(interp_cmd)
 
 
 ###############################################################################
