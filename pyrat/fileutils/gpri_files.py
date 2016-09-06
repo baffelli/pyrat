@@ -198,7 +198,6 @@ class gammaDataset(_np.ndarray):
         par_dict = args[0]
         image = args[1]
         if isinstance(par_dict, str):#user passes paths
-            print('hier')
             try:#user passes file paths
                 par_path = args[0]
                 bin_path = args[1]
@@ -463,6 +462,7 @@ def par_to_dict(par_file):
 
     with open(par_file, 'r') as fin:
         par_dict = _yaml.load(fin)
+        print('trimng')
         for key, value in par_dict.items():
                 l = []
                 try:
@@ -504,6 +504,7 @@ def par_to_dict(par_file):
         #                 par_dict[key] = l[0]
         #         except:
         #             pass
+    print('done')
     return par_dict
 
 

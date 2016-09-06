@@ -296,44 +296,18 @@ rule correct_polarimetric_shift:
 if 'master_slc' in config:
     rule coregister_to_master:
         input:
-            slave_slc = 'slc_coreg_temp/{slcname}.slc',
+            slave_slc = 'slc_coreg_temp/{slcname}_{chan}.slc',
             master_slc = 'slc_coreg_temp/' + config['master_slc'] + '.slc',
-            slave_slc_par = 'slc_coreg_temp/{slcname}.slc.par',
-            master_slc_par = 'slc_coreg_temp/' + config['master_slc'] + '.slc.par'
+            slave_slc_par = 'slc_coreg_temp/{slcname}_{chan}.slc.par',
+            master_slc_par = 'slc_coreg_temp/' + config['master_slc'] + '.slc.par',
+            shift_par = "diff/{{slcname}}_AAAl_{master}.off_par".format(master=config['master_slc']),
         output:
             coreg_slave_slc = 'slc_coreg/{slcname}.slc',
             coreg_slave_slc_par = 'slc_coreg/{slcname}.slc.par',
-            offs = "diff/{{slcname}}_{master}.offs".format(master=config['master_slc']),
-            snr = "diff/{{slcname}}_{master}.ccp".format(master=config['master_slc']),
-            shift_par = "diff/{{slcname}}_{master}.off_par".format(master=config['master_slc']),
-        params:
-            rlks=1,
-            azlks=1,
-            rlks_init=1,
-            azlks_init=5,
-            rwin_init=512,
-            azwin_init=512,
-            rwin=256,
-            azwin=256,
-            noff_r=50,
-            noff_az=50,
-        log:
-            "logs/{slcname}_coreg.log"
+        wildcard_constraints:
+            slcname1=slc_regex,
+            slcname2=slc_regex
         run:
-            shell("> {log}")
-            #Create offset parameters
-            diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {params.rlks} {params.azlks} 0"
-            shell(diff_cmd)
-            #Initial offset estimate
-            init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks_init} {params.azlks_init} - - 0 0 0.15 {params.rwin_init} {params.azwin_init} 1"
-            shell(init_offset_cmd)
-            #Compute offset field
-            offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {params.rwin} {params.azwin} - - {params.noff_r} {params.noff_az} 0.15 "
-            shell(offset_cmd)
-        #        #Fit offset polynomial
-            fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
-            shell(fit_cmd)
-            #Resample
             interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
             shell(interp_cmd)
 
