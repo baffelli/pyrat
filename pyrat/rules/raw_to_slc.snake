@@ -238,6 +238,7 @@ rule correct_polarimetric_shift:
         az_mutliplier = off_multiplier[wildcards.chan]
         coreg_off_par = gpf.par_to_dict(input.off_par)
         #Modify the azimuth shift using the multplier
+        print(coreg_off_par['azimuth_offset_polynomial'][0])
         coreg_off_par['azimuth_offset_polynomial'][0] *= az_mutliplier
         gpf.dict_to_par(coreg_off_par, params.coreg_off_par)
         interp_cmd = "SLC_interp {input.slc} {input.slc_par} {input.slc_par} {params.coreg_off_par} {output.coreg_slc} {output.coreg_slc_par}"
@@ -292,8 +293,8 @@ rule correct_polarimetric_shift:
 #        shell(interp_cmd)
 
 
-#ruleorder: coregister_to_master > polarimetric_coregistration
 if 'master_slc' in config:
+    ruleorder: coregister_to_master > correct_polarimetric_shift
     rule coregister_to_master:
         input:
             slave_slc = 'slc_coreg_temp/{slcname}_{chan}.slc',
@@ -302,13 +303,13 @@ if 'master_slc' in config:
             master_slc_par = 'slc_coreg_temp/' + config['master_slc'] + '.slc.par',
             shift_par = "diff/{{slcname}}_AAAl_{master}.off_par".format(master=config['master_slc']),
         output:
-            coreg_slave_slc = 'slc_coreg/{slcname}.slc',
-            coreg_slave_slc_par = 'slc_coreg/{slcname}.slc.par',
+            coreg_slave_slc = 'slc_coreg/{slcname}_{chan}.slc',
+            coreg_slave_slc_par = 'slc_coreg/{slcname}_{chan}.slc.par',
         wildcard_constraints:
             slcname1=slc_regex,
             slcname2=slc_regex
         run:
-            interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
+            interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {input.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
             shell(interp_cmd)
 
 

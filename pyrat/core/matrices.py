@@ -376,7 +376,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
             obj = _np.asarray(T).view(cls)
             obj.basis = basis
         elif type(args[1]) is str:
-            path = args[1]
+            path = args[2]
             if agrisar:
                 s_matrix = scatteringMatrix(path, fmt='esar')
                 pauli = s_matrix.scattering_vector(bistatic=bistatic, basis=basis)
@@ -390,7 +390,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
                 T = corefun.outer_product(pauli, pauli)
             elif gamma:
                 basis = 'lexicographic'
-                par_name = args[2]
+                par_name = args[1]
                 if bistatic:
                     chan_dict = {0: 0, 1: 1, 2: 2, 3: 3}
                 else:

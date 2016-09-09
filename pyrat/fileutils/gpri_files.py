@@ -420,6 +420,7 @@ class gammaDataset(_np.ndarray):
             return ph_center
         except AttributeError:
             return 0
+
 def dict_to_par(par_dict, par_file):
     """
     This function writes a dict to a gamma
@@ -432,19 +433,18 @@ def dict_to_par(par_dict, par_file):
     None
     """
     with open(par_file, 'w') as fout:
-        fout.write(_yaml.dump(par_dict))
-        # for key in iter(par_dict):
-        #     par = par_dict[key]
-        #     out = str(key) + ":" + '\t'
-        #     if isinstance(par, str):
-        #         out += par
-        #     else:
-        #         try:
-        #             for p in par:
-        #                 out = out + ' ' + str(p)
-        #         except TypeError:
-        #             out += str(par)
-        #     fout.write(out + '\n')
+        for key in iter(par_dict):
+            par = par_dict[key]
+            out = str(key) + ":" + '\t'
+            if isinstance(par, str):
+                out += par
+            else:
+                try:
+                    for p in par:
+                        out = out + ' ' + str(p)
+                except TypeError:
+                    out += str(par)
+            fout.write(out + '\n')
 
 def par_to_dict(par_file):
     """
@@ -457,22 +457,25 @@ def par_to_dict(par_file):
     """
     par_dict = _od()
     #this regex matches floats
-
     float_re = "[-+]?([0 - 9] *\.[0 - 9] + | [0 - 9] +)."
-
     with open(par_file, 'r') as fin:
-        par_dict = _yaml.load(fin)
-        print('trimng')
-        for key, value in par_dict.items():
-                l = []
-                try:
-                    for p in value.split():
-                        try:
-                            l.append(float(p))
-                        except ValueError:
-                            l.append(p)
-                except AttributeError:
-                    l = value
+        # Skip first line
+        # fin.readline()
+        for line in fin:
+            if line:
+                split_array = line.replace('\n', '').split(':', 1)
+                if len(split_array) > 1:
+                    key = split_array[0]
+                    if key == 'time_start':  # The utc time string should not be split
+                        l = split_array[1:]
+                    else:
+                        l = []
+                        param = split_array[1].split()
+                        for p in param:
+                            try:
+                                l.append(float(p))
+                            except ValueError:
+                                l.append(p)
                 try:
                     if len(l) > 1:
                         par_dict[key] = l
@@ -480,31 +483,6 @@ def par_to_dict(par_file):
                         par_dict[key] = l[0]
                 except:
                     pass
-        # # Skip first line
-        # # fin.readline()
-        # for line in fin:
-        #     if line:
-        #         split_array = line.replace('\n', '').split(':', 1)
-        #         if len(split_array) > 1:
-        #             key = split_array[0]
-        #             if key == 'time_start':  # The utc time string should not be split
-        #                 l = split_array[1:]
-        #             else:
-        #                 l = []
-        #                 param = split_array[1].split()
-        #                 for p in param:
-        #                     try:
-        #                         l.append(float(p))
-        #                     except ValueError:
-        #                         l.append(p)
-        #         try:
-        #             if len(l) > 1:
-        #                 par_dict[key] = l
-        #             else:
-        #                 par_dict[key] = l[0]
-        #         except:
-        #             pass
-    print('done')
     return par_dict
 
 
