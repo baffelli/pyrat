@@ -368,13 +368,13 @@ def decimate(slc, dec, mode='sum'):
         arr_dec = _np.zeros((slc.shape[0], int(slc.shape[1] / dec)), dtype=_np.complex64)
         for idx_az in range(arr_dec.shape[1]):
             # Decimated pulse
-            dec_pulse = _np.zeros(slc.shape[0] * 2 - 2, dtype=_np.float32)
+            dec_pulse = _np.zeros(slc.shape[0])
             for idx_dec in range(dec):
                 current_idx = idx_az * dec + idx_dec
                 if current_idx % 1000 == 0:
                     print('decimating line: ' + str(current_idx))
-                dec_pulse += _np.fft.irfft(slc[:, current_idx])
-            arr_dec[:, idx_az] = _np.fft.rfft(dec_pulse)
+                dec_pulse += slc[:, current_idx]
+            arr_dec[:, idx_az] = dec_pulse
         arr_dec = slc.__array_wrap__(arr_dec)
     else:
         arr_dec = slc[:, ::dec]
