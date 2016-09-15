@@ -36,9 +36,9 @@ RANGE_OFFSET = 3
 xoff = 0.112  # 140mm X offset to the antenna holder rotation axis
 ant_radius = 0.1115  # 99.2mm radial arm length. This is the rotation radius of the antenna holder
 # Z coordinates of antennas W.R.T the bottommost antenna, up is +Z
-tx_dz = {'A': 0.85, 'B': 0.725}
-rx1_dz = {'A': 0.375, 'B': 0.25}
-rx2_dz = {'A': 0.125, 'B': 0}
+# tx_dz = {'A': 0.85, 'B': 0.725}
+# rx1_dz = {'A': 0.375, 'B': 0.25}
+# rx2_dz = {'A': 0.125, 'B': 0}
 # Scaling factor short integer <-> float
 TSF = 32768
 
@@ -416,7 +416,7 @@ class gammaDataset(_np.ndarray):
         try:
             rx_number = extract_channel_number(self.title[-1])
             ph_center = (_np.array(self.GPRI_tx_coord[0:3]) + _np.array(
-                getattr(self, "GPRI_rx{num}_coord".format(num=rx_number))[0:3])) / 2
+                getattr(self, "GPRI_rx1_coord".format(num=rx_number))[0:3])) / 2
             return ph_center
         except AttributeError:
             return 0
@@ -762,164 +762,6 @@ def default_slc_dict():
     return par
 
 
-class rawParameters:
-    """
-    This class computes several raw parameters from
-    a raw_par file
-    """
-
-    def __init__(self, raw_dict, raw):
-        if hasattr(raw_dict, 'iteritems'):  # if the user passes a string, first load the corresponding dict
-            pass
-        else:
-            raw_dict = par_to_dict(raw_dict)
-        self.grp = _nt('GenericDict', raw_dict.keys())(**raw_dict)
-        self.nsamp = self.grp.CHP_num_samp
-        self.block_length = self.nsamp + 1
-        self.chirp_duration = self.block_length / self.grp.ADC_sample_rate
-        self.pn1 = _np.arange(self.nsamp / 2 + 1)  # list of slant range pixel numbers
-        self.rps = (self.grp.ADC_sample_rate / self.nsamp * C / 2.) / self.grp.RF_chirp_rate  # range pixel spacing
-        self.slr = (
-                       self.pn1 * self.grp.ADC_sample_rate / self.nsamp * C / 2.) / self.grp.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
-        self.scale = (abs(self.slr) / self.slr[self.nsamp / 8]) ** 1.5  # cubic range weighting in power
-        self.ns_max = int(round(0.90 * self.nsamp / 2))  # default maximum number of range samples for this chirp
-        self.tcycle = self.block_length / self.grp.ADC_sample_rate  # time/cycle
-        self.dt = type_mapping['SHORT INTEGER']
-        self.sizeof_data = _np.dtype(_np.int16).itemsize
-        self.bytes_per_record = self.sizeof_data * self.block_length  # number of bytes per echo
-        # Get file size
-        try:
-            self.filesize = _os.path.getsize(raw)
-            self.nl_tot = int(self.filesize / (self.sizeof_data * self.block_length))
-        except:
-            try:
-                self.nl_tot = raw.shape[1]
-            except:
-                pass
-        # Number of lines
-        # Stuff for angle
-        if self.grp.STP_antenna_end != self.grp.STP_antenna_start:
-            self.ang_acc = self.grp.TSC_acc_ramp_angle
-            rate_max = self.grp.TSC_rotation_speed
-            self.t_acc = self.grp.TSC_acc_ramp_time
-            self.ang_per_tcycle = self.tcycle * self.grp.TSC_rotation_speed  # angular sweep/transmit cycle
-        else:
-            self.t_acc = 0.0
-            self.ang_acc = 0.0
-            rate_max = 0.0
-            self.ang_per_tcycle = 0.0
-        if self.grp.ADC_capture_time == 0.0:
-            angc = abs(
-                self.grp.antenna_end - self.grp.antenna_start) - 2 * self.ang_acc  # angular sweep of constant velocity
-            tc = abs(angc / rate_max)  # duration of constant motion
-            self.grp.capture_time = 2 * self.t_acc + tc  # total time for scanner to complete scan
-            # Frequenct vector
-        self.freq_vec = self.grp.RF_freq_min + _np.arange(self.grp.CHP_num_samp,
-                                                          dtype=float) * self.grp.RF_chirp_rate / self.grp.ADC_sample_rate
-
-    def compute_slc_parameters(self, kbeta=3.0, rmin=50, rmax=1000, dec=5,
-                               zero=300):  # compute the slc parameters for a given set of input parameters
-        self.rmax = self.ns_max * self.rps  # default maximum slant range
-        self.win = _sig.kaiser(self.nsamp, kbeta)
-        self.zero = zero
-        self.win2 = _sig.hanning(
-            2 * self.zero)  # window to remove transient at start of echo due to sawtooth frequency sweep
-        self.ns_min = int(round(rmin / self.rps))  # round to the nearest range sample
-        self.ns_out = (self.ns_max - self.ns_min) + 1
-        self.rmin = self.ns_min * self.rps
-        self.dec = dec
-        self.nl_acc = int(self.t_acc / (self.tcycle * self.dec))
-        # self.nl_tot = int(self.grp.ADC_capture_time/(self.tcycle))
-        self.nl_tot_dec = self.nl_tot / self.dec
-        self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
-        self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
-        if rmax != 0.0:  # check if greater than maximum value for the selected chirp
-            if int(round(rmax / self.rps)) <= self.ns_max:
-                self.ns_max = int(round(rmax / self.rps))
-                self.rmax = self.ns_max * self.rps
-            else:
-                print(
-                    "ERROR: requested maximum slant range exceeds maximum possible value with this chirp: {value:f<30}'".format(
-                        self.rmax, ))
-
-        self.ns_out = (self.ns_max - self.ns_min) + 1  # number of output samples
-        # Compute antenna positions
-        if self.grp.STP_antenna_end > self.grp.STP_antenna_start:  # clockwise rotation looking down the rotation axis
-            self.az_start = self.grp.STP_antenna_start + self.ang_acc  # offset to start of constant motion + center-freq squint
-        else:  # counter-clockwise
-            self.az_start = self.grp.STP_antenna_start - self.ang_acc
-
-    def fill_dict(self):
-        """
-        This function fills the slc dict with the correct image
-        parameters
-        :return:
-        """
-        image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
-        slc_dict = default_slc_dict()
-        ts = self.grp.time_start
-        ymd = (ts.split()[0]).split('-')
-        hms_tz = (ts.split()[1]).split('+')  # split into HMS and time zone information
-        hms = (hms_tz[0]).split(':')  # split HMS string using :
-        sod = int(hms[0]) * 3600 + int(hms[1]) * 60 + float(hms[2])  # raw data starting time, seconds of day
-        st0 = sod + self.nl_acc * self.tcycle * self.dec + \
-              (self.dec / 2.0) * self.tcycle  # include time to center of decimation window
-        az_step = self.ang_per_tcycle * self.dec
-        prf = abs(1.0 / (self.tcycle * self.dec))
-        seq = self.grp.TX_RX_SEQ
-        fadc = C / (2. * self.rps)
-        # Antenna elevation angle
-        ant_elev = _np.deg2rad(self.grp.antenna_elevation)
-        # Compute antenna position
-        rx1_coord = [0., 0., 0.]
-        rx2_coord = [0., 0., 0.]
-        tx_coord = [0., 0., 0.]
-        #
-        # Topsome receiver
-        rx1_coord[0] = xoff + ant_radius * _np.cos(
-            ant_elev)  # local coordinates of the tower: x,y,z, boresight is along +X axis, +Z is up
-        rx1_coord[1] = 0.0  # +Y is to the right when looking in the direction of +X
-        rx1_coord[2] = rx1_dz[seq[1]] + ant_radius * _np.sin(
-            ant_elev)  # up is Z, all antennas have the same elevation angle!
-        # Bottomsome receiver
-        rx2_coord[0] = xoff + ant_radius * _np.cos(ant_elev)
-        rx2_coord[1] = 0.0
-        rx2_coord[2] = rx2_dz[seq[2]] + ant_radius * _np.sin(ant_elev)
-        tx_coord[0] = xoff + ant_radius * _np.cos(ant_elev)
-        tx_coord[1] = 0.0
-        tx_coord[2] = tx_dz[seq[0]] + ant_radius * _np.sin(ant_elev)
-        chan_name = 'CH1 lower' if seq[3] == 'l' else 'CH2 upper'
-        slc_dict['title'] = ts + ' ' + chan_name
-        slc_dict['date'] = [ymd[0], ymd[1], ymd[2]]
-        slc_dict['start_time'] = [st0, 's']
-        slc_dict['center_time'] = [st0 + image_time / 2, 's']
-        slc_dict['end_time'] = [st0 + image_time, 's']
-        slc_dict['range_samples'] = self.ns_out
-        slc_dict['azimuth_lines'] = self.nl_tot_dec - 2 * self.nl_acc
-        slc_dict['range_pixel_spacing'] = [self.rps, 'm']
-        slc_dict['azimuth_line_time'] = [self.tcycle * self.dec, 's']
-        slc_dict['near_range_slc'] = [self.rmin, 'm']
-        slc_dict['center_range_slc'] = [(self.rmin + self.rmax) / 2, 'm']
-        slc_dict['far_range_slc'] = [self.rmax, 'm']
-        slc_dict['radar_frequency'] = [self.grp.RF_center_freq, 'Hz']
-        slc_dict['adc_sampling_rate'] = [fadc, 'Hz']
-        slc_dict['prf'] = [prf, 'Hz']
-        slc_dict['chirp_bandwidth'] = self.grp.RF_freq_max - self.grp.RF_freq_min
-        slc_dict['receiver_gain'] = [60 - self.grp.IMA_atten_dB, 'dB']
-        slc_dict['GPRI_TX_mode'] = self.grp.TX_mode
-        slc_dict['GPRI_TX_antenna'] = seq[0]
-        slc_dict['GPRI_RX_antenna'] = seq[1] + seq[3]
-        slc_dict['GPRI_tx_coord'] = [tx_coord[0], tx_coord[1], tx_coord[2], 'm', 'm', 'm']
-        slc_dict['GPRI_rx1_coord'] = [rx1_coord[0], rx1_coord[1], rx1_coord[2], 'm', 'm', 'm']
-        slc_dict['GPRI_rx2_coord'] = [rx2_coord[0], rx2_coord[1], rx2_coord[2], 'm', 'm', 'm']
-        slc_dict['GPRI_az_start_angle'] = [self.az_start, 'degrees']
-        slc_dict['GPRI_az_angle_step'] = [az_step, 'degrees']
-        slc_dict['GPRI_ant_elev_angle'] = [self.grp.antenna_elevation, 'degrees']
-        slc_dict['GPRI_ref_north'] = [self.grp.geographic_coordinates[0], 'degrees']
-        slc_dict['GPRI_ref_east'] = [self.grp.geographic_coordinates[1], 'degrees']
-        slc_dict['GPRI_ref_alt'] = [self.grp.geographic_coordinates[2], 'm']
-        slc_dict['GPRI_geoid'] = [self.grp.geographic_coordinates[3], 'm']
-        return slc_dict
 
 
 class rawData(_np.ndarray):
@@ -978,8 +820,6 @@ class rawData(_np.ndarray):
             chan = self[:, :, chan_idx[0], chan_idx[1]]
             chan = self.__array_wrap__(chan)
             # chan.tcycle = chan.tcycle / self.npats
-            chan.GPRI_TX_antenna_position = self.mapping_dict['TX_' + pat[0] + "_position"]
-            chan.GPRI_RX_antenna_position = self.mapping_dict['RX_' + pat[1] + ant + "_position"]
             chan.ADC_capture_time = self.ADC_capture_time / self.npats
             chan.TSC_rotation_speed = self.TSC_rotation_speed * self.npats
             chan.STP_rotation_speed = self.STP_rotation_speed * self.npats
@@ -1094,6 +934,9 @@ class rawData(_np.ndarray):
         az_step = self.ang_per_tcycle * self.dec
         prf = abs(1.0 / (self.tcycle * self.dec))
         seq = self.TX_RX_SEQ
+        print("Seq: {seq}".format(seq=seq))
+        GPRI_TX_z = self.mapping_dict['TX_' +seq[0] + "_position"]
+        GPRI_RX_z = self.mapping_dict['RX_' + seq[1] + seq[3] + "_position"]
         fadc = C / (2. * self.rps)
         # Antenna elevation angle
         ant_elev = _np.deg2rad(self.antenna_elevation)
@@ -1106,15 +949,15 @@ class rawData(_np.ndarray):
         rx1_coord[0] = xoff + ant_radius * _np.cos(
             ant_elev)  # local coordinates of the tower: x,y,z, boresight is along +X axis, +Z is up
         rx1_coord[1] = 0.0  # +Y is to the right when looking in the direction of +X
-        rx1_coord[2] = rx1_dz[seq[1]] + ant_radius * _np.sin(
+        rx1_coord[2] = GPRI_RX_z + ant_radius * _np.sin(
             ant_elev)  # up is Z, all antennas have the same elevation angle!
         # Bottomsome receiver
         rx2_coord[0] = xoff + ant_radius * _np.cos(ant_elev)
         rx2_coord[1] = 0.0
-        rx2_coord[2] = rx2_dz[seq[2]] + ant_radius * _np.sin(ant_elev)
+        rx2_coord[2] = GPRI_RX_z + ant_radius * _np.sin(ant_elev)
         tx_coord[0] = xoff + ant_radius * _np.cos(ant_elev)
         tx_coord[1] = 0.0
-        tx_coord[2] = tx_dz[seq[0]] + ant_radius * _np.sin(ant_elev)
+        tx_coord[2] = GPRI_TX_z + ant_radius * _np.sin(ant_elev)
         chan_name = 'CH1 lower' if seq[3] == 'l' else 'CH2 upper'
         slc_dict['title'] = ts + ' ' + chan_name
         slc_dict['date'] = [ymd[0], ymd[1], ymd[2]]

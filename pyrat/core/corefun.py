@@ -368,7 +368,7 @@ def decimate(slc, dec, mode='sum'):
         arr_dec = _np.zeros((slc.shape[0], int(slc.shape[1] / dec)), dtype=_np.complex64)
         for idx_az in range(arr_dec.shape[1]):
             # Decimated pulse
-            dec_pulse = _np.zeros(slc.shape[0])
+            dec_pulse = _np.zeros_like(slc[:, 0])
             for idx_dec in range(dec):
                 current_idx = idx_az * dec + idx_dec
                 if current_idx % 1000 == 0:
