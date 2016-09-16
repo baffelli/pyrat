@@ -137,7 +137,8 @@ rule polcal_parameters:
     run:
         C_matrix_flat = mat.coherencyMatrix(params['C_root'], params['C_par'], basis='lexicographic', gamma=True, bistatic=True)
         #The indices are in the raw coordinates, needs to decimate
-        ref_pos, ref_coord = config['list_of_reflectors'][config['calibration']['reflector_index']]
+        ref_pos = config['list_of_reflectors'][config['calibration']['reflector_index']]
+        print(ref_pos)
         azidx = int(ref_pos[1]) / int(config['range_compression']['dec'])
         ridx = int(ref_pos[0])
         C_ptarg, rplot, azplot, mx_pos, ptarg_info = cf.ptarg(C_matrix_flat, ridx, azidx, azwin=5, rwin=4)

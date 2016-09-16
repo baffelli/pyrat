@@ -36,12 +36,13 @@ rule convert_dem:
         #Open the data set
         DS = gdal.Open(input.dem)
         #Convert
-        dem_dic = geo.gdal_to_dict(DS)
-        gpf.dict_to_par(dem_dic, output.gamma_dem_par)
-        dem = DS.ReadAsArray()
-#        print(dem.shape)
-#        dem = ndf.gaussian_filter(dem[0,:,:], [2, 2])
-        dem.astype(gpf.type_mapping[dem_dic['data_format']]).tofile(output.gamma_dem)
+#        dem_dic = geo.gdal_to_dict(DS)
+#        gpf.dict_to_par(dem_dic, output.gamma_dem_par)
+#        dem = DS.ReadAsArray()
+##        print(dem.shape)
+##        dem = ndf.gaussian_filter(dem[0,:,:], [2, 2])
+#        dem.astype(gpf.type_mapping[dem_dic['data_format']]).tofile(output.gamma_dem)
+        geo.geotif_to_dem(input.dem, output.gamma_dem_par, output.gamma_dem)
 
 ##############################################################################
 ##	This rule produces the geocoding LUT
@@ -66,8 +67,8 @@ rule geocoding_table:
     log:
         "logs/gc.log"
     params:
-        lat_ovr = 3,
-        lon_ovr = 3,
+        lat_ovr = 1,
+        lon_ovr = 1,
     run:
         #Determine tiepoints
         scan_heading = config['geocoding']['scan_heading']
@@ -79,7 +80,7 @@ rule geocoding_table:
 
 
 ##############################################################################
-##	This rule geocodes an image in radar coordinates into dem coordinates
+##	This rule geocodes an image represented in radar coordinates into dem coordinates
 rule geocode_back:
     input:
         dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
@@ -142,6 +143,17 @@ rule to_gt:
 		dt_code = gpf.gt_mapping_from_extension(input.file)
 		gt_cmd = "data2geotiff {input.dem_seg_par} {input.file} " + str(dt_code) +  " {output.gt}"
 		shell(gt_cmd)
+
+rule to_rec:
+    input:
+        reference_mli_par =  config['geocoding']['ref_mli_par'],
+        file = "{filename}"
+    output:
+        filename = "{filename}_rec",
+        filename_par = "{filename}_rec.par"
+    run:
+        cmd = "pol2rec {input.file} {input.reference_mli_par} {output.filename} {output.filename_par} 0.75 1 - - - - - -"
+        shell(cmd)
 
 ##############################################################################
 ###	This rule gproduces a geotiff from the data

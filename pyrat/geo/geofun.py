@@ -880,7 +880,10 @@ def geotif_to_dem(gt, par_path, bin_path):
     of binary DEM and parameter file
     """
     # Open the data set
-    DS = gdal.Open(gt)
+    try:
+        DS = gdal.Open(gt)
+    except RuntimeError:
+        DS = gt
     # Convert
     dem_dic = gdal_to_dict(DS)
     _gpf.dict_to_par(dem_dic, par_path)

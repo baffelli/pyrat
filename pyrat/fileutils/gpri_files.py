@@ -398,6 +398,9 @@ class gammaDataset(_np.ndarray):
         return self.__dict__['GPRI_az_start_angle'][0] + _np.arange(self.__dict__['azimuth_lines']) * \
                                                          self.__dict__['GPRI_az_angle_step'][0]
 
+
+
+
     @property
     def phase_center(self):
 
