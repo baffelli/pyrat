@@ -416,7 +416,7 @@ class gammaDataset(_np.ndarray):
         try:
             rx_number = extract_channel_number(self.title[-1])
             ph_center = (_np.array(self.GPRI_tx_coord[0:3]) + _np.array(
-                getattr(self, "GPRI_rx1_coord".format(num=rx_number))[0:3])) / 2
+                getattr(self, "GPRI_rx{num}_coord".format(num=rx_number))[0:3])) / 2
             return ph_center
         except AttributeError:
             return 0

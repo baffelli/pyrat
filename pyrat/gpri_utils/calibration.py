@@ -167,7 +167,7 @@ def scattering_matrix_to_flat_covariance(S, flat_ifgram, B_if):
         idx_c_2 = _np.ravel_multi_index(idx_chan_2, (2, 2))
         pol_baseline = S.phase_center_array[name_chan_1][-1] - S.phase_center_array[name_chan_2][-1]
         ratio = pol_baseline / float(B_if)
-        C[:, :, idx_c_1, idx_c_2] *= _np.exp(1j * flat_ifgram * ratio)
+        C[:, :, idx_c_1, idx_c_2] *= _np.exp(-1j * flat_ifgram * ratio)
     return C
 
 
