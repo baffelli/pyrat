@@ -776,6 +776,27 @@ def write_gt(arr, GT, proj):
     return dest
 
 
+def gc_map_mask(DS,lut):
+    """
+    Return a valid pixel map using the dataset information and the lookuptable produced by
+    gc_map. Use to mask geocoded product, so that only the valid pixels (DEM pixels covered by data) are shown.
+    Parameters
+    ----------
+    DS : fileutils.gpri_files.gammaDataset, dict
+    lut : numpy.ndarray
+
+    Returns
+    -------
+    ndar
+
+    """
+    lut = _np.zeros_like(DS)
+    lut[lut.real > DS.shape[0]] = 0
+    lut[lut.imag > DS.shape[1]] = 0
+    return 0
+
+
+
 def paletted_to_rgb(gt):
     """
     This function converts a paletted
