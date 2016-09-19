@@ -776,13 +776,14 @@ def write_gt(arr, GT, proj):
     return dest
 
 
-def gc_map_mask(DS,lut):
+def gc_map_mask(ds_shape,lut):
     """
     Return a valid pixel map using the dataset information and the lookuptable produced by
     gc_map. Use to mask geocoded product, so that only the valid pixels (DEM pixels covered by data) are shown.
     Parameters
     ----------
-    DS : fileutils.gpri_files.gammaDataset, dict
+    DS : iterable
+        contains the shape of the dataset to mask
     lut : numpy.ndarray
 
     Returns
@@ -790,10 +791,11 @@ def gc_map_mask(DS,lut):
     ndar
 
     """
-    lut = _np.zeros_like(DS)
-    lut[lut.real > DS.shape[0]] = 0
-    lut[lut.imag > DS.shape[1]] = 0
-    return 0
+    lut_out = _np.zeros(lut.shape,dtype=bool) + 0
+    lut_out[lut.imag >= ds_shape[1]] = 1
+    lut_out[lut.real >= ds_shape[0]] = 1
+    lut_out[(lut.imag == 0) * (lut.real == 0) ] = 1
+    return lut_out
 
 
 

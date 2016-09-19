@@ -345,9 +345,9 @@ def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf=1):
         # Compute the percentiles for all the channels
         q = [10, 99.99]
         RGB = _np.zeros(data_diagonal.shape)
-        min_p, max_p = _np.percentile(data_diagonal, q)
+        # min_p, max_p = _np.percentile(data_diagonal, q)
         for chan in [0, 1, 2]:
-            clipped = _np.clip(data_diagonal[:, :, chan], min_p, max_p)
+            clipped = _np.clip(data_diagonal[:, :, chan], 0, sf * _np.nanmax(data_diagonal[:,:, chan]))
             gamma_scaled = clipped ** k
             RGB[:, :, chan] = scale_array(gamma_scaled)
         out = RGB
