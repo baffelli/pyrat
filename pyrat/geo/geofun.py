@@ -684,15 +684,12 @@ def geocode_image(image, pixel_size, *args):
 
 
 def shadow_map(u, lv_theta, inc):
-    import matplotlib.pyplot as plt
     sh_map = lv_theta * 0
     current_max = lv_theta[0, :] * 1
     for idx_r in range(1, lv_theta.shape[0]):
         current_inc = lv_theta[idx_r, :]
         sh_map[idx_r, current_inc < current_max] = 1
         current_max = _np.select([current_inc <= current_max, current_inc > current_max], [current_max, current_inc])
-    plt.imshow(sh_map)
-    plt.show()
 
     # sh_map = u * 0
     # lay_map = u * 0
@@ -798,6 +795,19 @@ def gc_map_mask(ds_shape,lut):
     return lut_out
 
 
+def lut_lookup(LUT, radar_coord):
+    """
+    Return the DEM coordinates of a point in radar coordinates
+    using the given LUT
+    Parameters
+    ----------
+    LUT
+    radar_coord
+
+    Returns
+    -------
+
+    """
 
 def paletted_to_rgb(gt):
     """

@@ -36,12 +36,6 @@ rule convert_dem:
         #Open the data set
         DS = gdal.Open(input.dem)
         #Convert
-#        dem_dic = geo.gdal_to_dict(DS)
-#        gpf.dict_to_par(dem_dic, output.gamma_dem_par)
-#        dem = DS.ReadAsArray()
-##        print(dem.shape)
-##        dem = ndf.gaussian_filter(dem[0,:,:], [2, 2])
-#        dem.astype(gpf.type_mapping[dem_dic['data_format']]).tofile(output.gamma_dem)
         geo.geotif_to_dem(input.dem, output.gamma_dem_par, output.gamma_dem)
 
 ##############################################################################
@@ -80,6 +74,27 @@ rule geocoding_table:
 
 
 ##############################################################################
+##	This rule produces the geocoding LUT
+rule refined_table:
+    input:
+        dem_par = config['geocoding']['DEM'] + '_par',
+        reference_mli_par = config['geocoding']['ref_mli_par'],
+        lut = "geo/{tablename}.gpri_to_dem",
+        sim_sar_fgc = "geo/{tablename}.sim_sar_fgc_coarse",
+    output:
+        refined_lut =  "geo/{tablename}.gpri_to_dem.fine",
+        diff_par = 'geo/{tablename}_refinment.diff_par'
+    run:
+        ref_mli = input.reference_mli_par.replace(".par","")
+        diff_par_cmd = "create_diff_par {input.reference_mli_par} - {output.diff_par} 1 0"
+        shell(diff_par_cmd)
+        off_cmd = "init_offsetm {{input.sim_sar_fgc}} {ref_mli} {{output.diff_par}} 1 1 - - - - - 256 1".format(ref_mli=ref_mli)
+        shell(off_cmd)
+
+
+
+
+##############################################################################
 ##	This rule geocodes an image represented in radar coordinates into dem coordinates
 rule geocode_back:
     input:
@@ -99,11 +114,11 @@ rule geocode_back:
 rule geocode_forward:
     input:
         dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
-        lut	= 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem',
+        lut	= lambda wildcards: 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem' if wildcards.ext == "fgc_coarse" else 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem.fine',
         reference_mli_par =  config['geocoding']['ref_mli_par'],
         data = "{data}"
     output:
-        geocoded_file = "{data}_{ext,(fgct)|(fgc)}"
+        geocoded_file = "{data}_{ext,(fgct)|(fgc)|(fgc_coarse)}"
     log:
         "logs/gc.log"
     run:

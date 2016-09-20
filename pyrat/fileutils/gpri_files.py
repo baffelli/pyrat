@@ -119,6 +119,7 @@ def gt_mapping_from_extension(filename):
         'sim_sar': 2,
         'ls_map': 5,
         'dem_seg': 4,
+        'inc': 2,
         'u': 2,
         'lv_theta': 2,
         'sh_map': 5,
