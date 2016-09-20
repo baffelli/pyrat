@@ -155,6 +155,27 @@ rule to_rec:
         cmd = "pol2rec {input.file} {input.reference_mli_par} {output.filename} {output.filename_par} 0.75 1 - - - - - -"
         shell(cmd)
 
+
+
+##############################################################################
+##	This produces the inverted geocoding map (dem to radar)
+rule gc_map_inversion:
+	input:
+            dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
+            lut	= 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem',
+			reference_mli_par = config['geocoding']['ref_mli_par'],
+	output:
+			inverse_lut = "geo/{tablename}.dem_to_gpri"
+	run:
+			dem_width = gpf.get_width(input.dem_seg_par)
+			data_width = gpf.get_width(input.reference_mli_par)
+			par_dict = gpf.par_to_dict(input.reference_mli_par)
+			nlines = par_dict['azimuth_lines']
+			cmd = "gc_map_inversion  {{input.lut}} {dem_width} {{output.inverse_lut}} {data_width} {nlines} 0".format(data_width=data_width,
+			dem_width=dem_width, nlines=nlines)
+			shell(cmd)
+
+
 ##############################################################################
 ###	This rule gproduces a geotiff from the data
 #TODO fix it to make work with other file types
@@ -210,24 +231,6 @@ rule to_rec:
 #		"""
 
 
-##############################################################################
-###	This produces the inverted geocoding map (dem to radar)
-#rule gc_map_inversion:
-#	input:
-#			lut = "{location}/{date}/geo/{date}_{time}.gpri_to_dem",
-#			dem_seg_par = "{location}/{date}/geo/{date}_{time}.dem_seg.par",
-#			dem = "{location}/{date}/geo/{date}_{time}.dem_seg",
-#			reference_mli_par = "{location}/{date}/slc_corr/{date}_{time}_AAAl.slc_dec.par",
-#	output:
-#			inverse_lut = "{location}/{date}/geo/{date}_{time}.dem_to_gpri"
-#	run:
-#			dem_width = get_width(input.dem_seg_par)
-#			data_width = get_width(input.reference_mli_par)
-#			par_dict = gpf.par_to_dict(input.reference_mli_par)
-#			nlines = par_dict['azimuth_lines']
-#			cmd = "gc_map_inversion  {{input.lut}} {dem_width} {{output.inverse_lut}} {data_width} {nlines} 0".format(data_width=data_width,
-#			dem_width=dem_width, nlines=nlines)
-#			shell(cmd)
 
 
 
