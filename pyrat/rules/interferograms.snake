@@ -45,8 +45,6 @@ rule interferogram:
 
 
 
-
-
 ##############################################################################
 ## Smooth interferogram
 rule smooth:
@@ -138,15 +136,17 @@ rule polcal_parameters:
         C_root = "cov_flat/{slcname}_{rx}",
     run:
         C_matrix_flat = mat.coherencyMatrix(params['C_root'], params['C_par'], basis='lexicographic', gamma=True, bistatic=True)
-        #        #The indices are in the raw coordinates, needs to decimate
+        #The indices are in the raw coordinates, needs to decimate
         ref_pos = config['list_of_reflectors'][config['calibration']['reflector_index']]
+        print(ref_pos)
         azidx = int(ref_pos[1]) / int(config['range_compression']['dec'])
         ridx = int(ref_pos[0])
-        C_ptarg, rplot, azplot, mx_pos, ptarg_info = cf.ptarg(C_matrix_flat, ridx, azidx, azwin=30, rwin=5, sw=(2,10))
+        C_ptarg, rplot, azplot, mx_pos, ptarg_info = cf.ptarg(C_matrix_flat, ridx, azidx, azwin=5, rwin=4)
         av_win = [5,5]#averaging window
         C_matrix_flat_av = C_matrix_flat.boxcar_filter(av_win)
         #determine imbalance
         phi_t, phi_r, f, g = cal.measure_imbalance(C_ptarg[mx_pos[0], mx_pos[1]], C_matrix_flat_av)
+        #determine radiometric calibration parameter
         K = cal.gpri_radcal(C_matrix_flat[:,:,0,0], [ridx, azidx], 10**(config['calibration']['reflector_rcs']/ 10 ))
         cal_dict = {}
         cal_dict['phi_t'] = phi_t

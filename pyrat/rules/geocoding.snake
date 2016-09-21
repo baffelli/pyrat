@@ -114,7 +114,8 @@ rule geocode_back:
 rule geocode_forward:
     input:
         dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
-        lut	= lambda wildcards: 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem' if wildcards.ext == "fgc_coarse" else 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem.fine',
+        lut = 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem',
+#        lut	= lambda wildcards: 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem' if wildcards.ext == "fgc_coarse" else 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem.fine',
         reference_mli_par =  config['geocoding']['ref_mli_par'],
         data = "{data}"
     output:

@@ -144,7 +144,7 @@ def FWHM(curve):
         return abs(r[1] - r[0])
 
 
-def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=4):
+def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2,4)):
     """
     Point target analysis.
     Parameters
@@ -180,8 +180,8 @@ def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=4):
                                                                                                               osf)
     # Add one ellispis in case of a ndimensional image
     additional_dim = slc.ndim - 2 if (slc.ndim - 2) >= 0 else 0
-    search_win = (slice(ridx - sw / 2, ridx + sw / 2),
-                  slice(azidx - sw / 2, azidx + sw / 2),) + (None,) * additional_dim
+    search_win = (slice(ridx - sw[0] / 2, ridx + sw[0] / 2),
+                  slice(azidx - sw[1] / 2, azidx + sw[1] / 2),) + (None,) * additional_dim
     # Find the maxium whitin the search window
     slc_section = slc[search_win]
     mx = _np.argmax(_np.abs(slc_section))
