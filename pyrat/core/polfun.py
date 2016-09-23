@@ -375,7 +375,7 @@ def ellipse_param_to_ratio(psi, chi):
 
 
 def pol_signature(S, n_points=100):
-    tilt = _np.linspace(0, _np.deg2rad(180), n_points)
+    tilt = _np.linspace(_np.deg2rad(-90), _np.deg2rad(90), n_points)
     ellipticity = _np.linspace(- _np.pi / 4, _np.pi / 4, n_points)
     psi, chi = _np.meshgrid(tilt, ellipticity, indexing='ij')
 

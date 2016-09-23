@@ -18,6 +18,61 @@ from .. import core
 from ..core import corefun
 from ..fileutils import gpri_files as _gpf
 
+import scipy.optimize as _opt
+
+def measure_phase_center_location(slc, ridx, azidx, ws=14, unwrap=True):
+    #lever arm length is given by antenna phase center x position
+    r_arm = slc.phase_center[0]
+
+    def cf(r_arm, r_ph, r, az_vec, off, meas_phase):
+        sim_phase, dist = distance_from_phase_center(r_arm, r_ph, r, az_vec, wrap=False)
+        cost = _np.mean(_np.abs(sim_phase + off - meas_phase) ** 2)
+        return cost
+    # Slice the slc
+    slc_sl = (ridx, slice(azidx - ws / 2, azidx + ws))
+    # Determine true maximum
+    max_idx = _np.argmax(_np.abs(slc[slc_sl]))
+    # Determine half power beamwidth
+    reflector_slice = slc[slc_sl]
+    half_pwr_idx = _np.nonzero(_np.abs(reflector_slice) > _np.abs(reflector_slice[max_idx]) * 0.5)
+    # Slice slc
+    reflector_slice = reflector_slice[half_pwr_idx]
+    # Determine parameters
+    r_vec = slc.r_vec
+    az_vec = _np.deg2rad(slc.GPRI_az_angle_step[0]) * _np.arange(-len(reflector_slice) / 2,
+                                                                      len(reflector_slice) / 2)
+    refl_ph = _np.angle(reflector_slice)
+    if unwrap:
+        refl_ph = _np.unwrap(refl_ph)
+    else:
+        refl_ph = refl_ph
+    refl_ph -= refl_ph[reflector_slice.shape[0] / 2]
+    refl_amp = (_np.abs(reflector_slice))
+    r_sl = r_vec[ridx]
+    # Define cost function
+    cost_VV = lambda par_vec: cf(r_arm, par_vec[0], r_vec[ridx], az_vec, par_vec[1], refl_ph)
+    # Solve optimization problem
+    res = _opt.minimize(cost_VV, [0, 0], bounds=((-2, 2), (None, None)))
+    print(res)
+    par_dict = {'phase_center_offset': [res.x[0], 'm'], 'residual error': res.fun,
+                'lever_arm_length': [r_arm, 'm'], 'range_of_closest_approach': [r_sl, 'm']}
+    sim_ph, dist = distance_from_phase_center(r_arm, res.x[0], r_sl, az_vec, wrap=False)
+    return res.x[0], res.fun, r_sl
+    # if self.args.sf == '':
+    #     st = '/home/baffelli/PhD/trunk/Code/paper_rc.rc'
+    # else:
+    #     st = self.args.sf
+    # with _sty.context(st):
+    #     f = plt.figure()
+    #     plt.plot(_np.rad2deg(az_vec), _np.rad2deg(refl_ph), label=r'Measured')
+    #     plt.plot(_np.rad2deg(az_vec), _np.rad2deg(sim_ph + res.x[1]), label=r'Model')
+    #     plt.ylabel(r'Phase [deg]')
+    #     plt.xlabel(r'azimuth angle from maximum [deg]')
+    #     plt.ylim(-25, 25)
+    #     plt.legend()
+    #     f.savefig(self.figpath)
+    #     plt.close(f)
+
 
 def calibrate_from_r_and_t(S, R, T):
     T_inv = _np.linalg.inv(T)
