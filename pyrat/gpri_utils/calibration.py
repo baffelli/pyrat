@@ -13,6 +13,7 @@ import itertools as _itertools
 import numpy as _np
 from scipy import fftpack as _fftp
 from scipy import signal as _sig
+from scipy import ndimage as _nd
 
 from .. import core
 from ..core import corefun
@@ -20,21 +21,44 @@ from ..fileutils import gpri_files as _gpf
 
 import scipy.optimize as _opt
 
-def measure_phase_center_location(slc, ridx, azidx, ws=14, unwrap=True):
+import matplotlib.pyplot as plt
+
+def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=True):
+
     #lever arm length is given by antenna phase center x position
+    """
+        Determine the antenna phase center shift according to the lever arm model
+    Parameters
+    ----------
+    slc : fleutils.gammaDataset
+        the gammaDataset object to analyze
+    ridx : float
+        range position of point target to analyzed
+    azidx : float
+        azimuth position of point target
+    sw  : iterable
+        search window in azimuth and range to determine the exact position
+    aw  : float
+        analysis window
+    unwrap
+
+    Returns
+    -------
+
+    """
     r_arm = slc.phase_center[0]
 
     def cf(r_arm, r_ph, r, az_vec, off, meas_phase):
         sim_phase, dist = distance_from_phase_center(r_arm, r_ph, r, az_vec, wrap=False)
         cost = _np.mean(_np.abs(sim_phase + off - meas_phase) ** 2)
         return cost
-    # Slice the slc
-    slc_sl = (ridx, slice(azidx - ws / 2, azidx + ws))
-    # Determine true maximum
-    max_idx = _np.argmax(_np.abs(slc[slc_sl]))
+    # Find the maxium in search window
+    max_r, max_az = corefun.maximum_around(_np.abs(slc), [ridx, azidx], sw)
+    #Determine analysis window
+    reflector_slice = slc[max_r, slice(max_az - aw/2, max_az + aw/2)]
+    max_pwr = _np.max(_np.abs(reflector_slice))
     # Determine half power beamwidth
-    reflector_slice = slc[slc_sl]
-    half_pwr_idx = _np.nonzero(_np.abs(reflector_slice) > _np.abs(reflector_slice[max_idx]) * 0.5)
+    half_pwr_idx = _np.nonzero(_np.abs(reflector_slice)**2 > max_pwr**2 * 0.5)
     # Slice slc
     reflector_slice = reflector_slice[half_pwr_idx]
     # Determine parameters
@@ -46,32 +70,19 @@ def measure_phase_center_location(slc, ridx, azidx, ws=14, unwrap=True):
         refl_ph = _np.unwrap(refl_ph)
     else:
         refl_ph = refl_ph
-    refl_ph -= refl_ph[reflector_slice.shape[0] / 2]
-    refl_amp = (_np.abs(reflector_slice))
+    #reference the phase
+    refl_ph -= refl_ph[refl_ph.shape[0] / 2.0]
     r_sl = r_vec[ridx]
     # Define cost function
     cost_VV = lambda par_vec: cf(r_arm, par_vec[0], r_vec[ridx], az_vec, par_vec[1], refl_ph)
     # Solve optimization problem
-    res = _opt.minimize(cost_VV, [0, 0], bounds=((-2, 2), (None, None)))
+    res = _opt.minimize(cost_VV, [0, 0], bounds=((-2, 2), (None, None)), method="L-BFGS-B")
     print(res)
     par_dict = {'phase_center_offset': [res.x[0], 'm'], 'residual error': res.fun,
                 'lever_arm_length': [r_arm, 'm'], 'range_of_closest_approach': [r_sl, 'm']}
     sim_ph, dist = distance_from_phase_center(r_arm, res.x[0], r_sl, az_vec, wrap=False)
-    return res.x[0], res.fun, r_sl
-    # if self.args.sf == '':
-    #     st = '/home/baffelli/PhD/trunk/Code/paper_rc.rc'
-    # else:
-    #     st = self.args.sf
-    # with _sty.context(st):
-    #     f = plt.figure()
-    #     plt.plot(_np.rad2deg(az_vec), _np.rad2deg(refl_ph), label=r'Measured')
-    #     plt.plot(_np.rad2deg(az_vec), _np.rad2deg(sim_ph + res.x[1]), label=r'Model')
-    #     plt.ylabel(r'Phase [deg]')
-    #     plt.xlabel(r'azimuth angle from maximum [deg]')
-    #     plt.ylim(-25, 25)
-    #     plt.legend()
-    #     f.savefig(self.figpath)
-    #     plt.close(f)
+    sim_ph -= sim_ph[sim_ph.shape[0]/2]
+    return res.x[0], res.fun, r_sl, refl_ph, sim_ph
 
 
 def calibrate_from_r_and_t(S, R, T):
