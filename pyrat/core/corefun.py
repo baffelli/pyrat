@@ -176,6 +176,7 @@ def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2,4)):
         Location of maxiumum in oversampled response
 
     """
+    #lambda function for complex interpolation
     complex_interp = lambda arr, osf: _ndim.interpolation.zoom(arr.real, osf) + 1j * _ndim.interpolation.zoom(arr.imag,
                                                                                                               osf)
     # Add one ellispis in case of a ndimensional image
