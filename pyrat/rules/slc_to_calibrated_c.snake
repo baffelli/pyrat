@@ -162,12 +162,11 @@ rule polcal_parameters:
 rule polcal:
     input:
         C = expand("cov_flat/{{slcname}}_{{rx}}.c{i}{j}",i=[0,1,2,3],j=[0,1,2,3]),
-        cal_par= "pol_cal_{slcname}_{rx}.par",
     output:
         C = expand("cov_cal/{{slcname}}_{{rx}}.c{i}{j}",i=[0,1,2,3],j=[0,1,2,3]),
+        C_output_root = "cov_cal/{slcname}_{rx}",
     params:
         C_input_root = "cov_flat/{slcname}_{rx}",
-        C_output_root = "cov_cal/{slcname}_{rx}",
     run:
         C_matrix_flat = mat.coherencyMatrix(params['C_input_root'], params['C_input_root'] + '.par', basis='lexicographic', gamma=True, bistatic=True)
         cal_dict = gpf.par_to_dict(input.cal_par)
@@ -179,7 +178,7 @@ rule polcal:
         D = cal.distortion_matrix(phi_t, phi_r, f, g)
         D_inv = np.diag(1/np.diag(D))
         C_cal = np.float(K) * C_matrix_flat.transform(D_inv,D_inv.T.conj())
-        C_cal.to_gamma(params['C_output_root'], bistatic=True)
+        C_cal.to_gamma(output['C_output_root'], bistatic=True)
 
 
 
