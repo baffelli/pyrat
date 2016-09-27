@@ -397,7 +397,7 @@ rule multi_look:
     input:
         slc = '{file}.slc{ext}'
     wildcard_constraints:
-        ext = "(^$|_dec)"
+        ext = "(.*|_dec)"
     output:
         mli = '{file}.mli{ext}',
         mli_par = '{file}.mli{ext}.par'
