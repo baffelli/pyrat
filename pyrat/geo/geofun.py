@@ -641,13 +641,14 @@ def geocode_image(image, pixel_size, *args):
 
     try:
         r_vec = image.r_vec
-        az_vec = image.az_vec
+        az_vec = _np.deg2rad(image.az_vec)
     except AttributeError:
         if len(args) > 0:
             r_vec = args[0]
             az_vec = args[1]
         else:
             raise TypeError
+    # Desired grid
     # Image grid geometry
     r_max = _np.max(r_vec)
     r_min = _np.min(r_vec)
@@ -671,16 +672,29 @@ def geocode_image(image, pixel_size, *args):
     # Convert desired grid to indices
     az_idx = ((desired_az - az_min) / _np.double(az_step))
     r_idx = ((desired_r - r_min) / _np.double(r_step))
-    r_idx = _np.clip(r_idx, 0, image.shape[1] - 1)
-    az_idx = _np.clip(az_idx, 0, image.shape[0] - 1)
+    r_idx = _np.clip(r_idx, 0, image.shape[0] - 1)
+    az_idx = _np.clip(az_idx, 0, image.shape[1] - 1)
     az_idx = az_idx.astype(_np.float)
     r_idx = r_idx.astype(_np.float)
-    gc = bilinear_interpolate(image, r_idx, az_idx)
-    gc[az_idx.astype(_np.long) == image.shape[0] - 1] = _np.nan
-    gc[r_idx.astype(_np.long) == image.shape[1] - 1] = _np.nan
+    gc = bilinear_interpolate(image, az_idx, r_idx)
+    gc[az_idx.astype(_np.long) == image.shape[1] - 1] = _np.nan
+    gc[r_idx.astype(_np.long) == image.shape[0] - 1] = _np.nan
     gc[az_idx.astype(_np.long) == 0] = _np.nan
     gc[r_idx.astype(_np.long) == 0] = _np.nan
-    return gc, x_vec, y_vec
+
+    return gc, x_vec, y_vec, r_idx + 1j * az_idx
+
+
+def invert_lut(lut):
+    lut_inverse = _np.zeros((_np.nanmax(lut.real), _np.nanmax(lut.imag)))
+    ii, jj = _np.meshgrid(_np.linspace(0, lut.shape[0], num=lut_inverse.shape[0]),
+                          _np.linspace(0, lut.shape[1], num=lut_inverse.shape[1]), indexing='xy')
+    print(ii.shape)
+    print(lut.shape)
+    lut_inverse[_np.clip(lut.real.astype(int), 0, lut_inverse.shape[0] - 1), _np.clip(lut.imag.astype(int), 0,
+                                                                                      lut_inverse.shape[
+                                                                                          1] - 1)] = ii + 1j * jj
+    return lut_inverse
 
 
 def shadow_map(u, lv_theta, inc):
@@ -773,7 +787,7 @@ def write_gt(arr, GT, proj):
     return dest
 
 
-def gc_map_mask(ds_shape,lut):
+def gc_map_mask(ds_shape, lut):
     """
     Return a valid pixel map using the dataset information and the lookuptable produced by
     gc_map. Use to mask geocoded product, so that only the valid pixels (DEM pixels covered by data) are shown.
@@ -788,10 +802,10 @@ def gc_map_mask(ds_shape,lut):
     ndar
 
     """
-    lut_out = _np.zeros(lut.shape,dtype=bool) + 0
+    lut_out = _np.zeros(lut.shape, dtype=bool) + 0
     lut_out[lut.imag >= ds_shape[1]] = 1
     lut_out[lut.real >= ds_shape[0]] = 1
-    lut_out[(lut.imag == 0) * (lut.real == 0) ] = 1
+    lut_out[(lut.imag == 0) * (lut.real == 0)] = 1
     return lut_out
 
 
@@ -808,6 +822,7 @@ def lut_lookup(LUT, radar_coord):
     -------
 
     """
+
 
 def paletted_to_rgb(gt):
     """
