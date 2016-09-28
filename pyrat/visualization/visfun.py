@@ -308,7 +308,7 @@ def bilinear_interpolate(im, x, y):
 
     if im.ndim > 2:
         trailing_dim = im.ndim - 2
-        access_vector = (Ellipsis, Ellipsis) + trailing_dim * (None,)
+        access_vector = (slice(None,None),)*2 + trailing_dim * (None,)
         wa = wa[access_vector]
         wb = wb[access_vector]
         wc = wc[access_vector]

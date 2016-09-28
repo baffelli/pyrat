@@ -157,6 +157,23 @@ rule polcal_parameters:
         gpf.dict_to_par(cal_dict, output.cal_par)
 
 
+ruleorder: polcal > fspf
+##############################################################################
+## Applies fast spatial filter
+rule fspf:
+    input:
+        C = "cov_{type}/{slcname}_{rx}.c{i}{j}",
+        C_par = "cov_{type}/{slcname}_{rx}.par",
+        mli_par = "slc_corr/{slcname}_AAAl.slc_dec.par"
+    output:
+        C_filt = "cov_{type}/{slcname}_{rx}_filt.c{i}{j}",
+        C_filt_par = "cov_{type}/{slcname}_{rx}_filt.c{i}{j}"
+    run:
+        wd =  gpf.get_width(input.C_par)
+        fsfp_cmd = "fspf {{input.C}} {{output.C_filt}} {wd} 0 1 0 {{input.mli_par}}".format(wd=wd)
+        shell(fsfp_cmd)
+        os.copy(input.C_par, output.C_filt_par)
+
 ##############################################################################
 ### Apply polarimetric calibration
 rule polcal:

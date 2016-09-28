@@ -16,7 +16,7 @@ def geocode_rule(input, output, log):
     par_dict = gpf.par_to_dict(input.reference_mli_par)
     nlines = dem_par_dict['nlines']
     filetype = gpf.gamma_datatype_code_from_extension(input.data)
-    cmd = "geocode_back  {{input.data}} {data_width} {{input.lut}} {{output.geocoded_file}} {out_width} {nlines} 0 {dtype} >> {{log}}".format(data_width=data_width,
+    cmd = "geocode_back  {{input.data}} {data_width} {{input.lut}} {{output.geocoded_file}} {out_width} 0 0 {dtype} >> {{log}}".format(data_width=data_width,
     out_width=dem_width, nlines=nlines, dtype=filetype)
     shell(cmd)
 
