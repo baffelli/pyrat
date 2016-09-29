@@ -27,12 +27,11 @@ def geocode_rule(input, output, log):
 ##	Convert tif dem to gamma format
 rule convert_dem:
     input:
-        dem = "{name}.tif",
+        dem = "{name}.tif"
     output:
         gamma_dem = "{name}.dem",
         gamma_dem_par = "{name}.dem_par"
     run:
-        import scipy.ndimage.filters as ndf
         #Open the data set
         DS = gdal.Open(input.dem)
         #Convert
@@ -42,13 +41,13 @@ rule convert_dem:
 ##	This rule produces the geocoding LUT
 rule geocoding_table:
     input:
+        reference_mli_par = config['geocoding']['ref_mli_par'],
         dem = config['geocoding']['DEM'],
-        dem_par = config['geocoding']['DEM'] + '_par',
-        reference_mli_par = config['geocoding']['ref_mli_par']
+        dem_par = config['geocoding']['DEM'] + '_par'
     output:
         lut = "geo/{tablename}.gpri_to_dem",
         dem_seg = "geo/{tablename}.dem_seg",
-        dem_seg_par = "geo/{tablename}.dem_seg.par",
+#        dem_seg_par = "geo/{tablename}.dem_seg.par",
         sim_sar = "geo/{tablename}.sim_sar",
         lv_theta = "geo/{tablename}.lv_theta",
         lv_phi = "geo/{tablename}.lv_phi",
@@ -75,21 +74,21 @@ rule geocoding_table:
 
 ##############################################################################
 ##	This rule produces the geocoding LUT
-rule refined_table:
-    input:
-        dem_par = config['geocoding']['DEM'] + '_par',
-        reference_mli_par = config['geocoding']['ref_mli_par'],
-        lut = "geo/{tablename}.gpri_to_dem",
-        sim_sar_fgc = "geo/{tablename}.sim_sar_fgc_coarse",
-    output:
-        refined_lut =  "geo/{tablename}.gpri_to_dem.fine",
-        diff_par = 'geo/{tablename}_refinment.diff_par'
-    run:
-        ref_mli = input.reference_mli_par.replace(".par","")
-        diff_par_cmd = "create_diff_par {input.reference_mli_par} - {output.diff_par} 1 0"
-        shell(diff_par_cmd)
-        off_cmd = "init_offsetm {{input.sim_sar_fgc}} {ref_mli} {{output.diff_par}} 1 1 - - - - - 256 1".format(ref_mli=ref_mli)
-        shell(off_cmd)
+#rule refined_table:
+#    input:
+#        dem_par = config['geocoding']['DEM'] + '_par',
+#        reference_mli_par = config['geocoding']['ref_mli_par'],
+#        lut = "geo/{tablename}.gpri_to_dem",
+#        sim_sar_fgc = "geo/{tablename}.sim_sar_fgc_coarse",
+#    output:
+#        refined_lut =  "geo/{tablename}.gpri_to_dem.fine",
+#        diff_par = 'geo/{tablename}_refinment.diff_par'
+#    run:
+#        ref_mli = input.reference_mli_par.replace(".par","")
+#        diff_par_cmd = "create_diff_par {input.reference_mli_par} - {output.diff_par} 1 0"
+#        shell(diff_par_cmd)
+#        off_cmd = "init_offsetm {{input.sim_sar_fgc}} {ref_mli} {{output.diff_par}} 1 1 - - - - - 256 1".format(ref_mli=ref_mli)
+#        shell(off_cmd)
 
 
 
@@ -115,7 +114,6 @@ rule geocode_forward:
     input:
         dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
         lut = 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem',
-#        lut	= lambda wildcards: 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem' if wildcards.ext == "fgc_coarse" else 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem.fine',
         reference_mli_par =  config['geocoding']['ref_mli_par'],
         data = "{data}"
     output:
@@ -149,16 +147,16 @@ rule sh_map:
         sh_map.T.astype(gpf.type_mapping['UCHAR']).tofile(output.sh_map)
 
 
-rule to_gt:
-	input:
-		file = "{filename}",
-		dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par'
-	output:
-		gt = "{filename}.tif"
-	run:
-		dt_code = gpf.gt_mapping_from_extension(input.file)
-		gt_cmd = "data2geotiff {input.dem_seg_par} {input.file} " + str(dt_code) +  " {output.gt}"
-		shell(gt_cmd)
+#rule to_gt:
+#	input:
+#		file = "{filename}",
+#		dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par'
+#	output:
+#		gt = "{filename}.tif"
+#	run:
+#		dt_code = gpf.gt_mapping_from_extension(input.file)
+#		gt_cmd = "data2geotiff {input.dem_seg_par} {input.file} " + str(dt_code) +  " {output.gt}"
+#		shell(gt_cmd)
 
 rule to_rec:
     input:

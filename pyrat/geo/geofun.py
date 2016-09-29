@@ -686,14 +686,12 @@ def geocode_image(image, pixel_size, *args):
 
 
 def invert_lut(lut):
-    lut_inverse = _np.zeros((_np.nanmax(lut.real), _np.nanmax(lut.imag)))
-    ii, jj = _np.meshgrid(_np.linspace(0, lut.shape[0], num=lut_inverse.shape[0]),
-                          _np.linspace(0, lut.shape[1], num=lut_inverse.shape[1]), indexing='xy')
-    print(ii.shape)
-    print(lut.shape)
-    lut_inverse[_np.clip(lut.real.astype(int), 0, lut_inverse.shape[0] - 1), _np.clip(lut.imag.astype(int), 0,
-                                                                                      lut_inverse.shape[
-                                                                                          1] - 1)] = ii + 1j * jj
+    lut_inverse = _np.zeros((_np.nanmax(lut.real), _np.nanmax(lut.imag)),dtype=_np.complex64)
+    ii, jj = _np.meshgrid(*[_np.arange(0, lut.shape[i]) for i in range(2)], indexing='ij')
+    lut_inverse = bilinear_interpolate(ii + 1j * jj, lut.imag, lut.real)
+    # lut_inverse[_np.clip(lut.real.astype(int), 0, lut_inverse.shape[0] - 1), _np.clip(lut.imag.astype(int), 0,
+    #                                                                                   lut_inverse.shape[
+    #                                                                                       1] - 1)] = ii + 1j * jj
     return lut_inverse
 
 

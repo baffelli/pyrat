@@ -105,7 +105,7 @@ rule covariance:
     output:
         C = expand("cov_{{type, (flat|normal)}}/{{slcname}}_{{rx}}.c{i}{j}", i=[0,1,2,3],
         j=[0,1,2,3]),
-        par = "cov_{type, (flat|normal)}/{slcname}_{rx}.par",
+#        par = "cov_{type, (flat|normal)}/{slcname}_{rx}.par",
     params:
         master_par = "slc_corr/{slcname}_AAAl.slc_dec.par",
         slave_par = "slc_corr/{slcname}_AAAu.slc_dec.par",
@@ -158,6 +158,7 @@ rule polcal_parameters:
 
 
 ruleorder: polcal > fspf
+ruleorder: polcal > fspf
 ##############################################################################
 ## Applies fast spatial filter
 rule fspf:
@@ -167,23 +168,25 @@ rule fspf:
         mli_par = "slc_corr/{slcname}_AAAl.slc_dec.par"
     output:
         C_filt = "cov_{type}/{slcname}_{rx}_filt.c{i}{j}",
-        C_filt_par = "cov_{type}/{slcname}_{rx}_filt.c{i}{j}"
+    params:
+        C_filt_par = "cov_{type}/{slcname}_{rx}_filt.par",
     run:
         wd =  gpf.get_width(input.C_par)
         fsfp_cmd = "fspf {{input.C}} {{output.C_filt}} {wd} 0 1 0 {{input.mli_par}}".format(wd=wd)
         shell(fsfp_cmd)
-        os.copy(input.C_par, output.C_filt_par)
+        shell("cp {input.C_par} {params.C_filt_par}")
 
 ##############################################################################
 ### Apply polarimetric calibration
 rule polcal:
     input:
         C = expand("cov_flat/{{slcname}}_{{rx}}.c{i}{j}",i=[0,1,2,3],j=[0,1,2,3]),
+        cal_par = "pol_cal_{slcname}_{rx}.par",
     output:
         C = expand("cov_cal/{{slcname}}_{{rx}}.c{i}{j}",i=[0,1,2,3],j=[0,1,2,3]),
-        C_output_root = "cov_cal/{slcname}_{rx}",
     params:
         C_input_root = "cov_flat/{slcname}_{rx}",
+        C_output_root = "cov_cal/{slcname}_{rx}",
     run:
         C_matrix_flat = mat.coherencyMatrix(params['C_input_root'], params['C_input_root'] + '.par', basis='lexicographic', gamma=True, bistatic=True)
         cal_dict = gpf.par_to_dict(input.cal_par)
@@ -195,7 +198,7 @@ rule polcal:
         D = cal.distortion_matrix(phi_t, phi_r, f, g)
         D_inv = np.diag(1/np.diag(D))
         C_cal = np.float(K) * C_matrix_flat.transform(D_inv,D_inv.T.conj())
-        C_cal.to_gamma(output['C_output_root'], bistatic=True)
+        C_cal.to_gamma(params['C_output_root'], bistatic=True)
 
 
 

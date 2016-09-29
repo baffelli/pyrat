@@ -1,17 +1,15 @@
 # Style for paper using the IEEtran, two columns style
-font.family     : sans-serif
+font.family     : serif
 font.serif      : computer modern roman
-font.sans-serif : Helvetica
-font.size       : 8
-font.weight     : 200
-font.stretch    : condensed
+font.sans-serif : computer modern sans serif
+font.size       : 12
 text.usetex     : True  # use latex for all text handling
 text.latex.preamble: \usepackage{helvet} \usepackage{sansmath} \sansmath
 #Math text
 mathtext.fontset:   custom
-mathtext.rm:    Helvetica
-mathtext.it:    Helvetica:italic
-mathtext.bf:    Helvetica:bold
+mathtext.rm:    computer modern
+mathtext.it:    computer modern:italic
+mathtext.bf:    computer modern:bold
 axes.unicode_minus  : True
 image.aspect : equal             # equal | auto | a number
 image.interpolation  : none  # see help(imshow) for options
