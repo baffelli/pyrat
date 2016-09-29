@@ -157,8 +157,7 @@ rule polcal_parameters:
         gpf.dict_to_par(cal_dict, output.cal_par)
 
 
-ruleorder: polcal > fspf
-ruleorder: polcal > fspf
+ruleorder: fspf > polcal
 ##############################################################################
 ## Applies fast spatial filter
 rule fspf:

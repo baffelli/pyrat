@@ -270,7 +270,7 @@ class gammaDataset(_np.ndarray):
                 new_obj_1.GPRI_az_angle_step[0] = self.GPRI_az_angle_step[0] * az_osf
                 new_obj_1.range_pixel_spacing[0] = self.range_pixel_spacing[0] * r_osf
                 new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
-                new_obj_1.prf[0] = az_osf * self.prf[0]
+                new_obj_1.prf[0] = 1/az_osf * self.prf[0]
                 new_obj_1.range_samples = len(r_vec_sl)
                 new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
             except:

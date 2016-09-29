@@ -383,13 +383,14 @@ def decimate(slc, dec, mode='sum'):
                 dec_pulse += slc[:, current_idx]
             arr_dec[:, idx_az] = dec_pulse
         arr_dec = slc.__array_wrap__(arr_dec)
+        arr_dec.GPRI_az_angle_step[0] = dec * slc.GPRI_az_angle_step[0]
+        arr_dec.azimuth_line_time[0] = dec * slc.azimuth_line_time[0]
+        arr_dec.prf[0] =  slc.prf[0] / dec
     else:
         arr_dec = slc[:, ::dec]
         arr_dec = slc.__array_wrap__(arr_dec)
     arr_dec /= dec
-    arr_dec.GPRI_az_angle_step[0] = dec * slc.GPRI_az_angle_step[0]
-    arr_dec.azimuth_line_time[0] = dec * slc.azimuth_line_time[0]
-    arr_dec.prf[0] = dec * slc.prf[0]
+
     arr_dec.azimuth_lines = arr_dec.shape[1]
     return arr_dec
 
