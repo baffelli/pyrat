@@ -234,121 +234,51 @@ class gammaDataset(_np.ndarray):
         # Try the channel dictionary
         try:
             sl_mat = channel_dict[item]
-            sl = (Ellipsis,) * (self.ndim - len(sl_mat)) + sl_mat
+            sl = (slice(None, None),) * (self.ndim - len(sl_mat)) + sl_mat
         except (KeyError, TypeError):
             sl = item
+
         # TODO Fix spacing
         # Get the slice from the object by calling the corresponding numpy function
         new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).view(type(self))
-        # #This concludes the part where we extract data from the array.
-        # #now we need to adjust the attributes to adjust to the new spacing
-        # try:
-        #     az_vec = self.az_vec * 1
-        #     r_vec = self.r_vec * 1
-        #     #copy range and azimuth vector
-        #     #Now access the range vector
-        #     try:
-        #         r_vec_sl = r_vec[sl[0]]
-        #     except (IndexError, TypeError):
-        #         try:
-        #             r_vec_sl = r_vec[sl]
-        #         except IndexError:
-        #             r_vec_slc = r_vec
-        #     try:
-        #         az_vec_sl = az_vec[sl[1]]
-        #     except (IndexError, TypeError):
-        #         try:
-        #             az_vec_sl = az_vec[sl]
-        #         except IndexError:
-        #             az_vec_sl = az_vec
-        #
-        #     try:
-        #         az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step[0]#azimuth over/undersampling time
-        #     except IndexError:
-        #         az_osf = 1
-        #     try:
-        #         r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing[0]#range sampling
-        #     except IndexError:
-        #         r_osf = 1
-        #     new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
-        #     new_obj_1.prf[0] = az_osf * self.prf[0]
-        #     try:
-        #         start_angle = az_vec_sl[0]
-        #     except IndexError:
-        #         start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
-        #     try:
-        #         start_r = az_vec_sl[0]
-        #     except IndexError:
-        #         start_r = az_vec_sl
-        #     try:
-        #         new_obj_1.near_range_slc[0] = start_r
-        #         new_obj_1.GPRI_az_start_angle[0] = start_angle
-        #         new_obj_1.GPRI_az_angle_step[0] = self.GPRI_az_angle_step[0] * az_osf
-        #         new_obj_1.range_pixel_spacing[0] = self.range_pixel_spacing[0] * r_osf
-        #         new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
-        #         new_obj_1.prf[0] = az_osf * self.prf[0]
-        #         new_obj_1.range_samples = new_obj_1.shape[0]
-        #         new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
-        #     except AttributeError:
-        #         pass
-        # except (AttributeError, KeyError):
-        #     pass#not a gpri dataset
-
-        # # Construct temporary azimuth and  range vectors
-        # az_vec = self.az_vec * 1
-        # r_vec = self.r_vec * 1
-        # r_0 = self.r_vec[0]
-        # az_0 = self.az_vec[0]
-        # az_spac = self.GPRI_az_angle_step[0] * 1
-        # r_spac = self.range_pixel_spacing[0] * 1
-        # # Passing only number, access the array as it were a linear index (ravel index)
-        # if isinstance(sl, _num.Number):
-        #     #compute the indices and recur
-        #     indices = _np.unravel_index(sl)
-        #     return self.__getitem__(indices)
-        #
-        # # Tuple of slices
-        # elif hasattr(sl, '__contains__'):
-        #     # By taking the first element, we automatically have
-        #     # the correct data
-        #     try:
-        #         az_vec_sl = self.az_vec[sl[1]]
-        #         if hasattr(az_vec_sl, '__contains__'):
-        #             if len(az_vec_sl) > 1:
-        #                 az_spac = az_vec_sl[1] - az_vec_sl[0]
-        #                 az_0 = az_vec_sl[0]
-        #             else:
-        #                 az_spac = self.GPRI_az_angle_step[0] * 1
-        #                 az_0 = az_vec_sl
-        #         else:
-        #             az_0 = az_vec_sl
-        #             az_spac = self.GPRI_az_angle_step[0] * 1
-        #     except:
-        #         IndexError('The slice object does not match the objects size')
-        #     try:
-        #         r_vec_sl = self.r_vec[sl[0]]
-        #         if hasattr(r_vec_sl, '__contains__'):
-        #             if len(r_vec_sl) > 1:
-        #                 r_spac = r_vec_sl[1] - r_vec_sl[0]
-        #             else:
-        #                 r_spac = self.range_pixel_spacing[0]
-        #             r_spac = r_vec_sl[1] - r_vec_sl[0]
-        #             r_0 = r_vec_sl[0]
-        #         else:
-        #             r_spac = self.range_pixel_spacing[0] * 1
-        #             r_0 = r_vec_sl
-        #     except:
-        #         pass
-        # az_osf = az_spac / self.GPRI_az_angle_step[0]#azimuth over/undersampling time
-        # new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
-        # new_obj_1.prf[0] = az_osf * self.prf[0]
-        # new_obj_1.GPRI_az_start_angle[0] = az_0
-        # new_obj_1.near_range_slc[0] = r_0
-        # new_obj_1.GPRI_az_angle_step[0] = az_spac
-        # new_obj_1.range_pixel_spacing[0] = r_spac
-        # new_obj_1.range_samples = new_obj_1.shape[0]
-        # new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
+        #This concludes the part where we extract data from the array.
+        #now we need to adjust the attributes to adjust to the new spacing
+        try:#if we pass an integer, we do not need to do anything
+            r_vec_sl = self.r_vec[sl[0]]
+            az_vec_sl = self.az_vec[sl[1]]
+            try:
+                az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step[0]#azimuth over/undersampling time
+            except IndexError:
+                az_osf = 1
+            try:
+                r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing[0]#range sampling
+            except IndexError:
+                r_osf = 1
+            new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
+            new_obj_1.prf[0] = az_osf * self.prf[0]
+            try:
+                start_angle = az_vec_sl[0]
+            except IndexError:
+                start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
+            try:
+                start_r = r_vec_sl[0]
+            except IndexError:
+                start_r = r_vec_sl
+            try:
+                new_obj_1.near_range_slc[0] = start_r
+                new_obj_1.GPRI_az_start_angle[0] = start_angle
+                new_obj_1.GPRI_az_angle_step[0] = self.GPRI_az_angle_step[0] * az_osf
+                new_obj_1.range_pixel_spacing[0] = self.range_pixel_spacing[0] * r_osf
+                new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
+                new_obj_1.prf[0] = az_osf * self.prf[0]
+                new_obj_1.range_samples = len(r_vec_sl)
+                new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
+            except:
+                pass
+        except:
+            pass
         return new_obj_1
+
 
     def tofile(*args):
         self = args[0].astype(type_mapping[args[0].image_format])
