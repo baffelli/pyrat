@@ -243,10 +243,13 @@ def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2,4)):
         except:
             hpbw_az = 0
         res_dict = {'range_resolution': [hpbw_r, 'm'], 'azimuth_resolution': [hpbw_az, 'deg']}
+        #Construct range and azimuth vector
+        r_vec = _np.arange(-ptarg_zoom.shape[0]/2, ptarg_zoom.shape[0]/2) * r_spacing
+        az_vec =_np.arange(-ptarg_zoom.shape[1]/2, ptarg_zoom.shape[1]/2) * az_spacing
     except AttributeError:
         pass
 
-    return ptarg_zoom, rplot, azplot, (mx_r_zoom, mx_az_zoom), res_dict
+    return ptarg_zoom, rplot, azplot, (mx_r_zoom, mx_az_zoom), res_dict, r_vec, az_vec
 
 
 def shift_array(array, shift):

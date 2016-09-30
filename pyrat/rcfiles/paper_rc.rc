@@ -68,7 +68,7 @@ savefig.dpi         : 100
 savefig.transparent : True
 savefig.bbox        : tight
 #Figure
-figure.autolayout : True
+figure.autolayout : False
 #interaction
 interactive         : False
 backend:            PDF

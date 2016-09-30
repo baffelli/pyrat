@@ -13,9 +13,8 @@ import numpy as np
 
 
 
-
+include: './raw_to_slc.snake'
 #this workflow takes case of the processing up to the corrected slc stage
-
 
 
 ##############################################################################

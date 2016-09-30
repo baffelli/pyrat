@@ -28,7 +28,7 @@ class gpriPlotter:
         self.step_size = args.step_size
 
     def plot(self):
-        with _sty.context('/home/baffelli/PhD/trunk/Code/paper_rc.rc'):
+        with _sty.context(config['style']):
             f, (phase_ax, amp_ax) = _plt.subplots(2, sharex=True)
             for ridx, azidx in zip(self.args.ridx, self.args.azidx):
                 # Slice the slc
