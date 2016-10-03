@@ -108,10 +108,12 @@ def scale_array(*args, **kwargs):
     scaled = (data - minVal) / _np.abs(maxVal - minVal)
     return scaled
 
-
+#TODO This function will be removed when matplotlib 2.0 will be availabel
 def format_axes(ax):
     for spine in ['top', 'right']:
         ax.spines[spine].set_visible(False)
+    ax.yaxis.set_ticks_position('left')
+    ax.xaxis.set_ticks_position('bottom')
     return ax
 
 

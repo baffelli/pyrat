@@ -244,8 +244,8 @@ class gammaDataset(_np.ndarray):
         #This concludes the part where we extract data from the array.
         #now we need to adjust the attributes to adjust to the new spacing
         try:#if we pass an integer, we do not need to do anything
-            r_vec_sl = self.r_vec[sl[0]]
-            az_vec_sl = self.az_vec[sl[1]]
+            r_vec_sl = self.r_vec[int(sl[0])]
+            az_vec_sl = self.az_vec[int(sl[1])]
             try:
                 az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step[0]#azimuth over/undersampling time
             except IndexError:

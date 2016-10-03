@@ -150,7 +150,30 @@ def FWHM(curve):
         return abs(r[1] - r[0])
 
 
-def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2,4)):
+# TODO implement
+def half_power_indices(data):
+    """
+    Returns the indices in the data that correspond to the half power beamwidth
+    Parameters
+    ----------
+    data
+
+    Returns
+    -------
+
+    """
+    return 0
+
+
+def complex_interp(arr, osf, polar=False):
+    if polar:
+        return _ndim.interpolation.zoom(arr.real, osf) + 1j * _ndim.interpolation.zoom(arr.imag,
+                                                                                       osf)
+    else:
+        return _ndim.interpolation.zoom(_np.abs(arr), osf) * _np.exp(1j * _ndim.interpolation.zoom(_np.angle(arr), osf))
+
+
+def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2, 4)):
     """
     Point target analysis.
     Parameters
@@ -182,27 +205,33 @@ def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2,4)):
         Location of maxiumum in oversampled response
 
     """
-    #lambda function for complex interpolation
-    complex_interp = lambda arr, osf: _ndim.interpolation.zoom(arr.real, osf) + 1j * _ndim.interpolation.zoom(arr.imag,
-                                                                                                              osf)
+    # lambda function for complex interpolation
+    # complex_interp = lambda arr, osf: _ndim.interpolation.zoom(arr.real, osf) + 1j * _ndim.interpolation.zoom(arr.imag,
+    #                                                                                                           osf)
     # Add one ellispis in case of a ndimensional image
     additional_dim = slc.ndim - 2 if (slc.ndim - 2) >= 0 else 0
-    search_win = (slice(ridx - sw[0] / 2, ridx + sw[0] / 2),
-                  slice(azidx - sw[1] / 2, azidx + sw[1] / 2),) + (None,) * additional_dim
-    # Find the maxium whitin the search window
-    slc_section = slc[search_win]
-    mx = _np.argmax(_np.abs(slc_section))
-    mx_list = _np.unravel_index(mx, slc_section.shape)
-    mx_r, mx_az = mx_list[0:2]
-    # Maximum in global system
-    mx_r_glob = mx_r + ridx
-    mx_az_glob = mx_az + azidx
+    # In the additional dimensions, do not use a search window ("we have a sort of "well" in the data cube)
+    sw = sw + (1,) * additional_dim
+    mx_glob = maximum_around(_np.abs(slc), [ridx, azidx], sw)
+    # search_win = (slice(ridx - sw[0] / 2, ridx + sw[0] / 2),
+    #               slice(azidx - sw[1] / 2, azidx + sw[1] / 2),) + (None,) * additional_dim
+    # # Find the maxium whitin the search window
+    # slc_section = slc[search_win]
+    # mx = _np.argmax(_np.abs(slc_section))
+    # mx_list = _np.unravel_index(mx, slc_section.shape)
+    # mx_r, mx_az = mx_list[0:2]
+    # # Maximum in global system
+    # mx_r_glob = mx_r + ridx - sw[0] / 2
+    # mx_az_glob = mx_az + azidx - sw[1] / 2
     # New window
-    win_1 = (slice(mx_r_glob - rwin / 2, mx_r_glob + rwin / 2),
-             slice(mx_az_glob - azwin / 2, mx_az_glob + azwin / 2),)
+    limits = [(_np.clip(mx - win // 2, 0, shp), _np.clip(mx + win // 2, 0, shp)) for mx, win, shp in
+              zip(mx_glob, [rwin, azwin], slc.shape)]  # limits for search window
+
+    win_1 = (slice(limits[0][0], limits[0][1]),
+             slice(limits[1][0], limits[1][1]),)
     slc_section = slc[win_1]  # slice aroudn global maximum
     if slc.ndim == 2:
-        ptarg_zoom = complex_interp(slc_section, osf)
+        ptarg_zoom = complex_interp(slc_section, osf, polar=True)
     else:
         if slc.ndim == 3:
             ptarg_zoom = []
@@ -243,11 +272,13 @@ def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2,4)):
         except:
             hpbw_az = 0
         res_dict = {'range_resolution': [hpbw_r, 'm'], 'azimuth_resolution': [hpbw_az, 'deg']}
-        #Construct range and azimuth vector
-        r_vec = _np.arange(-ptarg_zoom.shape[0]/2, ptarg_zoom.shape[0]/2) * r_spacing
-        az_vec =_np.arange(-ptarg_zoom.shape[1]/2, ptarg_zoom.shape[1]/2) * az_spacing
+        # Construct range and azimuth vector
+        r_vec = _np.arange(-ptarg_zoom.shape[0] / 2, ptarg_zoom.shape[0] / 2) * r_spacing
+        az_vec = _np.arange(-ptarg_zoom.shape[1] / 2, ptarg_zoom.shape[1] / 2) * az_spacing
     except AttributeError:
-        pass
+        res_dict = {}
+        r_vec = []
+        az_vec = []
 
     return ptarg_zoom, rplot, azplot, (mx_r_zoom, mx_az_zoom), res_dict, r_vec, az_vec
 
@@ -388,7 +419,7 @@ def decimate(slc, dec, mode='sum'):
         arr_dec = slc.__array_wrap__(arr_dec)
         arr_dec.GPRI_az_angle_step[0] = dec * slc.GPRI_az_angle_step[0]
         arr_dec.azimuth_line_time[0] = dec * slc.azimuth_line_time[0]
-        arr_dec.prf[0] =  slc.prf[0] / dec
+        arr_dec.prf[0] = slc.prf[0] / dec
     else:
         arr_dec = slc[:, ::dec]
         arr_dec = slc.__array_wrap__(arr_dec)
