@@ -102,7 +102,8 @@ def remove_window(S):
 
 
 def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
-    r_ant = _gpf.xoff + _np.cos(_np.deg2rad(slc.GPRI_ant_elev_angle[0])) * _gpf.ant_radius
+    r_ant = _np.linalg.norm(slc.phase_center[0:2])
+    print(r_ant)
     # Construct range vector
     # r_vec = self.slc.near_range_slc[0] + _np.arange(self.slc.shape[0]) * self.slc.range_pixel_spacing[0]
     r_vec = slc.r_vec
@@ -110,7 +111,7 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     # az_vec_image = _np.deg2rad(self.slc.GPRI_az_start_angle[0]) + _np.arange(self.slc.shape[0]) * _np.deg2rad(
     #     self.slc.GPRI_az_angle_step[0])
     # Compute integration window size in samples
-    ws_samp = int(ws / slc.GPRI_az_angle_step[0])
+    ws_samp = ws // slc.GPRI_az_angle_step[0]
     # Filtered slc has different sizes depending
     # if we keep all the samples after filtering
     if not discard_samples:
@@ -118,7 +119,7 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     else:
         slc_filt = slc[:, ::ws_samp] * 1
     # process each range line
-    theta = _np.arange(-ws_samp / 2, ws_samp / 2) * _np.deg2rad(slc.GPRI_az_angle_step[0])
+    theta = _np.arange(-ws_samp // 2, ws_samp // 2) * _np.deg2rad(slc.GPRI_az_angle_step[0])
     for idx_r, r_sl in enumerate(r_vec):
         filt, dist = distance_from_phase_center(r_ant, r_ph, r_sl, theta, wrap=False)
         lam = _gpf.C / 17.2e9

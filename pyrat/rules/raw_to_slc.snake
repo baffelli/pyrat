@@ -385,10 +385,8 @@ rule correct_azimuth_ramp:
         integration_length = config['phase_correction']['integration_length'],
         r_ph = lambda wildcards: config['phase_correction']['{chan}_phase_center_offset'.format(chan=wildcards.chan[:-1:])],
     run:
-        print(type(params.r_ph))
-        print(input.slc)
         slc_input = gpf.gammaDataset(input.slc_par, input.slc)
-        slc_corr = cal.azimuth_correction(slc_input, params.r_ph)
+        slc_corr = cal.azimuth_correction(slc_input, params.r_ph, ws=params.integration_length)
         slc_corr.tofile(output.slc_par, output.slc)
 
 ##############################################################################
