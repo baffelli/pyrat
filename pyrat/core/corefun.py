@@ -224,11 +224,12 @@ def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2, 4)):
     # mx_r_glob = mx_r + ridx - sw[0] / 2
     # mx_az_glob = mx_az + azidx - sw[1] / 2
     # New window
-    limits = [(_np.clip(mx - win // 2, 0, shp), _np.clip(mx + win // 2, 0, shp)) for mx, win, shp in
-              zip(mx_glob, [rwin, azwin], slc.shape)]  # limits for search window
-
-    win_1 = (slice(limits[0][0], limits[0][1]),
-             slice(limits[1][0], limits[1][1]),)
+    win_1 = window_idx(slc, mx_glob, [rwin, azwin])
+    # limits = [(_np.clip(mx - win // 2, 0, shp), _np.clip(mx + win // 2, 0, shp)) for mx, win, shp in
+    #           zip(mx_glob, [rwin, azwin], slc.shape)]  # limits for search window
+    #
+    # win_1 = (slice(limits[0][0], limits[0][1]),
+    #          slice(limits[1][0], limits[1][1]),)
     slc_section = slc[win_1]  # slice aroudn global maximum
     if slc.ndim == 2:
         ptarg_zoom = complex_interp(slc_section, osf, polar=True)
@@ -445,9 +446,12 @@ def matrix_root(A):
 def window_idx(arr, idx, zs):
     indices = []
     for cnt, (current_size, current_idx) in enumerate(zip(zs, idx)):
-        mi = _np.clip(current_idx - current_size, 0, arr.shape[cnt])
-        mx = _np.clip(current_idx + current_size, 0, arr.shape[cnt])
-        sl = slice(mi, mx)
+        mi = _np.clip(current_idx - current_size // 2, 0, arr.shape[cnt])
+        mx = _np.clip(current_idx + current_size // 2, 0, arr.shape[cnt])
+        if mi == mx:
+            sl = slice(mi, mx + 1)
+        else:
+            sl = slice(mi, mx)
         indices.append(sl)
     return indices
 
@@ -480,7 +484,7 @@ def maximum_around(arr, idx, ws):
     # to tuple
     max_idx = _np.unravel_index(max_idx, arr_section.shape)
     # We have now to convert it into the "coordinates" of the big array
-    final_idx = [local_idx + global_idx - current_size for
+    final_idx = [local_idx + global_idx - current_size //2 for
                  local_idx, global_idx, current_size in zip(max_idx, idx, ws)]
     return final_idx
 
