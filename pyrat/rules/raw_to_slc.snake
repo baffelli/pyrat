@@ -420,7 +420,7 @@ rule decimate:
         from scipy.ndimage import zoom
         slc_input = gpf.gammaDataset(input.slc_par, input.slc)
 #        dec = int(config['range_compression']['decimated_sample_spacing'] / slc_input.GPRI_az_angle_step[0])
-        slc_dec = cf.decimate(slc_input, params.dec, mode=params.dec_mode)
+        slc_dec = slc_input.decimate(params.dec, mode=params.dec_mode)
         osr = slc_dec.GPRI_az_angle_step[0] / params.spacing
 #        slc_dec_1 = cf.complex_interpolate(slc_dec, (1, osr))
 #        print(slc_dec_1.shape)

@@ -326,7 +326,7 @@ class gammaDataset(_np.ndarray):
             arr_dec = self[:, ::dec]
             arr_dec = self.__array_wrap__(arr_dec)
         arr_dec /= dec
-        self.azimuth_looks = dec
+        arr_dec.azimuth_looks *= dec
         arr_dec.azimuth_lines = arr_dec.shape[1]
         return arr_dec
 
@@ -334,6 +334,7 @@ class gammaDataset(_np.ndarray):
     def r_vec(self):
         return self.__dict__['near_range_slc'][0] + _np.arange(self.__dict__['range_samples']) * \
                                                     self.__dict__['range_pixel_spacing'][0]
+
 
     @property
     def az_vec(self):

@@ -106,7 +106,7 @@ rule covariance:
     output:
         C = expand("cov_{{type, (flat|normal)}}/{{slcname}}_{{rx}}.c{i}{j}", i=[0,1,2,3],
         j=[0,1,2,3]),
-#        par = "cov_{type, (flat|normal)}/{slcname}_{rx}.par",
+        par = "cov_{type, (flat|normal)}/{slcname}_{rx}.par",
     params:
         master_par = "slc_corr/{slcname}_AAAl.slc_dec.par",
         slave_par = "slc_corr/{slcname}_AAAu.slc_dec.par",
@@ -143,7 +143,7 @@ rule polcal_parameters:
         ref_pos = config['list_of_reflectors'][config['calibration']['reflector_index']]
         azidx = int(ref_pos[1]) / int(config['range_compression']['dec'])
         ridx = int(ref_pos[0])
-        C_ptarg, rplot, azplot, mx_pos, ptarg_info = cf.ptarg(C_matrix_flat, ridx, azidx, azwin=30, rwin=5, sw=(2,10))
+        C_ptarg, rplot, azplot, mx_pos, ptarg_info, r_vec, az_vec = cf.ptarg(C_matrix_flat, ridx, azidx, azwin=30, rwin=5, sw=(2,10))
         av_win = [5,5]#averaging window
         C_matrix_flat_av = C_matrix_flat.boxcar_filter(av_win)
         #determine imbalance
@@ -180,10 +180,11 @@ rule fspf:
 ### Apply polarimetric calibration
 rule polcal:
     input:
-        C = expand("cov_flat/{{slcname}}_{{rx}}.c{i}{j}",i=[0,1,2,3],j=[0,1,2,3]),
+        C = expand("cov_flat/{{slcname}}_{{rx}}.c{i}{j}",i=range(4),j=range(4)),
         cal_par = "pol_cal_{slcname}_{rx}.par",
     output:
-        C = expand("cov_cal/{{slcname}}_{{rx}}.c{i}{j}",i=[0,1,2,3],j=[0,1,2,3]),
+        C = expand("cov_cal/{{slcname}}_{{rx}}.c{i}{j}",i=range(4),j=range(4)),
+        C_par = "cov_cal/{slcname}_{rx}.par",
     params:
         C_input_root = "cov_flat/{slcname}_{rx}",
         C_output_root = "cov_cal/{slcname}_{rx}",
