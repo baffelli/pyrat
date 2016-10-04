@@ -306,17 +306,28 @@ class gammaDataset(_np.ndarray):
         self.tofile(tf_par.name, tf.name)
         return tf_par, tf
 
-    def decimate(self, dec):
-        arr_dec = _np.zeros((self.shape[0], int(self.shape[1] / dec)), dtype=_np.complex64)
-        for idx_az in range(arr_dec.shape[1]):
-            # Decimated pulse
-            dec_pulse = _np.zeros(self.slc.shape[0] * 2 - 2, dtype=_np.float32)
-            for idx_dec in range(self.dec):
-                current_idx = idx_az * self.dec + idx_dec
-                if current_idx % 1000 == 0:
-                    print('decimating line: ' + str(current_idx))
-                dec_pulse += _np.fft.irfft(self.slc[:, current_idx])
-            arr_dec[:, idx_az] = _np.fft.rfft(dec_pulse)
+    def decimate(self, dec, mode='sum'):
+        if mode == 'sum':
+            arr_dec = _np.zeros((self.shape[0], int(self.shape[1] // dec)), dtype=_np.complex64)
+            for idx_az in range(arr_dec.shape[1]):
+                # Decimated pulse
+                dec_pulse = _np.zeros_like(self[:, 0])
+                for idx_dec in range(dec):
+                    current_idx = idx_az * dec + idx_dec
+                    if current_idx % 1000 == 0:
+                        print('decimating line: ' + str(current_idx))
+                    dec_pulse += self[:, current_idx]
+                arr_dec[:, idx_az] = dec_pulse
+            arr_dec = self.__array_wrap__(arr_dec)
+            arr_dec.GPRI_az_angle_step[0] = dec * self.GPRI_az_angle_step[0]
+            arr_dec.azimuth_line_time[0] = dec * self.azimuth_line_time[0]
+            arr_dec.prf[0] = self.prf[0] / dec
+        else:
+            arr_dec = self[:, ::dec]
+            arr_dec = self.__array_wrap__(arr_dec)
+        arr_dec /= dec
+        self.azimuth_looks = dec
+        arr_dec.azimuth_lines = arr_dec.shape[1]
         return arr_dec
 
     @property

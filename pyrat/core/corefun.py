@@ -405,29 +405,7 @@ def resample_geometry(slc, reference_slc):
     r_az = reference_slc.GPRI_az_angle_step[0] / slc.GPRI_az_angle_step[0]
 
 
-def decimate(slc, dec, mode='sum'):
-    if mode == 'sum':
-        arr_dec = _np.zeros((slc.shape[0], int(slc.shape[1] / dec)), dtype=_np.complex64)
-        for idx_az in range(arr_dec.shape[1]):
-            # Decimated pulse
-            dec_pulse = _np.zeros_like(slc[:, 0])
-            for idx_dec in range(dec):
-                current_idx = idx_az * dec + idx_dec
-                if current_idx % 1000 == 0:
-                    print('decimating line: ' + str(current_idx))
-                dec_pulse += slc[:, current_idx]
-            arr_dec[:, idx_az] = dec_pulse
-        arr_dec = slc.__array_wrap__(arr_dec)
-        arr_dec.GPRI_az_angle_step[0] = dec * slc.GPRI_az_angle_step[0]
-        arr_dec.azimuth_line_time[0] = dec * slc.azimuth_line_time[0]
-        arr_dec.prf[0] = slc.prf[0] / dec
-    else:
-        arr_dec = slc[:, ::dec]
-        arr_dec = slc.__array_wrap__(arr_dec)
-    arr_dec /= dec
 
-    arr_dec.azimuth_lines = arr_dec.shape[1]
-    return arr_dec
 
 
 def matrix_root(A):
