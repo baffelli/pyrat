@@ -267,7 +267,7 @@ def exp_im(im, k, sf):
     im_pwr = _np.abs(im)
     sc = _np.nanmean(im_pwr)
     # p, q = _np.percentile(im_pwr, [0, 99.9])
-    im_pwr = _np.clip( sf *im_pwr / sc, 0, sc)
+    im_pwr = _np.clip( sf * im_pwr / sc, 0, sc)
     im_pwr = scale_array((im_pwr) ** k)
     return im_pwr
 
