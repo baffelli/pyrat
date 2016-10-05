@@ -266,9 +266,9 @@ def exp_im(im, k, sf):
     """
     im_pwr = _np.abs(im)
     sc = _np.nanmean(im_pwr)
-    p, q = _np.percentile(im_pwr, [0, 99.9])
-    im_pwr = _np.clip(im_pwr, 0, q * sf)
-    im_pwr = scale_array((im_pwr / q) ** k)
+    # p, q = _np.percentile(im_pwr, [0, 99.9])
+    im_pwr = _np.clip( sf *im_pwr / sc, 0, sc)
+    im_pwr = scale_array((im_pwr) ** k)
     return im_pwr
 
 
@@ -441,29 +441,52 @@ class gammaNormalize(_col.Normalize):
         return ((value - self.vmin) / (self.vmax - self.vmin)) ** self.gamma
 
 
-def circular_palette(N=24, repeat=False):
-    radius = 38  # chroma
+def circular_palette(N=24, repeat=False, radius=40, lum=70):
+    """
+    Produces an equiluminant, circular list of colors to be used as a paletted
+    for phase visualization.
+    Parameters
+    ----------
+    N : int
+        Number of steps in the palette
+    repeat : bool
+        If set, the palette is repeated, useful for data between -90 and 90
+    radius : float
+        The radius of the circle in the LAB colorspace, controls the amount of saturation
+    lum
+
+    Returns
+    -------
+    a rgb list representing the palet
+
+    """
     if not repeat:
         theta = _np.linspace(0, 2 * _np.pi, N)
     else:
         theta = _np.linspace(0, 2 * _np.pi, N / 2)
-    a = radius * _np.cos(theta)
+    a = 2 * radius * _np.cos(theta)
     b = radius * _np.sin(theta)
-    L = _np.ones(a.shape) * 70
+    L = _np.ones(a.shape) * lum #Equiluminant
     LAB = _np.dstack((L, a, b))
     rgb = color.lab2rgb(LAB[::-1, :]).squeeze()
     if repeat:
         rgb = _np.vstack((rgb, rgb))
+    rgb = _mpl.colors.ListedColormap(rgb, name='circular_phase', N=N)
     return rgb
 
 
-def dismph(data, min_val=-180, max_val=180, k=0.5, N=24, sf=1, repeat=False, coherence=False, black_background=True):
-    colors_hue = circular_palette(N, repeat=repeat)
-    pal = _mpl.colors.LinearSegmentedColormap. \
-        from_list('subs_colors', colors_hue, N=N)
+def dismph_palette(data, N=20,**kwargs):
+    ampl, phase = [_np.linspace(_np.nanmin(fun(data)), _np.nanmax(fun(data)), N) for fun in [_np.abs, _np.angle]]
+    aa, pp = _np.meshgrid(ampl, phase)
+    rgb, pal, norm = dismph(aa * _np.exp(1j * pp), **kwargs)
+    ext = [ ampl.min(), ampl.max(),phase.min(), phase.max(), ]
+    return rgb, ext
+
+def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, N=24, sf=1, repeat=False, coherence=False, black_background=True):
+    pal = circular_palette(N, repeat=repeat)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     # Extract amplitude and phase
-    ang = scale_array(_np.rad2deg(_np.angle(data)), min_val=min_val, max_val=max_val)
+    ang = scale_array(_np.angle(data), min_val=min_val, max_val=max_val)
     ampl = exp_im(_np.abs(data), k, sf)
     # Convert angle to colors
     rgb = pal(ang)
