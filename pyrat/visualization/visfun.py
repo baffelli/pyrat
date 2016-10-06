@@ -246,7 +246,7 @@ def stretch_contrast(im, tv=5, ma=95):
     return im1
 
 
-def exp_im(im, k, sf):
+def exp_im(im, k, sf, peak=False):
     """
     Converts an image to the 0-1 range using an
     exponential scaling
@@ -265,10 +265,11 @@ def exp_im(im, k, sf):
         The scaled image.
     """
     im_pwr = _np.abs(im)
-    sc = _np.nanmean(im_pwr)
+    sc = _np.nanmean(im_pwr) if not peak else _np.nanmax(im_pwr)
+
     # p, q = _np.percentile(im_pwr, [0, 99.9])
-    im_pwr = _np.clip( sf * im_pwr / sc, 0, sc)
-    im_pwr = scale_array((im_pwr) ** k)
+    im_pwr = _np.clip( sf * (im_pwr**k) * sc**k, 0, sf * sc**k)
+    im_pwr = scale_array((im_pwr))
     return im_pwr
 
 
@@ -329,7 +330,7 @@ def auto_heading(S, pixel_coord, geo_coord):
     return pixel_az - geo_heading
 
 
-def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf=1):
+def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf=1, perc=[5,99.5], peak=False):
     """
         This function produces a rgb image from a scattering vector.
         
@@ -349,9 +350,11 @@ def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf=1):
         RGB = _np.zeros(data_diagonal.shape)
         # min_p, max_p = _np.percentile(data_diagonal, q)
         for chan in [0, 1, 2]:
-            clipped = _np.clip(data_diagonal[:, :, chan], 0, sf * _np.nanmax(data_diagonal[:,:, chan]))
-            gamma_scaled = clipped ** k
-            RGB[:, :, chan] = scale_array(gamma_scaled)
+            current_channel = data_diagonal[:, :, chan]
+            if perc is not None:
+                perc_res =  _np.percentile(current_channel, [perc[0], perc[1]])
+                current_channel = _np.clip(current_channel, perc_res[0], perc_res[1])
+            RGB[:, :, chan] = exp_im(current_channel, k, sf, peak=peak)
         out = RGB
     else:
         span = _np.sum(scattering_vector, axis=2)
@@ -482,12 +485,12 @@ def dismph_palette(data, N=20,**kwargs):
     ext = [ ampl.min(), ampl.max(),phase.min(), phase.max(), ]
     return rgb, ext
 
-def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, N=24, sf=1, repeat=False, coherence=False, black_background=True):
+def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, peak=False, N=24, sf=1, repeat=False, coherence=False, black_background=True):
     pal = circular_palette(N, repeat=repeat)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     # Extract amplitude and phase
     ang = scale_array(_np.angle(data), min_val=min_val, max_val=max_val)
-    ampl = exp_im(_np.abs(data), k, sf)
+    ampl = exp_im(_np.abs(data), k, sf, peak=peak)
     # Convert angle to colors
     rgb = pal(ang)
     # #Extract the hsv parameters
