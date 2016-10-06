@@ -55,7 +55,8 @@ def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=Tru
     # Find the maxium in search window
     max_r, max_az = corefun.maximum_around(_np.abs(slc), [ridx, azidx], sw)
     #Determine analysis window
-    reflector_slice = slc[max_r, slice(max_az - aw/2, max_az + aw/2)]
+    max_slice = corefun.window_idx(slc, (max_r, max_az), (1, aw))
+    reflector_slice = slc[max_slice].squeeze()
     max_pwr = _np.max(_np.abs(reflector_slice))
     # Determine half power beamwidth
     half_pwr_idx = _np.nonzero(_np.abs(reflector_slice)**2 > max_pwr**2 * 0.5)
