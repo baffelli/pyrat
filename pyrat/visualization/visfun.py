@@ -259,17 +259,19 @@ def exp_im(im, k, sf, peak=False):
         The scaling exponent
     sf : dobule
         The relative scale factor
+    peak : bool
+        If set to true, data is scaled relative to the peak
     Returns
     -------
     ndarray
         The scaled image.
     """
-    im_pwr = _np.abs(im)
-    sc = _np.nanmean(im_pwr) if not peak else _np.nanmax(im_pwr)
-
-    # p, q = _np.percentile(im_pwr, [0, 99.9])
-    im_pwr = _np.clip( sf * (im_pwr**k) * sc**k, 0, sf * sc**k)
-    im_pwr = scale_array((im_pwr))
+    im_pwr = _np.abs(im)**2
+    if peak:#divide by the peak
+        sc = _np.nanmax(im_pwr)
+    else:#search reference region
+        sc= _np.nanmean(im_pwr)
+    im_pwr = _np.clip(sf * (im_pwr ** k) / (sc**k),0,1)
     return im_pwr
 
 
@@ -330,7 +332,7 @@ def auto_heading(S, pixel_coord, geo_coord):
     return pixel_az - geo_heading
 
 
-def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf=1, perc=[5,99.5], peak=False):
+def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf=1, peak=False, common=True):
     """
         This function produces a rgb image from a scattering vector.
         
@@ -340,21 +342,26 @@ def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf=1, perc=[5,99.5], p
             the scattering vector to be represented.
         normalized : bool
             set to true for the relative rgb image, where each channel is normalized by the sum.
-        log : bool
-            set to True to display the channels in logarithmic form.
+        k   : float
+            exponent for nonlinear scaling
+        sf : float
+            scaling factor for nonlinear scaling
+        scaling: str
+            either "common" for scaling relative to the common mean, 'single' for independent scaling or 'peak' for scaling
+            relative to each channels peak
         """
     if not normalized:
         data_diagonal = _np.abs(scattering_vector)
         # Compute the percentiles for all the channels
-        q = [10, 99.99]
         RGB = _np.zeros(data_diagonal.shape)
-        # min_p, max_p = _np.percentile(data_diagonal, q)
-        for chan in [0, 1, 2]:
-            current_channel = data_diagonal[:, :, chan]
-            if perc is not None:
-                perc_res =  _np.percentile(current_channel, [perc[0], perc[1]])
-                current_channel = _np.clip(current_channel, perc_res[0], perc_res[1])
-            RGB[:, :, chan] = exp_im(current_channel, k, sf, peak=peak)
+        #Reference region
+        #
+        if common:
+            RGB = exp_im(data_diagonal, k, sf, peak=peak)
+        else:
+            for chan in [0, 1, 2]:
+                RGB[:,:,chan] = exp_im(data_diagonal[:,:,chan], k, sf, peak=peak)
+
         out = RGB
     else:
         span = _np.sum(scattering_vector, axis=2)

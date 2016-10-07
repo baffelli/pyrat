@@ -17,10 +17,10 @@ def gpi(input_mat, basis='pauli', **kwargs):
     if type(input_mat) is scatteringMatrix:
         k = _np.abs(input_mat.scattering_vector(basis=basis))[:, :, [1, 2, 0]]
     else:
-        if input_mat.basis is 'pauli':
-            k = _np.diagonal(input_mat, axis1=2, axis2=3)[:, :, [1, 2, 0]]
+        if input_mat.basis is 'pauli':#in case of coherency matrix, we take the square root because exp_im takes case of the squaring
+            k = _np.diagonal(input_mat, axis1=2, axis2=3)[:, :, [1, 2, 0]]**0.5
         else:
-            k = _np.diagonal(input_mat, axis1=2, axis2=3)
+            k = _np.diagonal(input_mat, axis1=2, axis2=3)**0.5
             if input_mat.shape[-1] == 4:
                 k = k[:, :, [0, 1, 3]]
     im = visfun.pauli_rgb(k, **kwargs)

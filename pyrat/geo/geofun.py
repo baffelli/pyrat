@@ -2,7 +2,7 @@ from collections import OrderedDict as _od
 
 import numpy as _np
 from osgeo import osr as _osr, gdal
-from pyrat.visualization.visfun import bilinear_interpolate
+from pyrat.visualization.visfun import bilinear_interpolate, scale_array
 
 from ..fileutils import gpri_files as _gpf
 
@@ -620,6 +620,18 @@ def read_coordinate_extent(ds, coords, interp=None):
     else:
         return interp(RAS, px, py)
 
+def direct_lut(image, pixel_size):
+    r_vec = image.r_vec
+    az_vec = _np.deg2rad(image.az_vec)
+    #Compute inverse LUT (radar coordinate -> image coordinates)
+    rr, zz = _np.meshgrid(r_vec, az_vec,  indexing='xy')
+    xx = (rr * _np.cos(zz))
+    yy = (rr * _np.sin(zz))
+    #xx and yy contain Coordinates in image space (in meters!) that correspond to each radar pixel
+    #we need to convert it into pixels
+    xx = (xx - xx.min()) / pixel_size
+    yy = (yy - yy.min()) / pixel_size
+    return xx + 1j * yy
 
 def geocode_image(image, pixel_size, *args):
     """
@@ -657,21 +669,24 @@ def geocode_image(image, pixel_size, *args):
     az_step = _np.abs(az_vec[1] - az_vec[0])
     r_step = _np.abs(r_vec[1] - r_vec[0])
     # Compute desired grid
-    az_vec_1 = _np.linspace(az_min, az_max, 10)
-    r_vec_1 = _np.linspace(r_min, r_max, 10)
+    az_vec_1 = _np.linspace(az_min, az_max, num=3)
+    r_vec_1 = _np.linspace(r_min, r_max, num=3)
     bound_grid = _np.meshgrid(az_vec_1, r_vec_1)
     x = bound_grid[1] * _np.cos(bound_grid[0])
     y = bound_grid[1] * _np.sin(bound_grid[0])
+    #Determine bounds
     y_vec = (y.min(), y.max())
     x_vec = (x.min(), x.max())
     y_vec = _np.arange(y_vec[0], y_vec[1], pixel_size)
     x_vec = _np.arange(x_vec[0], x_vec[1], pixel_size)
+    #Grid of desired pixels
     desired_grid = _np.meshgrid(x_vec, y_vec, indexing='xy')
     desired_r = _np.sqrt(desired_grid[0] ** 2 + desired_grid[1] ** 2)
     desired_az = _np.arctan2(desired_grid[1], desired_grid[0])
     # Convert desired grid to indices
     az_idx = ((desired_az - az_min) / _np.double(az_step))
     r_idx = ((desired_r - r_min) / _np.double(r_step))
+    #clip the elments outisde of range and azimuth
     r_idx = _np.clip(r_idx, 0, image.shape[0] - 1)
     az_idx = _np.clip(az_idx, 0, image.shape[1] - 1)
     az_idx = az_idx.astype(_np.float)
@@ -681,8 +696,16 @@ def geocode_image(image, pixel_size, *args):
     gc[r_idx.astype(_np.long) == image.shape[0] - 1] = _np.nan
     gc[az_idx.astype(_np.long) == 0] = _np.nan
     gc[r_idx.astype(_np.long) == 0] = _np.nan
-
-    return gc, x_vec, y_vec, r_idx + 1j * az_idx
+    LUT = r_idx + 1j * az_idx
+    #Compute inverse LUT (radar coordinate -> image coordinates)
+    rr, zz = _np.meshgrid(r_vec, az_vec,  indexing='ij')
+    xx = (rr * _np.cos(zz))
+    yy = (rr * _np.sin(zz))
+    #xx and yy contain Coordinates in image space (in meters!) that correspond to each radar pixel
+    #we need to convert it into pixels
+    xx = (xx - xx.min()) / pixel_size
+    yy = (yy - yy.min()) / pixel_size
+    return gc, x_vec, y_vec, LUT, xx + 1j * yy
 
 
 def invert_lut(lut):
