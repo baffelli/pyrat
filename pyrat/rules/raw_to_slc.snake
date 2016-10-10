@@ -36,8 +36,8 @@ ruleorder: extract_channel > range_compression
 ruleorder: copy_raw_from_server_to_data_disk_working > copy_raw_from_server_to_data_disk
 rule copy_raw_from_server_to_data_disk:
     input:
-        raw = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/unique_data/{project_name}/raw/{date}_{time}.raw"),
-        raw_par = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/unique_data/{project_name}/raw/{date}_{time}.raw_par")
+        raw = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/unique_data/{project_name}/raw/{date}_{time}.raw", static=True),
+        raw_par = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/unique_data/{project_name}/raw/{date}_{time}.raw_par", static=True)
     output:
         raw = "/data/{project_name}/raw/{date}_{time}.raw",
         raw_par = "/data/{project_name}/raw/{date}_{time}.raw_par"
@@ -49,8 +49,8 @@ rule copy_raw_from_server_to_data_disk:
 
 rule copy_raw_from_server_to_data_disk_working:
     input:
-        raw = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/working/{project_name}/raw/{date}_{time}.raw"),
-        raw_par = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/working/{project_name}/raw/{date}_{time}.raw_par")
+        raw = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/working/{project_name}/raw/{date}_{time}.raw", static=True),
+        raw_par = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/working/{project_name}/raw/{date}_{time}.raw_par",static=True)
     output:
         raw = "/data/{project_name}/raw/{date}_{time}.raw",
         raw_par = "/data/{project_name}/raw/{date}_{time}.raw_par"
