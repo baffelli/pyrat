@@ -60,6 +60,8 @@ rule copy_raw_from_server_to_data_disk_working:
         cp {input.raw_par} {output.raw_par}
        """
 
+
+
 ##############################################################################
 # This rule links the raw data to the local working directory for a nicer folder structure
 rule link_data_to_working_directory:
