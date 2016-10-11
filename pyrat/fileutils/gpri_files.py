@@ -320,7 +320,7 @@ class gammaDataset(_np.ndarray):
                 arr_dec[:, idx_az] = dec_pulse
         else:
             arr_dec = self[:, ::dec]
-            arr_dec = self.__array_wrap__(arr_dec)
+        arr_dec = self.__array_wrap__(arr_dec)
         arr_dec /= dec
         arr_dec.GPRI_az_angle_step[0] = dec * self.GPRI_az_angle_step[0]
         arr_dec.azimuth_line_time[0] = dec * self.azimuth_line_time[0]
@@ -439,7 +439,7 @@ def get_width(par_path):
     for name_string in ["width", "range_samples", "CHP_num_samp", "number_of_nonzero_range_pixels_1",
                         "interferogram_width"]:
         try:
-            width = par_dict[name_string]
+            width = int(par_dict[name_string])
         except:
             pass
         else:
@@ -481,9 +481,9 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
     # Get itemsize
     itemsize = dtype.itemsize
     # Compute the number of lines
-    nlines = filesize / (itemsize * width)
+    nlines = int(filesize) // int(itemsize * width)
     # Shape of binary
-    shape = (width, nlines)
+    shape = (int(width), nlines)
     # load binary
     if memmap:
         with open(bin_file, 'rb') as mmp:
@@ -808,7 +808,8 @@ class rawData(_np.ndarray):
 
     @property
     def ang_per_tcycle(self):
-        return self.tcycle * self.TSC_rotation_speed
+        sign = -1 if self.grp.antenna_end < self.grp.antenna_start else 1
+        return self.tcycle * self.TSC_rotation_speed * sign
 
     @property
     def capture_time(self):
@@ -950,7 +951,7 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     squint_vec = squint_function(raw_channel.freqvec, squint_rate)
     squint_vec = squint_vec / raw_channel.ang_per_tcycle
     squint_vec = squint_vec - squint_vec[
-        raw_channel.freqvec.shape[0] / 2]  # In addition, we correct for the beam motion during the chirp
+        raw_channel.freqvec.shape[0] // 2]  # In addition, we correct for the beam motion during the chirp
     rotation_squint = _np.linspace(0, raw_channel.tcycle,
                                    raw_channel.nsamp) * raw_channel.TSC_rotation_speed / raw_channel.ang_per_tcycle
     # Normal angle vector
@@ -971,28 +972,49 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
 
 
 def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9):
+    """
+    This function corrects the frequency-dependent antenna squint in a range compressed SLC dataset.
+    Parameters
+    ----------
+    SLC : pyrat.fileutils.gpri_files.gammaDataset
+        The dataset to correct
+    squint_function : function
+        A function that takes the frequency vector in Hz and returns the squint offset in degrees
+    squint_rate : float
+        The linear squint rate for the case when `squint_function` is set to `linear_squint`
+
+    Returns
+    -------
+    pyrat.fileutils.gpri_files.gammaDataset
+
+    """
+    import matplotlib.pyplot as plt
     SLC_corr = SLC * 1
-    rawdata = _np.zeros((SLC.shape[0] / 2 - 1, SLC.shape[1]))
-    rawdata_corr = rawdata * 1
+    rawdata = _np.zeros((SLC.shape[0] * 2 -1  , SLC.shape[1]),dtype=_np.int16)
+    # rawdata_corr = rawdata * 1
+    shift = _np.ones(SLC.shape[0])
+    shift[1::2] = -1
     # Convert the data into raw samples
-    for idx_line in range(SLC.shape[1]):
-        rawdata[:, idx_line] = _np.fft.irfft(SLC[:, idx_line])
+    # for idx_line in range(SLC.shape[1]):
+    rawdata = _np.fft.irfft(SLC[:, :] * shift[:,None],axis=0,) * TSF
+    rawdata_corr = rawdata * 1
     # Now correct the squint
-    freqvec = SLC.radar_frequency[0] + _np.linspace(-SLC.chirp_bandwidth[0] / 2, -SLC.chirp_bandwidth[0] / 2,
+    freqvec = SLC.radar_frequency[0] + _np.linspace(-SLC.chirp_bandwidth[0] / 2, SLC.chirp_bandwidth[0] / 2,
                                                     rawdata.shape[0])
     squint_vec = squint_function(freqvec, squint_rate)
     squint_vec = squint_vec / SLC.GPRI_az_angle_step[0]
     squint_vec = squint_vec - squint_vec[
-        freqvec.shape[0] / 2]  # In addition, we correct for the beam motion during the chirp
+        freqvec.shape[0] // 2]  # In addition, we correct for the beam motion during the chirp
     # Normal angle vector
     angle_vec = _np.arange(SLC.shape[1])
     # Correct by interpolation
+    #TODO investigate why needs to subtract squint instead of adding
     for idx_freq in range(rawdata.shape[0]):
-        az_new = angle_vec + squint_vec[idx_freq]
-        rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, SLC[idx_freq, :], left=0.0, right=0.0)
+        az_new = angle_vec - squint_vec[idx_freq]
+        rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, rawdata[idx_freq, :], left=0.0, right=0.0)
     # Now range compress again (this function is really boring
     for idx_line in range(SLC.shape[1]):
-        SLC_corr[:, idx_line] = _np.fft.rfft(rawdata_corr)
+        SLC_corr[:, idx_line] = _np.fft.rfft(rawdata_corr[:, idx_line])/ TSF *shift
     return SLC_corr
 
 

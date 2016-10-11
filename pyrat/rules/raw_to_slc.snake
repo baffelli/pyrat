@@ -61,19 +61,19 @@ rule copy_raw_from_server_to_data_disk_working:
        """
 
 
-
-##############################################################################
-# This rule links the raw data to the local working directory for a nicer folder structure
-rule link_data_to_working_directory:
-    input:
-        raw = "/data/{project_name}/raw/{{date}}_{{time}}.raw".format(project_name=config['project_name']),
-        raw_par = "/data/{project_name}/raw/{{date}}_{{time}}.raw_par".format(project_name=config['project_name']),
-    output:
-        raw = "raw/{date}_{time}.raw",
-        raw_par = "raw/{date}_{time}.raw_par",
-    run:
-        shell("ln -s {input.raw} {output.raw}")
-        shell("ln -s {input.raw}_par {output.raw_par}")
+if config['project_name']:
+    ##############################################################################
+    # This rule links the raw data to the local working directory for a nicer folder structure
+    rule link_data_to_working_directory:
+        input:
+            raw = "/data/{project_name}/raw/{{date}}_{{time}}.raw".format(project_name=config['project_name']),
+            raw_par = "/data/{project_name}/raw/{{date}}_{{time}}.raw_par".format(project_name=config['project_name']),
+        output:
+            raw = "raw/{date}_{time}.raw",
+            raw_par = "raw/{date}_{time}.raw_par",
+        run:
+            shell("ln -s {input.raw} {output.raw}")
+            shell("ln -s {input.raw}_par {output.raw_par}")
 
 
 
@@ -114,6 +114,7 @@ rule extract_channel:
 
 
 
+ruleorder: correct_squint_in_slc > correct_squint > range_compression
 ##############################################################################
 ## Correct squint
 rule correct_squint:
@@ -130,6 +131,7 @@ rule correct_squint:
 			raw_desq = gpf.correct_squint(raw, squint_rate=params.squint_rate)
 			raw_desq.tofile(output.corr_par, output.corr)
 
+ruleorder: correct_squint_in_slc > range_compression
 ##############################################################################
 ## Correct squint
 rule correct_squint_in_slc:
