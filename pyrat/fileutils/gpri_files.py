@@ -15,14 +15,16 @@ import re as _re
 import sys as _sys
 import tempfile as _tf
 from collections import OrderedDict as _od
-from collections import namedtuple as _nt
 
 import numpy as _np
 import scipy as _sp
 import scipy.signal as _sig
 from numpy.lib.stride_tricks import as_strided as _ast
 
-import yaml as _yaml
+
+import pandas as pd
+
+
 
 # Constants for gpri
 ra = 6378137.0000  # WGS-84 semi-major axis
@@ -35,10 +37,6 @@ KU_DZ_ALT = 10.3e-3  # Ku-Band Waveguide slot spacing
 RANGE_OFFSET = 3
 xoff = 0.112  # 140mm X offset to the antenna holder rotation axis
 ant_radius = 0.1115  # 99.2mm radial arm length. This is the rotation radius of the antenna holder
-# Z coordinates of antennas W.R.T the bottommost antenna, up is +Z
-# tx_dz = {'A': 0.85, 'B': 0.725}
-# rx1_dz = {'A': 0.375, 'B': 0.25}
-# rx2_dz = {'A': 0.125, 'B': 0}
 # Scaling factor short integer <-> float
 TSF = 32768
 
@@ -206,11 +204,9 @@ class gammaDataset(_np.ndarray):
                 dtype = kwargs.get('dtype', None)
                 image, par_dict = load_dataset(par_path, bin_path, memmap=memmap, dtype=dtype)
             except Exception as e:
-                print(e)
                 Exception("Input parameters format unrecognized ")
         else:#user passes binary and dictionary
             pass
-        print(image)
         obj = image.view(cls)
         d1 = _cp.deepcopy(par_dict)
         obj.__dict__ = d1
@@ -240,7 +236,6 @@ class gammaDataset(_np.ndarray):
         except (KeyError, TypeError):
             sl = item
 
-        # TODO Fix spacing
         # Get the slice from the object by calling the corresponding numpy function
         new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).view(type(self))
         #This concludes the part where we extract data from the array.
@@ -290,6 +285,8 @@ class gammaDataset(_np.ndarray):
         # In this case, we only want to write the binary
         else:
             _np.array(self).tofile(args[1])
+
+
 
     def __setitem__(self, key, value):
         # Construct indices
@@ -773,7 +770,6 @@ class rawData(_np.ndarray):
             chan.TSC_acc_ramp_time = self.TSC_acc_ramp_time / self.npats
             chan.TX_mode = None
             chan.TX_RX_SEQ = pat + ant
-            print(chan.shape)
             return chan
         else:
             raise IndexError('This dataset only has one channel')
@@ -781,7 +777,6 @@ class rawData(_np.ndarray):
     def channel_index(self, pat, ant):
         chan_list = self.TX_RX_SEQ.split('-')
         chan_idx = chan_list.index(pat)
-        print(ant)
         return [ant_map[ant], chan_idx]
 
     # All proprerties that depend directly or indirectly on the number of patterns
