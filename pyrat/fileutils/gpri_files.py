@@ -805,7 +805,7 @@ class rawData(_np.ndarray):
 
     @property
     def ang_per_tcycle(self):
-        sign = -1 if self.grp.antenna_end < self.grp.antenna_start else 1
+        sign = -1 if self.STP_antenna_end < self.STP_antenna_start else 1
         return self.tcycle * self.TSC_rotation_speed * sign
 
     @property

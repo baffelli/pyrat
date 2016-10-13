@@ -16,20 +16,6 @@ slc_regex = "(\d{8})_(\d{6})((_[A-B]{3}[l-u]))?"
 #ruleorder: range_compression > coregister_channels
 ruleorder: extract_channel > range_compression
 
-##############################################################################
-## This rule copys the raw data from the server
-#rule copy_raw:
-#    input:
-#        raw = "/data/{location}/{date}/raw/{date}_{time}.raw"
-#    output:
-#        raw = "raw/{location}_{date}_{time}.raw",
-#        raw_par = "raw/{location}_{date}_{time}.raw_par",
-#    shell:
-#        """
-#            echo {input.raw}
-#            ln -s {input.raw} {output.raw}
-#            ln -s {input.raw}'_par' {output.raw_par}
-#        """
 
 ##############################################################################
 # This rule copys the raw data from the storage server on the local disk
@@ -114,7 +100,6 @@ rule extract_channel:
 
 
 
-ruleorder: correct_squint_in_slc > correct_squint > range_compression
 ##############################################################################
 ## Correct squint
 rule correct_squint:
@@ -131,22 +116,8 @@ rule correct_squint:
 			raw_desq = gpf.correct_squint(raw, squint_rate=params.squint_rate)
 			raw_desq.tofile(output.corr_par, output.corr)
 
-ruleorder: correct_squint_in_slc > range_compression
-##############################################################################
-## Correct squint
-rule correct_squint_in_slc:
-		input:
-			slc = "slc_chan/{dataname}_{chan,[A-B]{3}}{rx}.slc",
-			slc_par = "slc_chan/{dataname}_{chan,[A-B]{3}}{rx}.slc.par",
-		output:
-			corr =  "slc_desq/{dataname}_{chan,[A-B]{3}}{rx}.slc",
-			corr_par = "slc_desq/{dataname}_{chan,[A-B]{3}}{rx}.slc.par"
-		params:
-			squint_rate = lambda wildcards: config["desquint"]["{chan}_squint_rate".format(chan=wildcards.chan)],
-		run:
-			slc = gpf.gammaDataset(input.slc_par, input.slc)
-			raw_desq = gpf.correct_squint_in_SLC(slc, squint_rate=params.squint_rate)
-			slc.tofile(output.corr_par, output.corr)
+
+
 
 
 
@@ -168,48 +139,6 @@ rule range_compression:
         slc.tofile(output.slc_par, output.slc)
 
 
-
-###############################################################################
-### Coregister squint-corrected channels
-#rule coregister_channels:
-#    input:
-#        slave_slc = 'slc_desq/{dataname}_{chan}.slc',
-#        master_slc = 'slc_desq/{dataname}_AAAl.slc',
-#        slave_slc_par = 'slc_desq/{dataname}_{chan}.slc.par',
-#        master_slc_par = 'slc_desq/{dataname}_AAAl.slc.par',
-#    output:
-#        coreg_slave_slc = 'slc_coreg/{dataname}_{chan}.slc',
-#        coreg_slave_slc_par = 'slc_coreg/{dataname}_{chan}.slc.par',
-#        offs = "diff/{dataname}_AAA_{chan}.offs",
-#        snr = "diff/{dataname}_AAAL_{chan}.ccp",
-#        shift_par = "diff/{dataname}_AAAL_{chan}.off_par",
-#    params:
-#        rlks=config["coregistration"]["rlks"],
-#        azlks=config["coregistration"]["azlks"],
-#        patch=config["coregistration"]["patch"],
-#        rwin=config["coregistration"]["rwin"],
-#        azwin=config["coregistration"]["azwin"],
-#        rpos=config["coregistration"]["rpos"],
-#        azpos=config["coregistration"]["azpos"],
-#    log:
-#        "logs/{dataname}_AAAl_{chan}_coreg.log"
-#    run:
-#        shell("> {log}")
-#        #Create offset parameters
-#        diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {params.rlks} {params.azlks} 0"
-#        shell(diff_cmd)
-#        #Initial offset estimate
-#        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks} {params.azlks} - - 0 0 0.1 256 512 1  "
-#        shell(init_offset_cmd)
-#        #Compute offset field
-#        offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {params.rwin} {params.azwin} - - 50 50 0.15 "
-#        shell(offset_cmd)
-#        #Fit offset polynomial
-#        fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
-#        shell(fit_cmd)
-#        #Resample
-#        interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
-#        shell(interp_cmd)
 
 
 ###############################################################################
@@ -281,51 +210,7 @@ rule correct_polarimetric_shift:
 
 
 
-###############################################################################
-### Coregister squint-corrected channels to the HH channel
-#rule polarimetric_coregistration:
-#    input:
-#        slave_slc = 'slc_desq/{slcname}_{chan}.slc',
-#        master_slc = 'slc_desq/{slcname}_AAAl.slc',
-#        slave_slc_par = 'slc_desq/{slcname}_{chan}.slc.par',
-#        master_slc_par = 'slc_desq/{slcname}_AAAl.slc.par',
-#    output:
-#        #add a postfix to the coregistered files
-#        coreg_slave_slc = 'slc_coreg{temp,.*}/{slcname}_{chan}.slc',
-#        coreg_slave_slc_par = 'slc_coreg{temp,.*}/{slcname}_{chan}.slc.par',
-#        offs = "diff{temp,.*}/{slcname}_AAAl_{chan}.offs",
-#        snr =  "diff{temp,.*}/{slcname}_AAAl_{chan}.ccp",
-#        shift_par = "diff{temp,.*}/{slcname}_AAAl_{chan}.off_par"
-#    params:
-#        rlks=1,
-#        azlks=1,
-#        rlks_init=1,
-#        azlks_init=5,
-#        rwin_init=512,
-#        azwin_init=512,
-#        rwin=16,
-#        azwin=32,
-#        noff_r=10,
-#        noff_az=10,
-#    log:
-#        "logs/{slcname}_coreg.log"
-#    run:
-#        shell("> {log}")
-#        #Create offset parameters
-#        diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {params.rlks} {params.azlks} 0"
-#        shell(diff_cmd)
-#        #Initial offset estimate
-#        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks_init} {params.azlks_init} - - 0 10 0.1 {params.rwin_init} {params.azwin_init} 1"
-#        shell(init_offset_cmd)
-#        #Compute offset field
-#        offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {params.rwin} {params.azwin} - - {params.noff_r} {params.noff_az} 0.15 "
-#        shell(offset_cmd)
-##        #Fit offset polynomial
-#        fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
-#        shell(fit_cmd)
-#        #Resample
-#        interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
-#        shell(interp_cmd)
+
 
 
 if 'master_slc' in config:
@@ -348,47 +233,6 @@ if 'master_slc' in config:
             shell(interp_cmd)
 
 
-###############################################################################
-### Coregister squint-corrected channels to the HH channel
-
-
-##Coregister all channels to a common master (useful to analyze a sequence)
-#rule coregister_to_master:
-#    input:
-#        slave_slc = "slc_coreg/{slavename}.slc_dec",
-#        master_slc = "slc_coreg/{mastername}.slc_dec",
-#        slave_slc_par = "slc_coreg}/{slavename}.slc_dec.par",
-#        master_slc_par = "slc_coreg/{mastername}.slc_dec.par"
-#    output:
-#        coreg_slave_slc = "coregistered_to_{mastername}/slc_coreg/{slavename}.slc_dec",
-#        coreg_slave_slc_par = "coregistered_to_{mastername}/slc_coreg/{slavename}.slc_dec.par",
-#        offs = "coregistered_to_{mastername}/diff/{mastername}_{slavename}.offs",
-#        snr = "coregistered_to_{mastername}/diff/{mastername}_{slavename}.ccp",
-#        shift_par = "coregistered_to_{mastername}/diff/{mastername}_{slavename}.off_par"
-#    params:
-#        rlks=config["coregistration"]["rlks"],
-#        azlks=config["coregistration"]["azlks"],
-#        patch=config["coregistration"]["patch"],
-#        rwin=config["coregistration"]["rwin"],
-#        azwin=config["coregistration"]["azwin"],
-#        rpos=config["coregistration"]["rpos"],
-#        azpos=config["coregistration"]["azpos"],
-#    run:
-#        #Create offset parameters
-#        diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {params.rlks} {params.azlks} 0"
-#        shell(diff_cmd)
-#        #Initial offset estimate
-#        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks} {params.azlks} - - 0 0 0.1 256 512 1  "
-#        shell(init_offset_cmd)
-#        #Compute offset field
-#        offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {params.rwin} {params.azwin} - - 50 50 0.15 "
-#        shell(offset_cmd)
-#        #Fit offset polynomial
-#        fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 3 0"
-#        shell(fit_cmd)
-#        #Resample
-#        interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
-#        shell(interp_cmd)
 
 
 
