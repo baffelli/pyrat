@@ -366,6 +366,7 @@ def pauli_rgb(scattering_vector, normalized=False, k=0.3, sf=1, peak=False, comm
     else:
         span = _np.sum(scattering_vector, axis=2)
         out = _np.abs(scattering_vector / span[:, :, None])
+        out = _np.ma.masked_where(_np.isnan(out), out)
     return out
 
 
