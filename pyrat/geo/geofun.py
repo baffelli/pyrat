@@ -669,8 +669,8 @@ def geocode_image(image, pixel_size, *args):
     az_step = _np.abs(az_vec[1] - az_vec[0])
     r_step = _np.abs(r_vec[1] - r_vec[0])
     # Compute desired grid
-    az_vec_1 = _np.linspace(az_min, az_max, num=3)
-    r_vec_1 = _np.linspace(r_min, r_max, num=3)
+    az_vec_1 = _np.linspace(az_min, az_max, num=8)
+    r_vec_1 = _np.linspace(r_min, r_max, num=8)
     bound_grid = _np.meshgrid(az_vec_1, r_vec_1)
     x = bound_grid[1] * _np.cos(bound_grid[0])
     y = bound_grid[1] * _np.sin(bound_grid[0])
@@ -708,14 +708,14 @@ def geocode_image(image, pixel_size, *args):
     return gc, x_vec, y_vec, LUT, xx + 1j * yy
 
 
-def invert_lut(lut):
-    lut_inverse = _np.zeros((_np.nanmax(lut.real), _np.nanmax(lut.imag)),dtype=_np.complex64)
-    ii, jj = _np.meshgrid(*[_np.arange(0, lut.shape[i]) for i in range(2)], indexing='ij')
-    lut_inverse = bilinear_interpolate(ii + 1j * jj, lut.imag, lut.real)
-    # lut_inverse[_np.clip(lut.real.astype(int), 0, lut_inverse.shape[0] - 1), _np.clip(lut.imag.astype(int), 0,
-    #                                                                                   lut_inverse.shape[
-    #                                                                                       1] - 1)] = ii + 1j * jj
-    return lut_inverse
+# def invert_lut(lut):
+#     lut_inverse = _np.zeros((_np.nanmax(lut.real), _np.nanmax(lut.imag)),dtype=_np.complex64)
+#     ii, jj = _np.meshgrid(*[_np.arange(0, lut.shape[i]) for i in range(2)], indexing='ij')
+#     lut_inverse = bilinear_interpolate(ii + 1j * jj, lut.imag, lut.real)
+#     # lut_inverse[_np.clip(lut.real.astype(int), 0, lut_inverse.shape[0] - 1), _np.clip(lut.imag.astype(int), 0,
+#     #                                                                                   lut_inverse.shape[
+#     #                                                                                       1] - 1)] = ii + 1j * jj
+#     return lut_inverse
 
 
 def shadow_map(u, lv_theta, inc):
