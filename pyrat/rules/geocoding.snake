@@ -16,7 +16,7 @@ def geocode_rule(input, output, log):
     par_dict = gpf.par_to_dict(input.reference_mli_par)
     nlines = dem_par_dict['nlines']
     filetype = gpf.gamma_datatype_code_from_extension(input.data)
-    cmd = "geocode_back  {{input.data}} {data_width} {{input.lut}} {{output.geocoded_file}} {out_width} 0 0 {dtype} >> {{log}}".format(data_width=data_width,
+    cmd = "geocode_back  {{input.data}} {data_width} {{input.lut}} {{output.geocoded_file}} {out_width} 0 1 {dtype} >> {{log}}".format(data_width=data_width,
     out_width=dem_width, nlines=nlines, dtype=filetype)
     shell(cmd)
 
@@ -47,7 +47,7 @@ rule geocoding_table:
     output:
         lut = "geo/{tablename}.gpri_to_dem",
         dem_seg = "geo/{tablename}.dem_seg",
-#        dem_seg_par = "geo/{tablename}.dem_seg.par",
+        dem_seg_par = "geo/{tablename}.dem_seg.par",
         sim_sar = "geo/{tablename}.sim_sar",
         lv_theta = "geo/{tablename}.lv_theta",
         lv_phi = "geo/{tablename}.lv_phi",
@@ -62,13 +62,14 @@ rule geocoding_table:
     params:
         lat_ovr = 1,
         lon_ovr = 1,
+        frame = 100,
     run:
         #Determine tiepoints
         scan_heading = config['geocoding']['scan_heading']
         ref_mli_par = gpf.par_to_dict(input.reference_mli_par)
         ref_mli_par['GPRI_scan_heading'] = scan_heading
         gpf.dict_to_par(ref_mli_par, input.reference_mli_par)
-        cmd = "gc_GPRI_map {input.reference_mli_par} {input.dem_par} {input.dem} {output.dem_seg_par} {output.dem_seg} {output.lut} {params.lat_ovr} {params.lon_ovr} {output.sim_sar} {output.lv_theta} {output.lv_phi} {output.u} {output.v} {output.inc} {output.psi} {output.pix} {output.ls_map} - > {log}"
+        cmd = "gc_GPRI_map {input.reference_mli_par} {input.dem_par} {input.dem} {output.dem_seg_par} {output.dem_seg} {output.lut} {params.lat_ovr} {params.lon_ovr} {output.sim_sar} {output.lv_theta} {output.lv_phi} {output.u} {output.v} {output.inc} {output.psi} {output.pix} {output.ls_map} {params.frame} > {log}"
         shell(cmd)
 
 
