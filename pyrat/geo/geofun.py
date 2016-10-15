@@ -707,6 +707,8 @@ def geocode_image(image, pixel_size, *args):
     yy = (yy - yy.min()) / pixel_size
     return gc, x_vec, y_vec, LUT, xx + 1j * yy
 
+# def interp_coordinate(LUT, coordinate):
+#         x1 = LUT[]
 
 # def invert_lut(lut):
 #     lut_inverse = _np.zeros((_np.nanmax(lut.real), _np.nanmax(lut.imag)),dtype=_np.complex64)

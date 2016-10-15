@@ -403,8 +403,8 @@ def synthetic_interferogram(S, DEM, B):
 
 def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
     """
-    This function computes the phase caused by a shifted
-    phase center in the antenna
+    This function computes the relative phase caused by a shifted
+    phase center in the antenna. The variation is computed relative to the slante of closest approach
     """
     lam = _gpf.C / 17.2e9
     r_ant = _np.sqrt(r_arm ** 2 + r_ph ** 2)
@@ -412,7 +412,7 @@ def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
     # Chord length
     c = r_ant + r_sl
     mixed_term = 2 * c * r_ant * _np.cos(theta + alpha)
-    dist = _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
+    dist = r_sl - _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
     if wrap is True:
         return _np.mod(-4 * _np.pi * dist / lam, 2 * _np.pi), dist
     else:
