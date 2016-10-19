@@ -96,7 +96,8 @@ def gamma_datatype_code_from_extension(filename):
                "sh_map": 3,
                "u": 0,
                "lv_theta": 0,
-               "bmp": 2}
+               "bmp": 2,
+                "tif":2,}
     for i in [0, 1, 2, 3]:
         for j in [0, 1, 2, 3]:
             mapping["c{i}{j}".format(i=i, j=j)] = 1  # covariance elements

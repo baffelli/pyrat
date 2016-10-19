@@ -164,13 +164,14 @@ def reproject_gt(gt_to_project, gt_reference):
     pixel_spacing_y = geo_t_ref[5]
     dest = mem_drv.Create('', int((lrx - ulx) / _np.abs(pixel_spacing_x)),
                           int((uly - lry) / _np.abs(pixel_spacing_y)), gt_to_project.RasterCount,
-                          numeric_dt_to_gdal_dt(gt_to_project.GetRasterBand(1).DataType))
+                          gt_to_project.GetRasterBand(1).DataType)
     dest.SetGeoTransform(new_geo)
     dest.SetProjection(gt_reference.GetProjection())
     res = gdal.ReprojectImage(gt_to_project, dest,
                               gt_to_project.GetProjection(), gt_reference.GetProjection(),
                               gdal.GRA_Bilinear)
     return dest
+
 
 
 def reproject_radar(S, S_ref):
@@ -557,15 +558,13 @@ def ly_sh_map(r_sl, ia):
     return ly, sh
 
 
-def coordinate_to_raster_index(gs, coordinate):
-    GT = gs.GetGeoTransform()
+def coordinate_to_raster_index(GT, coordinate):
     idx_x = _np.ceil((coordinate[0] - GT[0]) / GT[1])
     idx_y = _np.ceil((coordinate[1] - GT[3]) / GT[5])
     return idx_x, idx_y
 
 
-def raster_index_to_coordinate(gs, index):
-    GT = gs.GetGeoTransform()
+def raster_index_to_coordinate(GT, index):
     coord_x = index[0] * GT[1] + GT[0]
     coord_y = index[1] * GT[5] + GT[3]
     return coord_x, coord_y
@@ -707,17 +706,6 @@ def geocode_image(image, pixel_size, *args):
     yy = (yy - yy.min()) / pixel_size
     return gc, x_vec, y_vec, LUT, xx + 1j * yy
 
-# def interp_coordinate(LUT, coordinate):
-#         x1 = LUT[]
-
-# def invert_lut(lut):
-#     lut_inverse = _np.zeros((_np.nanmax(lut.real), _np.nanmax(lut.imag)),dtype=_np.complex64)
-#     ii, jj = _np.meshgrid(*[_np.arange(0, lut.shape[i]) for i in range(2)], indexing='ij')
-#     lut_inverse = bilinear_interpolate(ii + 1j * jj, lut.imag, lut.real)
-#     # lut_inverse[_np.clip(lut.real.astype(int), 0, lut_inverse.shape[0] - 1), _np.clip(lut.imag.astype(int), 0,
-#     #                                                                                   lut_inverse.shape[
-#     #                                                                                       1] - 1)] = ii + 1j * jj
-#     return lut_inverse
 
 
 def shadow_map(u, lv_theta, inc):
@@ -960,3 +948,66 @@ def geotif_to_dem(gt, par_path, bin_path):
     _gpf.dict_to_par(dem_dic, par_path)
     dem = DS.ReadAsArray()
     dem.astype(_gpf.type_mapping[dem_dic['data_format']]).tofile(bin_path)
+
+def get_geotransform(dem_par):
+    """
+    Return geotransfrom from dem_par dictionary
+    Parameters
+    ----------
+    dem_par
+
+    Returns
+    -------
+
+    """
+    return [dem_par['corner_east'][0], dem_par['post_east'][0], 0, dem_par['corner_north'][0],0 , dem_par['post_north'][0]]
+
+def geo_coord_to_dem_coord(coord, dem_par):
+    """
+    Convert a  geographical coordinates into
+    gamma DEM coordinates
+    Parameters
+    ----------
+    coord : array_like
+        coordinates in form
+    dem_par : dict or str
+        gamma DEM parameters
+    Returns
+    -------
+
+    """
+    try:
+        dem_par['width']
+    except AttributeError:
+        try:
+            dem_par = _gpf.par_to_dict(dem_par)
+        except FileNotFoundError:
+            FileNotFoundError('The file {dem_par} does not exist'.format(dem_par=dem_par))
+    x_DEM = coord[0] - dem_par['corner_east'][0] / dem_par['post_east'][0]
+    y_DEM = coord[1] - dem_par['corner_north'][0] / dem_par['post_north'][0]
+    return (x_DEM, y_DEM)
+
+
+def segment_geotif(gt, dem_par):
+    try:
+        dem_par['width']
+    except TypeError:
+        try:
+            dem_par = _gpf.par_to_dict(dem_par)
+        except FileNotFoundError:
+            FileNotFoundError('The file {dem_par} does not exist'.format(dem_par=dem_par))
+    DS = gdal.Open(gt)
+    seg_gt = get_geotransform(dem_par)
+    mem_drv = gdal.GetDriverByName('MEM')
+    # pixel_spacing_x = seg_gt[1]
+    # pixel_spacing_y = seg_gt[5]
+    dest = mem_drv.Create('', int(dem_par['width']), int(dem_par['nlines']), DS.RasterCount, DS.GetRasterBand(1).DataType)
+    dest.SetGeoTransform(seg_gt)
+    dest.SetProjection(DS.GetProjection())
+    res = gdal.ReprojectImage(DS, dest,
+                              DS.GetProjection(), DS.GetProjection(),
+                              gdal.GRA_Bilinear)
+    import matplotlib.pyplot as plt
+    plt.imshow(dest.ReadAsArray())
+    plt.show()
+    return dest

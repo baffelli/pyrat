@@ -6,6 +6,7 @@ Created on Wed Sep 24 11:25:00 2014
 """
 import numpy as np
 import scipy
+import scipy.ndimage as ndim
 
 # from .. import core.corefun
 
@@ -52,6 +53,14 @@ def patch_correlation(image1, image2, oversampling=4, block_size=(10, 10)):
             idx = B1.center_index(B1.current)
             shifts[idx[0], idx[1]] = sh[0] + 1j * sh[1]
         return shifts
+
+
+def hp_filter(ifgram, ws):
+    kernel = kernel = np.array([[-1, -1, -1],
+                   [-1,  8, -1],
+                   [-1, -1, -1]]) / 9
+    ifgram_filt = ndim.convolve(ifgram.real, kernel) + 1j * ndim.convolve(ifgram.imag, kernel)
+    return ifgram_filt
 
 
 def compute_baseline(slc1, slc2):

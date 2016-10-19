@@ -434,6 +434,9 @@ def window_idx(arr, idx, zs):
     return indices
 
 
+
+
+
 def maximum_around(arr, idx, ws):
     """
     Finds the maximum of an array around a given index for a given
