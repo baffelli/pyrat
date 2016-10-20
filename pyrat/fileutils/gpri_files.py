@@ -21,7 +21,9 @@ import scipy as _sp
 import scipy.signal as _sig
 from numpy.lib.stride_tricks import as_strided as _ast
 
+import datetime as _dt
 
+import warnings as _warn
 import pandas as pd
 
 
@@ -44,6 +46,9 @@ TSF = 32768
 # upper and lower channels and indices used to access them
 # raw file are interleaved, ch1, ch2, ch1, ch2
 ant_map = {'l': 0, 'u': 1}
+
+
+params_types = {'title':str, 'sensor':str, 'start_time':float, 'center_time':float}
 
 # This dict defines the mapping
 # between the gamma datasets and numpy
@@ -125,7 +130,6 @@ def gt_mapping_from_extension(filename):
     }
     extension = filename.split('.')[-1]
     extension = _re.sub("(_(f)*(gc))+", "", extension)
-    print(filename)
     return mapping[extension]
 
 
@@ -193,6 +197,12 @@ def load_plist(path):
     return plist
 
 
+def datetime_from_par_dict(par):
+    sod = _dt.timedelta(seconds=float(par['start_time'][0]))
+    date = _dt.datetime.strptime(par['title'][0], '%Y-%m-%d')
+    dto = date + sod
+    return  dto
+
 class gammaDataset(_np.ndarray):
     def __new__(cls, *args, **kwargs):
         par_dict = args[0]
@@ -212,6 +222,9 @@ class gammaDataset(_np.ndarray):
         d1 = _cp.deepcopy(par_dict)
         obj.__dict__ = d1
         return obj
+
+
+
 
     def __array_finalize__(self, obj):
         if obj is None: return
@@ -411,7 +424,7 @@ def par_to_dict(par_file):
                 split_array = line.replace('\n', '').split(':', 1)
                 if len(split_array) > 1:
                     key = split_array[0]
-                    if key == 'time_start':  # The utc time string should not be split
+                    if key == 'time_start' or key == 'date':  # The utc time string should not be split
                         l = split_array[1:]
                     else:
                         l = []
@@ -440,10 +453,11 @@ def get_width(par_path):
                         "interferogram_width"]:
         try:
             width = int(par_dict[name_string])
-        except:
+            return width
+        except KeyError:
             pass
         else:
-            break
+            KeyError('Did not find any keyword describing width of dataset')
     return width
 
 
@@ -481,7 +495,7 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
     # Get itemsize
     itemsize = dtype.itemsize
     # Compute the number of lines
-    nlines = int(filesize) // int(itemsize * width)
+    nlines = int(filesize) // (itemsize * width)
     # Shape of binary
     shape = (int(width), nlines)
     # load binary
@@ -507,30 +521,13 @@ def load_dataset(par_file, bin_file, **kwargs):
                 dt = type_mapping[par_dict['data_format']]
             except:
                 dt = type_mapping['FLOAT']
-                print(str(KeyError(
-                    "This file does not contain datatype specification in a known format, using default FLOAT datatype")))
+                _warn.warn("This file does not contain datatype specification in a known format, using default FLOAT datatype")
     else:
         try:
             dt = dtype
         except KeyError:
             raise TypeError('This datatype does not exist')
-    try:
-        width = par_dict['range_samples']
-    except:
-        # We dont have a SAR image,
-        # try as it were a DEM
-        try:
-            width = par_dict['nlines']
-        except:
-            # Last try
-            # interferogram
-            try:
-                width = par_dict['interferogram_width']
-            except:
-                try:
-                    width = par_dict['range_samp_1']
-                except:
-                    raise KeyError("This file does not contain data shape specification in a known format")
+    width = get_width(par_file)
     d_image = load_binary(bin_file, width, dtype=dt, memmap=memmap)
     return d_image, par_dict
 

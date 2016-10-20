@@ -434,6 +434,10 @@ def window_idx(arr, idx, zs):
     return indices
 
 
+#Return a moving window list
+def moving_window(lst, n=3):
+    for i in range(len(lst)):
+            yield lst[i:i+n]
 
 
 
