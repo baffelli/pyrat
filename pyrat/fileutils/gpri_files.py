@@ -391,16 +391,17 @@ def dict_to_par(par_dict, par_file):
     :return:
     None
     """
-    with open(par_file, 'w') as fout:
-        for key in iter(par_dict):
-            par = par_dict[key]
-            try:
-                par_str = ' '.join(str(x) for x in par)
-            except TypeError:
-                par_str = str(par)
-            par_str_just = par_str.ljust(30)
-            line = "{key}: {par_str} \n".format(key=key, par_str = par_str_just)
-            fout.write(line)
+    par_dict.to_file(par_file)
+    # with open(par_file, 'w') as fout:
+    #     for key in iter(par_dict):
+    #         par = par_dict[key]
+    #         try:
+    #             par_str = ' '.join(str(x) for x in par)
+    #         except TypeError:
+    #             par_str = str(par)
+    #         par_str_just = par_str.ljust(30)
+    #         line = "{key}: {par_str} \n".format(key=key, par_str = par_str_just)
+    #         fout.write(line)
 
 # def par_to_dict(par_file):
 #     """
@@ -441,9 +442,10 @@ def dict_to_par(par_dict, par_file):
 #                     pass
 #     return par_dict
 
+
 def par_to_dict(par_path):
     par = _par.ParameterFile(par_path)
-    return par.par_dict
+    return par
 
 
 
