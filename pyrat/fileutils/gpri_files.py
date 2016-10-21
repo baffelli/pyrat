@@ -26,6 +26,7 @@ import datetime as _dt
 import warnings as _warn
 import pandas as pd
 
+from . import parameters as _par
 
 
 # Constants for gpri
@@ -393,55 +394,57 @@ def dict_to_par(par_dict, par_file):
     with open(par_file, 'w') as fout:
         for key in iter(par_dict):
             par = par_dict[key]
-            out = str(key) + ":" + '\t'
-            if isinstance(par, str):
-                out += par
-            else:
-                try:
-                    for p in par:
-                        out = out + ' ' + str(p)
-                except TypeError:
-                    out += str(par)
-            fout.write(out + '\n')
+            try:
+                par_str = ' '.join(str(x) for x in par)
+            except TypeError:
+                par_str = str(par)
+            par_str_just = par_str.ljust(30)
+            line = "{key}: {par_str} \n".format(key=key, par_str = par_str_just)
+            fout.write(line)
 
-def par_to_dict(par_file):
-    """
-    This function converts a gamma '.par' file into
-    a dict of parameters
-    :param par_file:
-    A string containing the path to the parameter file
-    :return:
-    A dict of parameters
-    """
-    par_dict = _od()
-    #this regex matches floats
-    float_re = "[-+]?([0 - 9] *\.[0 - 9] + | [0 - 9] +)."
-    with open(par_file, 'r') as fin:
-        # Skip first line
-        # fin.readline()
-        for line in fin:
-            if line:
-                split_array = line.replace('\n', '').split(':', 1)
-                if len(split_array) > 1:
-                    key = split_array[0]
-                    if key == 'time_start' or key == 'date':  # The utc time string should not be split
-                        l = split_array[1:]
-                    else:
-                        l = []
-                        param = split_array[1].split()
-                        for p in param:
-                            try:
-                                l.append(float(p))
-                            except ValueError:
-                                l.append(p)
-                try:
-                    if len(l) > 1:
-                        par_dict[key] = l
-                    else:
-                        par_dict[key] = l[0]
-                except:
-                    pass
-    return par_dict
+# def par_to_dict(par_file):
+#     """
+#     This function converts a gamma '.par' file into
+#     a dict of parameters
+#     :param par_file:
+#     A string containing the path to the parameter file
+#     :return:
+#     A dict of parameters
+#     """
+#     par_dict = _od()
+#     #this regex matches floats
+#     float_re = "[-+]?([0 - 9] *\.[0 - 9] + | [0 - 9] +)."
+#     with open(par_file, 'r') as fin:
+#         # Skip first line
+#         # fin.readline()
+#         for line in fin:
+#             if line:
+#                 split_array = line.replace('\n', '').split(':', 1)
+#                 if len(split_array) > 1:
+#                     key = split_array[0]
+#                     if key == 'time_start' or key == 'date':  # The utc time string should not be split
+#                         l = split_array[1:]
+#                     else:
+#                         l = []
+#                         param = split_array[1].split()
+#                         for p in param:
+#                             try:
+#                                 l.append(float(p))
+#                             except ValueError:
+#                                 l.append(p)
+#                 try:
+#                     if len(l) > 1:
+#                         par_dict[key] = l
+#                     else:
+#                         par_dict[key] = l[0]
+#                 except:
+#                     pass
+#     return par_dict
+
+def par_to_dict(par_path):
+    par = _par.ParameterFile(par_path)
+    return par.par_dict
+
 
 
 def get_width(par_path):
@@ -512,6 +515,7 @@ def load_dataset(par_file, bin_file, **kwargs):
     dtype = kwargs.get('dtype', None)
     memmap = kwargs.get('memmap', False)
     par_dict = par_to_dict(par_file)
+    print(par_dict)
     # Map type to gamma
     if dtype is None:
         try:
