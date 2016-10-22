@@ -5,6 +5,7 @@ from osgeo import osr as _osr, gdal
 from pyrat.visualization.visfun import bilinear_interpolate, scale_array
 
 from ..fileutils import gpri_files as _gpf
+from ..fileutils import parameters as _params
 
 
 def copy_and_modify_gt(RAS, gt):
@@ -882,53 +883,52 @@ def gdal_to_dict(ds):
     # Array for the ellipsoid
     ell_arr = proj_arr[2]
     # Create new dict
-    proj_dict = _od()
+    proj_dict = {}
     # Part 1: General Parameters
-    proj_dict['title'] = 'DEM'
-    proj_dict['DEM_projection'] = 'OMCH'
+    proj_dict['title'] = {'value': 'DEM'}
+    proj_dict['DEM_projection'] = {'value':'OMCH'}
     # Set the type according to the dem type
     tp = gdal.GetDataTypeName(ds.GetRasterBand(1).DataType)
-    print(tp)
     if tp == 'Float32':
-        proj_dict['data_format'] = 'REAL*4'
+        proj_dict['data_format'] = {'value':'REAL*4'}
     if tp == 'Int32':
-        proj_dict['data_format'] = 'INTEGER*2'
+        proj_dict['data_format'] = {'value': 'INTEGER*2'}
     if tp == 'UInt16':
-        proj_dict['data_format'] = 'SHORT INTEGER'
-    proj_dict['DEM_hgt_offset'] = 0
-    proj_dict['DEM_scale'] = 1.0
-    proj_dict['width'] = ds.RasterXSize
-    proj_dict['nlines'] = ds.RasterYSize
+        proj_dict['data_format'] = {'value': 'SHORT INTEGER'}
+    proj_dict['DEM_hgt_offset'] = {'value': 0}
+    proj_dict['DEM_scale'] = {'value': 1.0}
+    proj_dict['width'] = {'value': ds.RasterXSize}
+    proj_dict['nlines'] = {'value': ds.RasterYSize}
     gt = ds.GetGeoTransform()
-    proj_dict['corner_east'] = [gt[0], 'm']
-    proj_dict['corner_north'] = [gt[3], 'm']
-    proj_dict['post_north'] = [gt[5], 'm']
-    proj_dict['post_east'] = [gt[1], 'm']
+    proj_dict['corner_east'] = {'value': gt[0], 'unit':'m'}
+    proj_dict['corner_north'] = {'value': gt[3], 'unit':'m'}
+    proj_dict['post_north'] = {'value': gt[5], 'unit':'m'}
+    proj_dict['post_east'] = {'value': gt[1], 'unit':'m'}
     # TODO allow using other ellipsods
     # Part 2: Ellipsoid Parameters
-    proj_dict['ellipsoid_name'] = 'Bessel 1841'
-    proj_dict['ellipsoid_ra'] = [ell_arr[0], 'm']
+    proj_dict['ellipsoid_name'] = {'value': 'Bessel 1841'}
+    proj_dict['ellipsoid_ra'] = {'value': ell_arr[0], 'unit':'m'}
     rf = ell_arr[0] / (ell_arr[0] - ell_arr[1])
-    proj_dict['ellipsoid_reciprocal_flattening'] = rf
+    proj_dict['ellipsoid_reciprocal_flattening'] = {'value': rf}
     # TODO allow using other datums
     # Part 3: Datum Parameters
-    proj_dict['datum_name'] = 'SWiss National 3PAR'
-    proj_dict['datum_shift_dx'] = [679.396, 'm']
-    proj_dict['datum_shift_dy'] = [-0.095, 'm']
-    proj_dict['datum_shift_dz'] = [406.471, 'm']
-    proj_dict['datum_scale_m'] = 0.0
-    proj_dict['datum_rotation_alpha'] = [0.0, 'arc-sec']
-    proj_dict['datum_rotation_beta'] = [0.0, 'arc-sec']
-    proj_dict['datum_rotation_gamma'] = [0.0, 'arc-sec']
+    proj_dict['datum_name'] = {'value': 'SWiss National 3PAR'}
+    proj_dict['datum_shift_dx'] = {'value': 679.396, 'unit':'m'}
+    proj_dict['datum_shift_dy'] = {'value':-0.095, 'unit':'m'}
+    proj_dict['datum_shift_dz'] = {'value': 406.471, 'unit':'m'}
+    proj_dict['datum_scale_m'] = {'value': 0.0, 'unit':'m'}
+    proj_dict['datum_rotation_alpha'] = {'value': 0.0, 'unit':'arc-sec'}
+    proj_dict['datum_rotation_beta'] = {'value':0.0, 'unit':'arc-sec'}
+    proj_dict['datum_rotation_gamma'] = {'value':0.0, 'unit':'arc-sec'}
     # Part 4: Projection Parameters for UTM, TM, OMCH, LCC, PS, PC, AEAC, LCC2, OM, HOM coordinates
     proj_dict['projection_name'] = 'OM - Switzerland'
     if proj_dict['DEM_projection'] in ['UTM', "TM", "OMCH", "LCC", "PS", "PC", "AEAC", "LCC2", "OM", "HOM"]:
-        proj_dict['center_latitude'] = ell_arr[2]
-        proj_dict['center_longitude'] = ell_arr[3]
-        proj_dict['projection_k0'] = ell_arr[8]
-        proj_dict['false_easting'] = ell_arr[6]
-        proj_dict['false_northing'] = ell_arr[7]
-
+        proj_dict['center_latitude'] = {'value': ell_arr[2]}
+        proj_dict['center_longitude'] = {'value': ell_arr[3]}
+        proj_dict['projection_k0'] = {'value': ell_arr[8]}
+        proj_dict['false_easting'] = {'value': ell_arr[6]}
+        proj_dict['false_northing'] = {'value': ell_arr[7]}
+    proj_dict = _params.ParameterFile(proj_dict)
     return proj_dict
 
 
@@ -954,13 +954,14 @@ def get_geotransform(dem_par):
     Return geotransfrom from dem_par dictionary
     Parameters
     ----------
-    dem_par
+    dem_par:
+        pyrat.fileutils.parameters.ParameterFile, object
 
     Returns
     -------
 
     """
-    return [dem_par['corner_east'][0], dem_par['post_east'][0], 0, dem_par['corner_north'][0],0 , dem_par['post_north'][0]]
+    return dem_par.corner_east, dem_par.post_east, 0, dem_par.corner_north,0 , dem_par.post_north
 
 def geo_coord_to_dem_coord(coord, dem_par):
     """
@@ -970,28 +971,40 @@ def geo_coord_to_dem_coord(coord, dem_par):
     ----------
     coord : array_like
         coordinates in form
-    dem_par : dict or str
-        gamma DEM parameters
+    dem_par :
+        gamma DEM parameters as pyrat.fileutils.parameters.ParameterFile, object
     Returns
     -------
 
     """
     try:
-        dem_par['width']
+        dem_par.width
     except AttributeError:
         try:
             dem_par = _gpf.par_to_dict(dem_par)
         except FileNotFoundError:
             FileNotFoundError('The file {dem_par} does not exist'.format(dem_par=dem_par))
-    x_DEM = coord[0] - dem_par['corner_east'][0] / dem_par['post_east'][0]
-    y_DEM = coord[1] - dem_par['corner_north'][0] / dem_par['post_north'][0]
+    x_DEM = coord[0] - dem_par.corner_east / dem_par.post_east
+    y_DEM = coord[1] - dem_par.corner_north / dem_par.post_north
     return (x_DEM, y_DEM)
 
 
 def segment_geotif(gt, dem_par):
+    """
+    Segement a geotif to correspond to the size
+    specified by "dem_par"
+    Parameters
+    ----------
+    gt
+    dem_par
+
+    Returns
+    -------
+
+    """
     try:
-        dem_par['width']
-    except TypeError:
+        dem_par.width
+    except AttributeError:
         try:
             dem_par = _gpf.par_to_dict(dem_par)
         except FileNotFoundError:
@@ -1001,7 +1014,7 @@ def segment_geotif(gt, dem_par):
     mem_drv = gdal.GetDriverByName('MEM')
     # pixel_spacing_x = seg_gt[1]
     # pixel_spacing_y = seg_gt[5]
-    dest = mem_drv.Create('', int(dem_par['width']), int(dem_par['nlines']), DS.RasterCount, DS.GetRasterBand(1).DataType)
+    dest = mem_drv.Create('', int(dem_par.width), int(dem_par.nlines), DS.RasterCount, DS.GetRasterBand(1).DataType)
     dest.SetGeoTransform(seg_gt)
     dest.SetProjection(DS.GetProjection())
     res = gdal.ReprojectImage(DS, dest,

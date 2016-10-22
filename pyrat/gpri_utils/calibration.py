@@ -128,7 +128,7 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     else:
         slc_filt = slc[:, ::ws_samp] * 1
     # process each range line
-    theta = _np.arange(-ws_samp // 2, ws_samp // 2) * _np.deg2rad(slc.GPRI_az_angle_step[0])
+    theta = _np.arange(-ws_samp // 2, ws_samp // 2) * _np.deg2rad(slc.GPRI_az_angle_step)
     for idx_r, r_sl in enumerate(r_vec):
         filt, dist = distance_from_phase_center(r_ant, r_ph, r_sl, theta, wrap=False)
         lam = _gpf.C / 17.2e9

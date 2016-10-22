@@ -5,11 +5,31 @@ import pyparsing as _pp
 
 
 def dt_parse(s, l, t):
-    return _dt.date(t[0]['year'], t[0]['month'], t[0]['day'])
+    dt_dict = {'value':
+    _dt.date(t[0]['year'], t[0]['month'], t[0]['day']), 'unit': None}
+    return dt_dict
 
 
 def int_parse(s, l, t):
     return int(t[0])
+
+
+def multiline_parse(s,l,t):
+    """
+    Parsing action for multiline text,
+    returns a single string joined by newlines
+    Parameters
+    ----------
+    s
+    l
+    t
+
+    Returns
+    -------
+
+    """
+    print(t)
+    return "\n".join(t)
 
 
 def ambigous_int_parse(s, l, t):
@@ -78,7 +98,48 @@ class arrayContainer:
 
     def reset(self):
         self.dict = {}
-        self.numbers = []
+
+
+def format_multiple(par):
+    """
+    This either formats a string,
+    a  list or a single element
+    Parameters
+    ----------
+    par
+
+    Returns
+    -------
+
+    """
+    if isinstance(par, str):
+        par_str = par
+    elif hasattr(par, '__getitem__'):
+        par_str = ' '.join(str(x) for x in par)
+    else:
+        par_str = str(par)
+    return par_str
+
+def format_key_unit_dict(dict):
+    """
+    Used to format a dict of form
+    {value: single value or list of values, unit: nothing or list of units}
+    Parameters
+    ----------
+    dict
+
+    Returns
+    -------
+
+    """
+    value = dict.get('value')
+    unit = dict.get('unit')
+    value_str = format_multiple(value)
+    if unit:
+        unit_str = format_multiple(unit)
+    else:
+        unit_str = ''
+    return value_str + ' ' + unit_str
 
 
 class parameterParser:
@@ -121,24 +182,25 @@ class parameterParser:
                 _pp.nums + '.')(
                 'day').setParseAction(
                 ambigous_int_parse)).setParseAction(dt_parse))
+        self.grammar.title = _pp.Group(_pp.Literal('title') + self.grammar.keyword_sep + self.grammar.text_parameter('value').setParseAction(text_parse))
         # normal keyword
-        self.grammar.normal_kw = ~_pp.Literal('date') + _pp.Word(_pp.alphanums + '_') + self.grammar.keyword_sep
+        self.grammar.normal_kw = ~_pp.Literal('date') + ~_pp.Literal('title') + _pp.Word(_pp.alphanums + '_') + self.grammar.keyword_sep
         # line of normal values
         self.grammar.normal_line = _pp.Group(self.grammar.normal_kw + (
             self.grammar.array |
             self.grammar.text_parameter('value').setParseAction(text_parse)))
         # title
-        self.grammar.title = _pp.Group(~self.grammar.normal_kw + self.grammar.text_parameter).setParseAction(text_parse)('file_title')
+        self.grammar.file_title = _pp.Combine(_pp.ZeroOrMore((SOL + ~(_pp.Group(_pp.Word(_pp.alphanums + '_') + self.grammar.keyword_sep)) + self.grammar.text_parameter + _pp.LineEnd())))('file_title')
         # Normal line
-        self.grammar.line = (_pp.Dict((self.grammar.normal_line) | _pp.Dict(self.grammar.date))) + EOL
-        self.grammar.param_grammar = _pp.Optional(self.grammar.title) & _pp.OneOrMore(
-            self.grammar.line) & _pp.ZeroOrMore(EOL)
+        self.grammar.line = (_pp.Dict((self.grammar.normal_line) | _pp.Dict(self.grammar.date) | _pp.Dict(self.grammar.title))) + EOL
+        self.grammar.param_grammar = _pp.Optional(self.grammar.file_title) + (_pp.OneOrMore(
+            self.grammar.line) & _pp.ZeroOrMore(EOL))
 
     def parse(self, text_object):
         return self.grammar.param_grammar.parseString(text_object)
 
 
-class ParameterFile:
+class ParameterFile(dict):
     """
     Class to represent gamma keyword:paramerter files
     """
@@ -148,36 +210,43 @@ class ParameterFile:
             parser = parameterParser()
             with open(args[0], 'r') as par_text:
                 parsedResults = parser.parse(par_text.read())
-            title = parsedResults.asDict().pop('file_title')
-            print(parsedResults.asDict())
-            # mapping = [(toks[0], toks[1:]) for toks in parsedResults.asList()]
-            self.dict = _coll.OrderedDict(parsedResults.asDict())
-            # self.__dict__.update(self)
-            self.file_title = title
+            res_dict = parsedResults.asDict()
+        elif hasattr('get', args[0]):
+            res_dict = args[0]
+        super(ParameterFile, self).__init__(res_dict)
 
-    def __getattr__(self, item):
-            val = self.dict[item]['value']
-            try:
-                if len(val) == 1:
-                    return val[0]
-            except:
-                    return val
-    def __get
+
+
+    def __getattr__(self, key):
+        dict_item = super(ParameterFile,self).__getitem__(key)
+        try:
+            item = dict_item['value']
+            try:#single element list
+                singleitem, = item
+            except (TypeError, ValueError):#complete list
+                return item
+            else:
+                return singleitem
+        except KeyError:
+            return dict_item
+
+    def __setattr__(self, key, value):
+        try:
+            super(ParameterFile,self).__setitem__(key,{'value': value})
+        except KeyError:
+            pass
+
 
 
     def to_file(self, par_file):
+        self_1 = self.copy()
         with open(par_file, 'w') as fout:
-            if self.file_title:
-                fout.write(self.file_title + '\n')
-            for key in iter(self):
-                par = self[key]
-                if isinstance(par, str):
-                    par_str = par
-                elif hasattr(par, '__getitem__'):
-                    par_str = ' '.join(str(x) for x in par)
-                else:
-                    par_str = str(par)
-                key_str = "{key}:".format(key=key).ljust(20)
+            if 'file_title' in self:
+                fout.write(self_1.pop('file_title') + '\n')
+            for key in iter(self_1):
+                par = self_1[key]
+                par_str= format_key_unit_dict(par)
+                key_str = "{key}:".format(key=key).ljust(40)
                 par_str_just = par_str.ljust(20)
                 line = "{key} {par_str}\n".format(key=key_str, par_str=par_str_just)
                 fout.write(line)

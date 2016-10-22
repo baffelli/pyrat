@@ -220,8 +220,8 @@ class gammaDataset(_np.ndarray):
         else:#user passes binary and dictionary
             pass
         obj = image.view(cls)
-        d1 = _cp.deepcopy(par_dict)
-        obj.__dict__ = d1
+        # d1 = _cp.copy(par_dict)
+        obj.__dict__ = par_dict
         return obj
 
 
@@ -336,23 +336,23 @@ class gammaDataset(_np.ndarray):
             arr_dec = self[:, ::dec]
         arr_dec = self.__array_wrap__(arr_dec)
         arr_dec /= dec
-        arr_dec.GPRI_az_angle_step[0] = dec * self.GPRI_az_angle_step[0]
-        arr_dec.azimuth_line_time[0] = dec * self.azimuth_line_time[0]
-        arr_dec.prf[0] = self.prf[0] / dec
+        arr_dec.GPRI_az_angle_step = dec * self.GPRI_az_angle_step
+        arr_dec.azimuth_line_time = dec * self.azimuth_line_time
+        arr_dec.prf = self.prf / dec
         arr_dec.azimuth_looks *= dec
         arr_dec.azimuth_lines = arr_dec.shape[1]
         return arr_dec
 
     @property
     def r_vec(self):
-        return self.__dict__['near_range_slc'][0] + _np.arange(self.__dict__['range_samples']) * \
-                                                    self.__dict__['range_pixel_spacing'][0]
+        return self.__dict__['near_range_slc'] + _np.arange(self.__dict__['range_samples']) * \
+                                                    self.__dict__['range_pixel_spacing']
 
 
     @property
     def az_vec(self):
-        return self.__dict__['GPRI_az_start_angle'][0] + _np.arange(self.__dict__['azimuth_lines']) * \
-                                                         self.__dict__['GPRI_az_angle_step'][0]
+        return self.__dict__['GPRI_az_start_angle'] + _np.arange(self.__dict__['azimuth_lines']) * \
+                                                         self.__dict__['GPRI_az_angle_step']
 
 
 
@@ -373,9 +373,9 @@ class gammaDataset(_np.ndarray):
 
         """
         try:
-            rx_number = extract_channel_number(self.title[-1])
-            ph_center = (_np.array(self.GPRI_tx_coord[0:3]) + _np.array(
-                getattr(self, "GPRI_rx{num}_coord".format(num=rx_number))[0:3])) / 2
+            rx_number = extract_channel_number(self.title)
+            ph_center = (_np.array(self.GPRI_tx_coord) + _np.array(
+                getattr(self, "GPRI_rx{num}_coord".format(num=rx_number)))) / 2
             return ph_center
         except AttributeError:
             return 0
@@ -457,7 +457,7 @@ def get_width(par_path):
     for name_string in ["width", "range_samples", "CHP_num_samp", "number_of_nonzero_range_pixels_1",
                         "interferogram_width"]:
         try:
-            width = int(par_dict[name_string])
+            width = int(par_dict.__getattr__(name_string))
             return width
         except KeyError:
             pass
@@ -1000,12 +1000,12 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     rawdata = _np.fft.irfft(SLC[:, :] * shift[:,None],axis=0,) * TSF
     rawdata_corr = rawdata * 1
     # Now correct the squint
-    freqvec = SLC.radar_frequency[0] + _np.linspace(-SLC.chirp_bandwidth[0] / 2, SLC.chirp_bandwidth[0] / 2,
-                                                    rawdata.shape[0])
+    freqvec = SLC.radar_frequency + _np.linspace(-SLC.chirp_bandwidth / 2, SLC.chirp_bandwidth / 2,
+                                                    rawdata.shape)
     squint_vec = squint_function(freqvec, squint_rate)
-    squint_vec = squint_vec / SLC.GPRI_az_angle_step[0]
+    squint_vec = squint_vec / SLC.GPRI_az_angle_step
     squint_vec = squint_vec - squint_vec[
-        freqvec.shape[0] // 2]  # In addition, we correct for the beam motion during the chirp
+        freqvec.shape // 2]  # In addition, we correct for the beam motion during the chirp
     # Normal angle vector
     angle_vec = _np.arange(SLC.shape[1])
     # Correct by interpolation
