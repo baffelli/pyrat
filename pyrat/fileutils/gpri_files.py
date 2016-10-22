@@ -221,16 +221,28 @@ class gammaDataset(_np.ndarray):
             pass
         obj = image.view(cls)
         # d1 = _cp.copy(par_dict)
-        obj.__dict__ = par_dict
+        obj.params = par_dict
         return obj
 
+    def __getattribute__(self, item):
+        try:
+            item = super(gammaDataset, self).__getattribute__(item)
+        except AttributeError:
+            item = self.params.__getattr__(item)
+        finally:
+            return item
 
+    def __setattr__(self, key, value):
+        try:
+            self.params.__setattr__(key, value)
+        except AttributeError:
+            super(gammaDataset,self).__setattr__(key, value)
 
 
     def __array_finalize__(self, obj):
         if obj is None: return
         if hasattr(obj, '__dict__'):
-            self.__dict__ = _cp.deepcopy(obj.__dict__)
+            self.__dict__ = obj.__dict__
 
     def __getslice__(self, start, stop):
         """This solves a subtle bug, where __getitem__ is not called, and all
@@ -345,14 +357,14 @@ class gammaDataset(_np.ndarray):
 
     @property
     def r_vec(self):
-        return self.__dict__['near_range_slc'] + _np.arange(self.__dict__['range_samples']) * \
-                                                    self.__dict__['range_pixel_spacing']
+        return self['near_range_slc'][0] + _np.arange(self['range_samples'][0]) * \
+                                                    self['range_pixel_spacing'][0]
 
 
     @property
     def az_vec(self):
-        return self.__dict__['GPRI_az_start_angle'] + _np.arange(self.__dict__['azimuth_lines']) * \
-                                                         self.__dict__['GPRI_az_angle_step']
+        return self['GPRI_az_start_angle'] + _np.arange(self['azimuth_lines']) * \
+                                                         self['GPRI_az_angle_step']
 
 
 
@@ -457,13 +469,13 @@ def get_width(par_path):
     for name_string in ["width", "range_samples", "CHP_num_samp", "number_of_nonzero_range_pixels_1",
                         "interferogram_width"]:
         try:
-            width = int(par_dict.__getattr__(name_string))
+            width = par_dict.__getattribute__(name_string)
+            print(width)
             return width
-        except KeyError:
+        except (AttributeError, KeyError):
             pass
         else:
             KeyError('Did not find any keyword describing width of dataset')
-    return width
 
 
 def datatype_from_extension(filename):
@@ -517,7 +529,6 @@ def load_dataset(par_file, bin_file, **kwargs):
     dtype = kwargs.get('dtype', None)
     memmap = kwargs.get('memmap', False)
     par_dict = par_to_dict(par_file)
-    print(par_dict)
     # Map type to gamma
     if dtype is None:
         try:

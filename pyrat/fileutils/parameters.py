@@ -28,7 +28,6 @@ def multiline_parse(s,l,t):
     -------
 
     """
-    print(t)
     return "\n".join(t)
 
 
@@ -200,7 +199,7 @@ class parameterParser:
         return self.grammar.param_grammar.parseString(text_object)
 
 
-class ParameterFile(dict):
+class ParameterFile(object):
     """
     Class to represent gamma keyword:paramerter files
     """
@@ -213,30 +212,111 @@ class ParameterFile(dict):
             res_dict = parsedResults.asDict()
         elif hasattr('get', args[0]):
             res_dict = args[0]
-        super(ParameterFile, self).__init__(res_dict)
-
+        plain_dict = {}
+        unit_dict = {}
+        self.file_title = res_dict.pop('file_title')
+        for (key,item) in res_dict.items():
+            try:
+                value = item['value']
+            except (KeyError, TypeError):
+                value = item
+            try:
+                single_value, = value
+            except (ValueError,TypeError):
+                single_value = value
+            plain_dict[key] = single_value
+        for (key,item) in res_dict.items():
+            try:
+                value= item['unit']
+            except (KeyError, TypeError):
+                value = item
+            try:
+                single, = value
+            except (TypeError,ValueError):
+                single_value = value
+            unit_dict[key] = single_value
+        self.params = plain_dict
+        self.units = unit_dict
+        # self.__dict__ = plain_dict
 
 
     def __getattr__(self, key):
-        dict_item = super(ParameterFile,self).__getitem__(key)
         try:
-            item = dict_item['value']
-            try:#single element list
-                singleitem, = item
-            except (TypeError, ValueError):#complete list
-                return item
-            else:
-                return singleitem
-        except KeyError:
-            return dict_item
+            item = super(ParameterFile,self).__getattribute__(key)
+        except AttributeError:
+            try:
+                item = self.params[key]
+            except KeyError:
+                raise AttributeError("This attribute does not exist in the specified parameterfile")
+        else:
+            raise AttributeError("This attribute does not exist in the specified parameterfile")
+        return item
 
-    def __setattr__(self, key, value):
-        try:
-            super(ParameterFile,self).__setitem__(key,{'value': value})
-        except KeyError:
-            pass
+    # def __setattr__(self, key, value):
+    #     if key in self.params:
+    #         self.params.__setitem__(key, value)
+    #     else:
+    #         super(ParameterFile,self).__setattr__(key, value)
 
 
+    def __getitem__(self, item):
+        if item in self.params:
+            return self.params.get(item)
+        else:
+            raise KeyError
+
+
+    # def __getattr__(self, key):
+    #     dict_item = super(ParameterFile,self).__getitem__(key)
+    #     try:
+    #         item = dict_item['value']
+    #         try:#single element list
+    #             singleitem, = item
+    #         except (TypeError, ValueError):#complete list
+    #             return item
+    #         else:
+    #             return singleitem
+    #     except KeyError:
+    #         return dict_item
+
+    # def __setattr__(self, key, value):
+    #     try:
+    #         super(ParameterFile,self).__setitem__(key,{'value': value})
+    #     except KeyError:
+    #         pass
+    #
+    # def __getitem__(self, item):
+    #     dict_item = super(ParameterFile, self).__getitem__(item)
+    #     try:
+    #         item = dict_item['value']
+    #         try:#single element list
+    #             singleitem, = item
+    #         except (TypeError, ValueError):#complete list
+    #             return item
+    #         else:
+    #             return singleitem
+    #     except KeyError:
+    #         return dict_item
+
+    def plain_dict(self):
+        """
+        Returns a plain dict, where only the numerical values are stored
+
+        Returns
+        -------
+
+        """
+        return {key: item['value'] for (key, item) in dict(ParameterFile).items()}
+
+    def unit_mapping(self):
+        """
+        Returns a plain dict, where only the numerical values are stored
+
+        Returns
+        -------
+
+        """
+        return {key: item['unit'] for (key, item) in iter(self)}
 
     def to_file(self, par_file):
         self_1 = self.copy()
