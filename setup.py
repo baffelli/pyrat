@@ -1,5 +1,5 @@
 from setuptools import setup
-
+print('setup')
 setup(name='pyrat',
       version='0.5',
       description='Python radar tools',
