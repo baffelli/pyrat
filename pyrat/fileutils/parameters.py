@@ -237,29 +237,29 @@ class ParameterFile(object):
             unit_dict[key] = single_value
         self.params = plain_dict
         self.units = unit_dict
-        # self.__dict__ = plain_dict
 
 
     def __getattr__(self, key):
         try:
-            # print(self.params)
-            item = self.params[key]
-            print(item)
-            return item
-        except Exception as e:
-            print(str(e))
-            # raise AttributeError("This attribute does not exist in the specified parameterfile")
-
-    #
-    # def __setattr__(self, key, value):
-    #     if key in self.params:
-    #         self.params.__setitem__(key, value)
-    #     else:
-    #         super(ParameterFile,self).__setattr__(key, value)
+            return self.params[key]
+        except KeyError:
+            raise AttributeError("This attribute does not exist in the specified parameterfile")
 
 
-    # def __getitem__(self, key):
-    #     return self.params[key]
+
+    def __setattr__(self, key, value):
+        if 'params' in self.__dict__:
+            if key in self.__dict__['params']:
+                self.__dict__['params'][key] = value
+        else:
+            super(ParameterFile, self).__setattr__(key, value)
+
+
+    def __getitem__(self, key):
+        return self.params[key]
+
+    def __setitem__(self, key, value):
+        self.params[key] = value
 
 
 

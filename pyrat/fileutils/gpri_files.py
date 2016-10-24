@@ -224,19 +224,15 @@ class gammaDataset(_np.ndarray):
         obj.params = par_dict
         return obj
 
-    def __getattribute__(self, item):
-        try:
-            item = super(gammaDataset, self).__getattribute__(item)
-        except AttributeError:
-            item = self.params.__getattr__(item)
-        finally:
-            return item
+    def __getattr__(self, item):
+        return self.params.__getattr__(item)
 
     def __setattr__(self, key, value):
-        try:
-            self.params.__setattr__(key, value)
-        except AttributeError:
-            super(gammaDataset,self).__setattr__(key, value)
+        if 'params' in self.__dict__:
+            if key in self.__dict__['params']:
+                self.__dict__['params'][key] = value
+        else:
+            super(gammaDataset, self).__setattr__(key, value)
 
 
     def __array_finalize__(self, obj):
@@ -469,11 +465,10 @@ def get_width(par_path):
     for name_string in ["width", "range_samples", "CHP_num_samp", "number_of_nonzero_range_pixels_1",
                         "interferogram_width"]:
         try:
-            width = par_dict.__getattribute__(name_string)
-            print(width)
-            return width
+            width = getattr(par_dict, name_string)
+            return int(width)
         except (AttributeError, KeyError):
-            pass
+            continue
         else:
             KeyError('Did not find any keyword describing width of dataset')
 
