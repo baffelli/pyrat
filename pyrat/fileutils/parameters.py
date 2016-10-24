@@ -242,16 +242,15 @@ class ParameterFile(object):
 
     def __getattr__(self, key):
         try:
-            item = super(ParameterFile,self).__getattribute__(key)
-        except AttributeError:
-            try:
-                item = self.params[key]
-            except KeyError:
-                raise AttributeError("This attribute does not exist in the specified parameterfile")
-        else:
-            raise AttributeError("This attribute does not exist in the specified parameterfile")
-        return item
+            # print(self.params)
+            item = self.params[key]
+            print(item)
+            return item
+        except Exception as e:
+            print(str(e))
+            # raise AttributeError("This attribute does not exist in the specified parameterfile")
 
+    #
     # def __setattr__(self, key, value):
     #     if key in self.params:
     #         self.params.__setitem__(key, value)
@@ -259,11 +258,9 @@ class ParameterFile(object):
     #         super(ParameterFile,self).__setattr__(key, value)
 
 
-    def __getitem__(self, item):
-        if item in self.params:
-            return self.params.get(item)
-        else:
-            raise KeyError
+    # def __getitem__(self, key):
+    #     return self.params[key]
+
 
 
     # def __getattr__(self, key):
