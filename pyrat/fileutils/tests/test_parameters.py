@@ -1,6 +1,7 @@
 import unittest
 from pyrat.fileutils.parameters import ParameterFile
 
+
 class TestParameters(unittest.TestCase):
 
     def setUp(self):
@@ -36,3 +37,12 @@ class TestParameters(unittest.TestCase):
 
     def testSaving(self):
         self.params.to_file('./test_save.par')
+
+
+class TestRawParameters(unittest.TestCase):
+    def setUp(self):
+        self.dummy_val = 5
+        self.params = ParameterFile('./raw_parameters.raw_par')
+
+    def TestLoad(self):
+        self.assertIn('CHP_num_samp', self.params)

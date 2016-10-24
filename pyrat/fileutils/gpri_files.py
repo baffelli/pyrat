@@ -303,7 +303,7 @@ class gammaDataset(_np.ndarray):
         self = args[0].astype(type_mapping[args[0].image_format])
         # In this case, we want to write both parameters and binary file
         if len(args) is 3:
-            write_dataset(self, self.params, args[1], args[2])
+            write_dataset(self, self._params, args[1], args[2])
         # In this case, we only want to write the binary
         else:
             _np.array(self).tofile(args[1])

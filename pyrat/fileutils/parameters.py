@@ -5,8 +5,12 @@ import pyparsing as _pp
 
 
 def dt_parse(s, l, t):
+    if 'time' in t[0]:
+        tim = _dt.datetime(t[0]['year'], t[0]['month'], t[0]['day'],t[0]['time']['h'],t[0]['time']['m'],t[0]['time']['s'],t[0]['time']['us'])
+    else:
+        tim = _dt.date(t[0]['year'], t[0]['month'], t[0]['day'])
     dt_dict = {'value':
-    _dt.date(t[0]['year'], t[0]['month'], t[0]['day']), 'unit': None}
+                   tim, 'unit': None}
     return dt_dict
 
 
@@ -14,7 +18,7 @@ def int_parse(s, l, t):
     return int(t[0])
 
 
-def multiline_parse(s,l,t):
+def multiline_parse(s, l, t):
     """
     Parsing action for multiline text,
     returns a single string joined by newlines
@@ -79,15 +83,17 @@ def compound_unit_parse(s, l, t):
     elif len(t['unit']) == 1:
         return t['unit'][0]
 
+
 class arrayContainer:
     """
     Class to collect recusrive parsing output inside  of a dict
     """
     ""
+
     def __init__(self):
         self.dict = {}
 
-    def array_parse(self, s,l,t):
+    def array_parse(self, s, l, t):
         for key in t.keys():
             if key in self.dict:
                 self.dict[key].append((t[key]))
@@ -149,7 +155,7 @@ class parameterParser:
         self.grammar.keyword_sep = _pp.Literal(':').suppress()
         # Optional date seprator
         self.grammar.date_sep = _pp.Literal('-').suppress()
-        #any text
+        # any text
         self.grammar.text_parameter = _pp.Combine(_pp.restOfLine())
         # Definition of unit
         self.grammar.base_units = _pp.Literal('dB') | _pp.Literal('s') | _pp.Literal('m') | _pp.Literal(
@@ -158,7 +164,7 @@ class parameterParser:
         self.grammar.unit = _pp.Group(
             self.grammar.repeated_unit + _pp.Optional(_pp.ZeroOrMore('/' + self.grammar.repeated_unit)))(
             'unit').setParseAction(compound_unit_parse)
-        #definition of numbers
+        # definition of numbers
         self.grammar.float_re = _pp.Regex('[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?').setParseAction(float_parse)
         self.grammar.int = _pp.Word(_pp.nums).setParseAction(int_parse)
         self.grammar.number = (self.grammar.float_re | self.grammar.int)('value')
@@ -169,28 +175,44 @@ class parameterParser:
                 self.grammar.number + _pp.Optional(self.grammar.unit)))
         self.grammar.array = array.setParseAction(self.array_container.array_parse)
         # Date (year-month-day or year month day)
-        self.grammar.date = _pp.Group(_pp.Literal('date') + self.grammar.keyword_sep + _pp.Group(
-            _pp.Word(_pp.nums + '.')('year').setParseAction(
+        # Extendend date
+        self.grammar.time = _pp.Group(
+            _pp.Word(_pp.nums, exact=2)('h').setParseAction(
+                ambigous_int_parse) + _pp.Literal(':') + _pp.Word(_pp.nums, exact=2)('m').setParseAction(
+                ambigous_int_parse) + _pp.Literal(':') + _pp.Word(
+                _pp.nums )('s').setParseAction(
+                ambigous_int_parse)  + _pp.Literal('.') + _pp.Word(_pp.nums)('us').setParseAction(
+                ambigous_int_parse) + _pp.Literal('+') + _pp.Word(_pp.nums)('tz_h').setParseAction(
+                ambigous_int_parse) + _pp.Literal(':') + _pp.Word(_pp.nums)('tz_m').setParseAction(
+                ambigous_int_parse))('time')
+        self.grammar.date = _pp.Group(
+            _pp.Word(_pp.nums + '.',min=4, max=6)('year').setParseAction(
                 ambigous_int_parse) + _pp.Optional(
                 self.grammar.date_sep) + _pp.Word(
-                _pp.nums + '.')(
+                _pp.nums + '.',min=2, max=4)(
                 'month').setParseAction(ambigous_int_parse) + _pp.Optional(self.grammar.date_sep) + _pp.Word(
-                _pp.nums + '.')(
+                _pp.nums + '.', min=2, max=4)(
                 'day').setParseAction(
-                ambigous_int_parse)).setParseAction(dt_parse))
-        self.grammar.title = _pp.Group(_pp.Literal('title') + self.grammar.keyword_sep + self.grammar.text_parameter('value').setParseAction(text_parse))
+                ambigous_int_parse) + _pp.Optional(self.grammar.time) ).setParseAction(dt_parse)
+        self.grammar.title = _pp.Group(
+            _pp.Literal('title') + self.grammar.keyword_sep + self.grammar.text_parameter('value').setParseAction(
+                text_parse))
         # normal keyword
-        self.grammar.normal_kw = ~_pp.Literal('date') + ~_pp.Literal('title') + _pp.Word(_pp.alphanums + '_') + self.grammar.keyword_sep
+        self.grammar.normal_kw =  ~_pp.Literal('title') + _pp.Word(
+            _pp.alphanums + '_') + self.grammar.keyword_sep
         # line of normal values
-        self.grammar.normal_line = _pp.Group(self.grammar.normal_kw + (
+        self.grammar.normal_line = _pp.Group(self.grammar.normal_kw + ( self.grammar.date |
             self.grammar.array |
             self.grammar.text_parameter('value').setParseAction(text_parse)))
         # title
-        self.grammar.file_title = _pp.Combine(_pp.ZeroOrMore((SOL + ~(_pp.Group(_pp.Word(_pp.alphanums + '_') + self.grammar.keyword_sep)) + self.grammar.text_parameter + _pp.LineEnd())))('file_title')
+        self.grammar.file_title = _pp.Combine(_pp.ZeroOrMore((SOL + ~(_pp.Group(
+            _pp.Word(_pp.alphanums + '_') + self.grammar.keyword_sep)) + self.grammar.text_parameter + _pp.LineEnd())))(
+            'file_title')
         # Normal line
-        self.grammar.line = (_pp.Dict((self.grammar.normal_line) | _pp.Dict(self.grammar.date) | _pp.Dict(self.grammar.title))) + EOL
+        self.grammar.line = (_pp.Dict(
+            (self.grammar.normal_line) | _pp.Dict(self.grammar.title))) + EOL
         self.grammar.param_grammar = _pp.Optional(self.grammar.file_title) + (_pp.OneOrMore(
-            self.grammar.line) & _pp.ZeroOrMore(EOL))
+            self.grammar.line) | _pp.ZeroOrMore(EOL))
 
     def parse(self, text_object):
         return self.grammar.param_grammar.parseString(text_object)
@@ -199,6 +221,7 @@ class parameterParser:
         parsed = self.parse(text_object)
         result_dict = _coll.OrderedDict(parsed.asDict())
         return result_dict
+
 
 class ParameterFile(object):
     """
@@ -222,9 +245,6 @@ class ParameterFile(object):
         self.file_title = file_title
         self.params = params
 
-
-
-
     def __getattr__(self, key):
         if key in self.__dict__:
             return self.__dict__[key]
@@ -234,16 +254,12 @@ class ParameterFile(object):
             except KeyError:
                 raise AttributeError("This attribute does not exist in the specified parameterfile")
 
-
-
-
     def __setattr__(self, key, value):
         if 'params' in self.__dict__:
             if key in self.__dict__['params']:
                 self.__dict__['params'][key]['value'] = value
         else:
             super(ParameterFile, self).__setattr__(key, value)
-
 
     def __getitem__(self, key):
         return self.params[key]['value']
@@ -271,7 +287,6 @@ class ParameterFile(object):
         else:
             unit_str = ''
         return value_str + ' ' + unit_str
-
 
     # def __getattr__(self, key):
     #     dict_item = super(ParameterFile,self).__getitem__(key)
@@ -330,7 +345,7 @@ class ParameterFile(object):
             if hasattr(self, 'file_title'):
                 fout.write(self.file_title)
             for key, value in self.params.items():
-                par_str= self.format_key_unit_dict(key)
+                par_str = self.format_key_unit_dict(key)
                 key_str = "{key}:".format(key=key).ljust(40)
                 par_str_just = par_str.ljust(20)
                 line = "{key} {par_str}\n".format(key=key_str, par_str=par_str_just)

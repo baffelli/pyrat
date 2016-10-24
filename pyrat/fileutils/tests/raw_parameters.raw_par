@@ -1,0 +1,25 @@
+time_start:	 2016-02-24 10:52:18.670216+00:00
+geographic_coordinates:	 47.4056316667 8.50559 523.2 47.3
+RF_center_freq:	17200000000.0
+RF_freq_min:	17100029142.2
+RF_freq_max:	17299970857.9
+RF_chirp_rate:	199943315238.0
+CHP_num_samp:	6250.0
+TX_mode:	None
+TX_RX_SEQ:	AAAl
+IMA_atten_dB:	48.0
+ADC_capture_time:	4.7429
+ADC_sample_rate:	6250000.0
+STP_antenna_start:	-45.0
+STP_antenna_end:	45.0
+STP_rotation_speed:	20.0
+STP_gear_ratio:	72.0
+TSC_acc_ramp_angle:	1.0
+TSC_acc_ramp_time:	0.14645
+TSC_acc_ramp_step:	0.1
+TSC_rotation_speed:	20.0
+antenna_elevation:	0.0
+CHP_version:	 SW X2.01
+TSC_version:	 SW V3.04
+CHP_temperature:	14.9
+TSC_temperature:	18.2
