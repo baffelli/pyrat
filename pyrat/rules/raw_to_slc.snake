@@ -278,7 +278,6 @@ rule decimate:
         slc_par = "slc_{proc}/{filename}.slc_dec.par",
     params:
         dec = config["range_compression"]['dec'],
-        spacing= config["range_compression"]['decimated_sample_spacing'],
         dec_mode= lambda wildcards: 'other' if wildcards.proc == 'corr' else 'sum',
     run:
         from scipy.ndimage import zoom
@@ -293,6 +292,7 @@ rule decimate:
 #        new_dict['GPRI_az_angle_step'] = [params.spacing, 'deg']
 #        slc_dec_1 = gpf.gammaDataset(new_dict, slc_dec_1)
         slc_dec.tofile(output.slc_par, output.slc)
+
 
 
 

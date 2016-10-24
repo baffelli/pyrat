@@ -377,12 +377,12 @@ def complex_interpolate(image, osf):
     ang_interp = _nd.zoom(_np.angle(image), osf)
     image_interp = abs_interp * _np.exp(1j * ang_interp)
     image_interp = image.__array_wrap__(image_interp)
-    image_interp.GPRI_az_angle_step[0] = osf[1] * image.GPRI_az_angle_step[0]
-    image_interp.range_pixel_spacing[0] = osf[0] * image.range_pixel_spacing[0]
-    image_interp.azimuth_line_time[0] = osf[1] * image.azimuth_line_time[0]
-    image_interp.prf[0] = osf[1] * image.prf[0]
-    image_interp.azimuth_lines = image_interp.shape[1]
-    image_interp.range_samples = image_interp.shape[0]
+    image_interp.GPRI_az_angle_step = osf[1] * image.GPRI_az_angle_step
+    image_interp.range_pixel_spacing = osf[0] * image.range_pixel_spacing
+    image_interp.azimuth_line_time = osf[1] * image.azimuth_line_time
+    image_interp.prf = osf[1] * image.prf
+    image_interp.azimuth_lines = image_interp.shape
+    image_interp.range_samples = image_interp.shape
     return image_interp
 
 
