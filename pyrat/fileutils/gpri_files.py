@@ -252,7 +252,9 @@ class gammaDataset(_np.ndarray):
         #     new_arr.__dict__ = _cp.copy(self.__dict__)
         # if hasattr(self, '_params'):
         #     print('here')
-        new_arr.__dict__['_params'] = self._params.copy()
+        if '_params' in self.__dict__:
+            print('hie')
+            new_arr.__dict__['_params'] = self._params.copy()
         print(self._params)
         print(new_arr._params)
         return new_arr
@@ -278,7 +280,7 @@ class gammaDataset(_np.ndarray):
             sl = item
 
         # Get the slice from the object by calling the corresponding numpy function
-        new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).__array_wrap__(self)
+        new_obj_1 = (super(gammaDataset, self).__getitem__(sl))
         #This concludes the part where we extract data from the array.
         #now we need to adjust the attributes to adjust to the new spacing
         try:#if we pass an integer, we do not need to do anything
