@@ -234,9 +234,10 @@ class ParameterFile(object):
             with open(args[0], 'r') as par_text:
                 # parsedResults = parser.parse(par_text.read())
                 res_dict = parser.as_ordered_dict(par_text.read())
-        elif hasattr('get', args[0]):
+                file_title = res_dict.pop('file_title')
+        elif hasattr(args[0], 'get'):
             res_dict = args[0]
-        file_title = res_dict.pop('file_title')
+            file_title = res_dict.get('file_title')
         params = _coll.OrderedDict()
         for key, item in res_dict.items():
             params[key] = _coll.OrderedDict()
@@ -252,7 +253,8 @@ class ParameterFile(object):
             try:
                 return self.params[key]['value']
             except KeyError:
-                raise AttributeError("This attribute does not exist in the specified parameterfile")
+                attr_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
+                raise AttributeError(attr_msg)
 
     def __setattr__(self, key, value):
         if 'params' in self.__dict__:
@@ -262,10 +264,20 @@ class ParameterFile(object):
             super(ParameterFile, self).__setattr__(key, value)
 
     def __getitem__(self, key):
-        return self.params[key]['value']
+        try:
+            return self.params[key]['value']
+        except KeyError:
+            key_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
+            raise KeyError(key_msg)
 
-    def __setitem__(self, key, value):
-        self.params[key]['value'] = value
+    def __setitem__(self, key, value, unit=None):
+        if 'params' in self.__dict__:
+            print(self.params)
+            try:
+                self.params[key]['value'] = value
+            except (KeyError,AttributeError):
+                print('here')
+                self.params.update({key:{'value': value, 'unit': unit}})
 
     def format_key_unit_dict(self, key):
         """

@@ -1,0 +1,63 @@
+Gamma Interferometric SAR Processor (ISP) - Image Parameter File
+title: 2015-08-03 06:07:58.678438+00:00 CH1 lower
+sensor: GPRI 2.0
+date:  2015 08 03
+start_time:     22079.046445  s
+center_time:    22103.798940  s
+end_time:       22128.551435  s
+azimuth_line_time: 3.200064e-02   s
+line_header_size:      0
+range_samples:    6665
+azimuth_lines:    1548
+range_looks:           1
+azimuth_looks:         1
+image_format:          FCOMPLEX
+image_geometry:        SLANT_RANGE
+range_scale_factor:    1.0
+azimuth_scale_factor:  1.0
+center_latitude:       0.00000000  degrees
+center_longitude:      0.00000000  degrees
+heading:               0.000000  degrees
+range_pixel_spacing:   0.750349  m
+azimuth_pixel_spacing: 0.000000  m
+near_range_slc:        3499.627515  m
+center_range_slc:  5999.790225  m
+far_range_slc:     8499.952935  m
+first_slant_range_polynomial:  0.0 0.0 0.0 0.0 0.0 0.0
+center_slant_range_polynomial: 0.0 0.0 0.0 0.0 0.0 0.0
+last_slant_range_polynomial:   0.0 0.0 0.0 0.0 0.0 0.0
+incidence_angle:       0.0  degrees
+azimuth_deskew:        OFF
+azimuth_angle:         0.0 degrees
+radar_frequency:       1.720000e+10  Hz
+adc_sampling_rate:     1.997687e+08  Hz
+chirp_bandwidth:       1.997685e+08  Hz
+prf:                   31.249375  Hz
+azimuth_proc_bandwidth: 0.0  Hz
+doppler_polynomial:     0.0 0.0 0.0 0.0
+doppler_poly_dot:       0.0 0.0 0.0 0.0
+doppler_poly_ddot:      0.0 0.0 0.0 0.0
+receiver_gain:          12.000  dB
+calibration_gain:        0.000  dB
+sar_to_earth_center:             0.0000  m
+earth_radius_below_sensor:       0.0000  m
+earth_semi_major_axis:     6378137.0000  m
+earth_semi_minor_axis:     6356752.3141  m
+number_of_state_vectors:   0
+GPRI_TX_mode: TX_RX_SEQ
+GPRI_TX_antenna: V
+GPRI_az_start_angle:     39.606227  degrees
+GPRI_az_angle_step:   1.919878e-02  degrees
+GPRI_ant_elev_angle:      0.000000  degrees
+GPRI_ref_north:      46.10275000
+GPRI_ref_east:        7.81734333
+GPRI_ref_alt:         2943.10000  m
+GPRI_geoid:             47.20000  m
+GPRI_scan_heading:      0.00000  degrees
+GPRI_tx_coord:     0.22350    0.00000   -0.35000  m m m
+GPRI_rx1_coord:    0.22350    0.00000   -0.00000  m m m
+GPRI_rx2_coord:    0.22350    0.00000    0.25000  m m m
+GPRI_tower_roll:   0.00000  degrees
+GPRI_tower_pitch:  0.00000  degrees
+GPRI_phase_offset: 0.00000  radians
+

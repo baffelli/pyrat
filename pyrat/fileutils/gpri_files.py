@@ -653,87 +653,90 @@ def default_slc_dict():
     """
     This function creates a default dict for the slc parameters of the
     gpri, that the user can then fill according to needs
+    The default parameters are read from '/default_slc_par.par'
     :return:
     """
-    par = _od()
-    par['title'] = ''
-    par['sensor'] = 'GPRI 2'
-    par['date'] = [0, 0, 0]
-    par['start_time'] = 0
-    par['center_time'] = 0
-    par['end_time'] = 0
-    par['azimuth_line_time'] = 0
-    par['line_header_size'] = 0
-    par['range_samples'] = 0
-    par['azimuth_lines'] = 0
-    par['range_looks'] = 1
-    par['azimuth_looks'] = 1
-    par['image_format'] = 'FCOMPLEX'
-    par['image_geometry'] = 'SLANT_RANGE'
-    par['range_scale_factor'] = 1
-    par['azimuth_scale_factor'] = 1
-    par['center_latitude'] = [0, 'degrees']
-    par['center_longitude'] = [0, 'degrees']
-    par['heading'] = [0, 'degrees']
-    par['range_pixel_spacing'] = [0, 'm']
-    par['azimuth_pixel_spacing'] = [0, 'm']
-    par['near_range_slc'] = [0, 'm']
-    par['center_range_slc'] = [0, 'm']
-    par['far_range_slc'] = [0, 'm']
-    par['first_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    par['center_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    par['last_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    par['incidence_angle'] = [0.0, 'degrees']
-    par['azimuth_deskew'] = 'OFF'
-    par['azimuth_angle'] = [0.0, 'degrees']
-    par['radar_frequency'] = [0.0, 'Hz']
-    par['adc_sampling_rate'] = [0.0, 'Hz']
-    par['chirp_bandwidth'] = [0.0, 'Hz']
-    par['prf'] = [0.0, 'Hz']
-    par['azimuth_proc_bandwidth'] = [0.0, 'Hz']
-    par['doppler_polynomial'] = [0.0, 0.0, 0.0, 0.0]
-    par['doppler_poly_dot'] = [0.0, 0.0, 0.0, 0.0]
-    par['doppler_poly_ddot'] = [0.0, 0.0, 0.0, 0.0]
-    par['receiver_gain'] = [0.0, 'dB']
-    par['calibration_gain'] = [0.0, 'dB']
-    par['sar_to_earth_center'] = [0.0, 'm']
-    par['earth_radius_below_sensor'] = [0.0, 'm']
-    par['earth_semi_major_axis'] = [ra, 'm']
-    par['earth_semi_minor_axis'] = [rb, 'm']
-    par['number_of_state_vectors'] = 0
-    par['GPRI_TX_mode'] = ''
-    par['GPRI_TX_antenna'] = ''
-    par['GPRI_RX_antenna'] = ''
-    par['GPRI_az_start_angle'] = [0, 'degrees']
-    par['GPRI_az_angle_step'] = [0, 'degrees']
-    par['GPRI_ant_elev_angle'] = [0, 'degrees']
-    par['GPRI_ref_north'] = 0
-    par['GPRI_ref_east'] = 0
-    par['GPRI_ref_alt'] = [0, 'm']
-    par['GPRI_geoid'] = [0, 'm']
-    par['GPRI_scan_heading'] = [0, 'degrees']
+    #The de
+    par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_slc_par.par')
+    # local_par = _od()
+    # par['title'] =  {'value': ''}
+    # par['sensor'] = {'value': 'GPRI 2'}
+    # par['date'] = {'value': ''}
+    # par['start_time'] = {'value': 0, 'unit':'s'}
+    # par['center_time'] = {'value': 0, 'unit':'s'}
+    # par['end_time'] = {'value': 0, 'unit':'s'}
+    # par['azimuth_line_time'] = {'value': 0, 'unit':'s'}
+    # par['line_header_size'] = {'value': 0}
+    # par['range_samples'] = {'value': 0}
+    # par['azimuth_lines'] = {'value': 0}
+    # par['range_looks'] = {'value': 1}
+    # par['azimuth_looks'] = {'value': 1}
+    # par['image_format'] = {'value': 'FCOMPLEX'}
+    # par['image_geometry'] = {'value': 'SLANT_RANGE'}
+    # par['range_scale_factor'] = {'value': 1}
+    # par['azimuth_scale_factor'] = {'value': 1}
+    # par['center_latitude'] = {'value':0, 'unit':'degrees'}
+    # par['center_longitude'] = [0, 'degrees']
+    # par['heading'] = [0, 'degrees']
+    # par['range_pixel_spacing'] = [0, 'm']
+    # par['azimuth_pixel_spacing'] = [0, 'm']
+    # par['near_range_slc'] = [0, 'm']
+    # par['center_range_slc'] = [0, 'm']
+    # par['far_range_slc'] = [0, 'm']
+    # par['first_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # par['center_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # par['last_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # par['incidence_angle'] = [0.0, 'degrees']
+    # par['azimuth_deskew'] = 'OFF'
+    # par['azimuth_angle'] = [0.0, 'degrees']
+    # par['radar_frequency'] = [0.0, 'Hz']
+    # par['adc_sampling_rate'] = [0.0, 'Hz']
+    # par['chirp_bandwidth'] = [0.0, 'Hz']
+    # par['prf'] = [0.0, 'Hz']
+    # par['azimuth_proc_bandwidth'] = [0.0, 'Hz']
+    # par['doppler_polynomial'] = [0.0, 0.0, 0.0, 0.0]
+    # par['doppler_poly_dot'] = [0.0, 0.0, 0.0, 0.0]
+    # par['doppler_poly_ddot'] = [0.0, 0.0, 0.0, 0.0]
+    # par['receiver_gain'] = [0.0, 'dB']
+    # par['calibration_gain'] = [0.0, 'dB']
+    # par['sar_to_earth_center'] = [0.0, 'm']
+    # par['earth_radius_below_sensor'] = [0.0, 'm']
+    # par['earth_semi_major_axis'] = [ra, 'm']
+    # par['earth_semi_minor_axis'] = [rb, 'm']
+    # par['number_of_state_vectors'] = 0
+    # par['GPRI_TX_mode'] = ''
+    # par['GPRI_TX_antenna'] = ''
+    # par['GPRI_RX_antenna'] = ''
+    # par['GPRI_az_start_angle'] = [0, 'degrees']
+    # par['GPRI_az_angle_step'] = [0, 'degrees']
+    # par['GPRI_ant_elev_angle'] = [0, 'degrees']
+    # par['GPRI_ref_north'] = 0
+    # par['GPRI_ref_east'] = 0
+    # par['GPRI_ref_alt'] = [0, 'm']
+    # par['GPRI_geoid'] = [0, 'm']
+    # par['GPRI_scan_heading'] = [0, 'degrees']
     return par
 
 
 
 
-class rawData(_np.ndarray):
-    def __array_wrap__(self, out_arr):
-        # This is just a lazy
-        # _array_wrap_ that
-        # copies properties from
-        # the input object
-        out_arr = out_arr.view(type(self))
-        try:
-            out_arr.__dict__ = self.__dict__.copy()
-        except:
-            pass
-        return out_arr
+class rawData(gammaDataset):
+    # def __array_wrap__(self, out_arr):
+    #     # This is just a lazy
+    #     # _array_wrap_ that
+    #     # copies properties from
+    #     # the input object
+    #     out_arr = out_arr.view(type(self))
+    #     try:
+    #         out_arr.__dict__ = self.__dict__.copy()
+    #     except:
+    #         pass
+    #     return out_arr
 
-    def __array_finalize__(self, obj):
-        if obj is None: return
-        if hasattr(obj, '__dict__'):
-            self.__dict__ = _cp.deepcopy(obj.__dict__)
+    # def __array_finalize__(self, obj):
+    #     if obj is None: return
+    #     if hasattr(obj, '__dict__'):
+    #         self.__dict__ = _cp.deepcopy(obj.__dict__)
 
     def __new__(cls, *args, **kwargs):
         if 'channel_mapping' not in kwargs:
@@ -744,7 +747,7 @@ class rawData(_np.ndarray):
             channel_mapping = kwargs['channel_mapping']
         data, par_dict = load_raw(args[0], args[1])
         obj = data.view(cls)
-        obj.__dict__ = _cp.deepcopy(par_dict)
+        obj._params = par_dict
         obj.nsamp = obj.CHP_num_samp
         obj.block_length = obj.CHP_num_samp + 1
         obj.chirp_duration = obj.block_length / obj.ADC_sample_rate
@@ -761,11 +764,11 @@ class rawData(_np.ndarray):
         obj.mapping_dict = channel_mapping
         return obj
 
-    def tofile(*args):
-        self = args[0]
-        # In this case, we want to write both parameters and binary file
-        if len(args) is 3:
-            write_dataset(self, self.__dict__, args[1], args[2])
+    # def tofile(*args):
+    #     self = args[0]
+    #     # In this case, we want to write both parameters and binary file
+    #     if len(args) is 3:
+    #         write_dataset(self, self.__dict__, args[1], args[2])
 
     def extract_channel(self, pat, ant):
         if self.npats > 1:
@@ -877,16 +880,17 @@ class rawData(_np.ndarray):
         image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
         slc_dict = default_slc_dict()
         ts = self.time_start
-        ymd = (ts.split()[0]).split('-')
-        hms_tz = (ts.split()[1]).split('+')  # split into HMS and time zone information
-        hms = (hms_tz[0]).split(':')  # split HMS string using :
-        sod = int(hms[0]) * 3600 + int(hms[1]) * 60 + float(hms[2])  # raw data starting time, seconds of day
+        # ymd = (ts.split()[0]).split('-')
+        # hms_tz = (ts.split()[1]).split('+')  # split into HMS and time zone information
+        # hms = (hms_tz[0]).split(':')  # split HMS string using :
+        # sod = int(hms[0]) * 3600 + int(hms[1]) * 60 + float(hms[2])  # raw data starting time, seconds of day
+        sod = _dt.timedelta(hours=ts.hour, minutes=ts.minute,
+                            seconds=ts.second, microseconds=ts.microsecond).total_seconds()
         st0 = sod + self.nl_acc * self.tcycle * self.dec + \
               (self.dec / 2.0) * self.tcycle  # include time to center of decimation window
         az_step = self.ang_per_tcycle * self.dec
         prf = abs(1.0 / (self.tcycle * self.dec))
         seq = self.TX_RX_SEQ
-        print("Seq: {seq}".format(seq=seq))
         GPRI_TX_z = self.mapping_dict['TX_' +seq[0] + "_position"]
         GPRI_RX_z = self.mapping_dict['RX_' + seq[1] + seq[3] + "_position"]
         fadc = C / (2. * self.rps)
@@ -911,8 +915,8 @@ class rawData(_np.ndarray):
         tx_coord[1] = 0.0
         tx_coord[2] = GPRI_TX_z + ant_radius * _np.sin(ant_elev)
         chan_name = 'CH1 lower' if seq[3] == 'l' else 'CH2 upper'
-        slc_dict['title'] = ts + ' ' + chan_name
-        slc_dict['date'] = [ymd[0], ymd[1], ymd[2]]
+        slc_dict['title'] = str(ts) + ' ' + chan_name
+        slc_dict['date'] = self.time_start.date()
         slc_dict['start_time'] = [st0, 's']
         slc_dict['center_time'] = [st0 + image_time / 2, 's']
         slc_dict['end_time'] = [st0 + image_time, 's']

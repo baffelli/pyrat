@@ -29,6 +29,9 @@ class TestParameters(unittest.TestCase):
     def testItemSet(self):
         self.params['range_samples'] = self.dummy_val
 
+    def testAddItem(self):
+        self.params['olo'] = 34
+
     def testSetEquality(self):
         self.params.range_samples = self.dummy_val
         self.params['range_samples'] = self.dummy_val
