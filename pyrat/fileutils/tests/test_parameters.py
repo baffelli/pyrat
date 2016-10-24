@@ -47,5 +47,10 @@ class TestRawParameters(unittest.TestCase):
         self.dummy_val = 5
         self.params = ParameterFile('./raw_parameters.raw_par')
 
-    def TestLoad(self):
-        self.assertIn('CHP_num_samp', self.params)
+    # def testLoad(self):
+    #     self.assertIn('CHP_num_samp', self.params)
+
+    def testSaving(self):
+        self.params.to_file('./test_save_raw.par')
+
+

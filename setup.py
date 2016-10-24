@@ -8,6 +8,6 @@ setup(name='pyrat',
       license='MIT',
       packages=['pyrat', 'pyrat.core', 'pyrat.geo', 'pyrat.diff', 'pyrat.fileutils', 'pyrat.fileutils', 'pyrat.visualization', 'pyrat.gpri_utils'],
       zip_safe=False,
-      install_requires=['numpy', 'matplotlib'],
+      install_requires=['numpy', 'matplotlib', 'pyparsing'],
       package_data={'pyrat': ['rules/*']},
       include_package_data=True)

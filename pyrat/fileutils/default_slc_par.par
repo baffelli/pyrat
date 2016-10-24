@@ -23,9 +23,9 @@ azimuth_pixel_spacing: 0.000000  m
 near_range_slc:        3499.627515  m
 center_range_slc:  5999.790225  m
 far_range_slc:     8499.952935  m
-first_slant_range_polynomial:  0.0 0.0 0.0 0.0 0.0 0.0
-center_slant_range_polynomial: 0.0 0.0 0.0 0.0 0.0 0.0
-last_slant_range_polynomial:   0.0 0.0 0.0 0.0 0.0 0.0
+first_slant_range_polynomial:  0.0 0.0 0.0 0.0 0.0 0.0 s m 1 m^-1 m^-2 m^-3
+center_slant_range_polynomial: 0.0 0.0 0.0 0.0 0.0 0.0 s m 1 m^-1 m^-2 m^-3
+last_slant_range_polynomial:   0.0 0.0 0.0 0.0 0.0 0.0 s m 1 m^-1 m^-2 m^-3
 incidence_angle:       0.0  degrees
 azimuth_deskew:        OFF
 azimuth_angle:         0.0 degrees
@@ -34,7 +34,7 @@ adc_sampling_rate:     1.997687e+08  Hz
 chirp_bandwidth:       1.997685e+08  Hz
 prf:                   31.249375  Hz
 azimuth_proc_bandwidth: 0.0  Hz
-doppler_polynomial:     0.0 0.0 0.0 0.0
+doppler_polynomial:     0.0 0.0 0.0 0.0 Hz Hz/m Hz/m^2 Hz/m^3e
 doppler_poly_dot:       0.0 0.0 0.0 0.0
 doppler_poly_ddot:      0.0 0.0 0.0 0.0
 receiver_gain:          12.000  dB

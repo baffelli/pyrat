@@ -656,65 +656,7 @@ def default_slc_dict():
     The default parameters are read from '/default_slc_par.par'
     :return:
     """
-    #The de
     par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_slc_par.par')
-    # local_par = _od()
-    # par['title'] =  {'value': ''}
-    # par['sensor'] = {'value': 'GPRI 2'}
-    # par['date'] = {'value': ''}
-    # par['start_time'] = {'value': 0, 'unit':'s'}
-    # par['center_time'] = {'value': 0, 'unit':'s'}
-    # par['end_time'] = {'value': 0, 'unit':'s'}
-    # par['azimuth_line_time'] = {'value': 0, 'unit':'s'}
-    # par['line_header_size'] = {'value': 0}
-    # par['range_samples'] = {'value': 0}
-    # par['azimuth_lines'] = {'value': 0}
-    # par['range_looks'] = {'value': 1}
-    # par['azimuth_looks'] = {'value': 1}
-    # par['image_format'] = {'value': 'FCOMPLEX'}
-    # par['image_geometry'] = {'value': 'SLANT_RANGE'}
-    # par['range_scale_factor'] = {'value': 1}
-    # par['azimuth_scale_factor'] = {'value': 1}
-    # par['center_latitude'] = {'value':0, 'unit':'degrees'}
-    # par['center_longitude'] = [0, 'degrees']
-    # par['heading'] = [0, 'degrees']
-    # par['range_pixel_spacing'] = [0, 'm']
-    # par['azimuth_pixel_spacing'] = [0, 'm']
-    # par['near_range_slc'] = [0, 'm']
-    # par['center_range_slc'] = [0, 'm']
-    # par['far_range_slc'] = [0, 'm']
-    # par['first_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    # par['center_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    # par['last_slant_range_polynomial'] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    # par['incidence_angle'] = [0.0, 'degrees']
-    # par['azimuth_deskew'] = 'OFF'
-    # par['azimuth_angle'] = [0.0, 'degrees']
-    # par['radar_frequency'] = [0.0, 'Hz']
-    # par['adc_sampling_rate'] = [0.0, 'Hz']
-    # par['chirp_bandwidth'] = [0.0, 'Hz']
-    # par['prf'] = [0.0, 'Hz']
-    # par['azimuth_proc_bandwidth'] = [0.0, 'Hz']
-    # par['doppler_polynomial'] = [0.0, 0.0, 0.0, 0.0]
-    # par['doppler_poly_dot'] = [0.0, 0.0, 0.0, 0.0]
-    # par['doppler_poly_ddot'] = [0.0, 0.0, 0.0, 0.0]
-    # par['receiver_gain'] = [0.0, 'dB']
-    # par['calibration_gain'] = [0.0, 'dB']
-    # par['sar_to_earth_center'] = [0.0, 'm']
-    # par['earth_radius_below_sensor'] = [0.0, 'm']
-    # par['earth_semi_major_axis'] = [ra, 'm']
-    # par['earth_semi_minor_axis'] = [rb, 'm']
-    # par['number_of_state_vectors'] = 0
-    # par['GPRI_TX_mode'] = ''
-    # par['GPRI_TX_antenna'] = ''
-    # par['GPRI_RX_antenna'] = ''
-    # par['GPRI_az_start_angle'] = [0, 'degrees']
-    # par['GPRI_az_angle_step'] = [0, 'degrees']
-    # par['GPRI_ant_elev_angle'] = [0, 'degrees']
-    # par['GPRI_ref_north'] = 0
-    # par['GPRI_ref_east'] = 0
-    # par['GPRI_ref_alt'] = [0, 'm']
-    # par['GPRI_geoid'] = [0, 'm']
-    # par['GPRI_scan_heading'] = [0, 'degrees']
     return par
 
 
@@ -748,14 +690,14 @@ class rawData(gammaDataset):
         data, par_dict = load_raw(args[0], args[1])
         obj = data.view(cls)
         obj._params = par_dict
-        obj.nsamp = obj.CHP_num_samp
+        obj.nsamp = obj.CHP_num_samp // 1
         obj.block_length = obj.CHP_num_samp + 1
         obj.chirp_duration = obj.block_length / obj.ADC_sample_rate
-        obj.pn1 = _np.arange(obj.nsamp / 2 + 1)  # list of slant range pixel numbers
+        obj.pn1 = _np.arange(obj.nsamp // 2 + 1)  # list of slant range pixel numbers
         obj.rps = (obj.ADC_sample_rate / obj.nsamp * C / 2.) / obj.RF_chirp_rate  # range pixel spacing
         obj.slr = (
-                      obj.pn1 * obj.ADC_sample_rate / obj.nsamp * C / 2.) / obj.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
-        obj.scale = (abs(obj.slr) / obj.slr[obj.nsamp / 8]) ** 1.5  # cubic range weighting in power
+                      obj.pn1 * obj.ADC_sample_rate / obj.nsamp * C // 2.) / obj.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
+        obj.scale = (abs(obj.slr) / obj.slr[obj.nsamp // 8]) ** 1.5  # cubic range weighting in power
         obj.ns_max = int(round(0.90 * obj.nsamp / 2))  # default maximum number of range samples for this chirp
         # obj.tcycle = (obj.block_length) / obj.ADC_sample_rate  # time/cycle
         obj.dt = type_mapping['SHORT INTEGER']
@@ -917,34 +859,34 @@ class rawData(gammaDataset):
         chan_name = 'CH1 lower' if seq[3] == 'l' else 'CH2 upper'
         slc_dict['title'] = str(ts) + ' ' + chan_name
         slc_dict['date'] = self.time_start.date()
-        slc_dict['start_time'] = [st0, 's']
-        slc_dict['center_time'] = [st0 + image_time / 2, 's']
-        slc_dict['end_time'] = [st0 + image_time, 's']
+        slc_dict['start_time'] = st0
+        slc_dict['center_time'] = st0 + image_time / 2
+        slc_dict['end_time'] = st0 + image_time
         slc_dict['range_samples'] = self.ns_out
         slc_dict['azimuth_lines'] = self.nl_tot_dec - 2 * self.nl_acc
-        slc_dict['range_pixel_spacing'] = [self.rps, 'm']
-        slc_dict['azimuth_line_time'] = [self.tcycle * self.dec, 's']
-        slc_dict['near_range_slc'] = [self.rmin, 'm']
-        slc_dict['center_range_slc'] = [(self.rmin + self.rmax) / 2, 'm']
-        slc_dict['far_range_slc'] = [self.rmax, 'm']
-        slc_dict['radar_frequency'] = [self.RF_center_freq, 'Hz']
-        slc_dict['adc_sampling_rate'] = [fadc, 'Hz']
-        slc_dict['prf'] = [prf, 'Hz']
+        slc_dict['range_pixel_spacing'] = self.rps
+        slc_dict['azimuth_line_time'] = self.tcycle * self.dec
+        slc_dict['near_range_slc'] = self.rmin
+        slc_dict['center_range_slc'] = (self.rmin + self.rmax) / 2
+        slc_dict['far_range_slc'] = self.rmax
+        slc_dict['radar_frequency'] = self.RF_center_freq
+        slc_dict['adc_sampling_rate'] = fadc
+        slc_dict['prf'] = prf
         slc_dict['chirp_bandwidth'] = self.RF_freq_max - self.RF_freq_min
-        slc_dict['receiver_gain'] = [60 - self.IMA_atten_dB, 'dB']
+        slc_dict['receiver_gain'] = 60 - self.IMA_atten_dB
         slc_dict['GPRI_TX_mode'] = self.TX_mode
         slc_dict['GPRI_TX_antenna'] = seq[0]
         slc_dict['GPRI_RX_antenna'] = seq[1] + seq[3]
-        slc_dict['GPRI_tx_coord'] = [tx_coord[0], tx_coord[1], tx_coord[2], 'm', 'm', 'm']
-        slc_dict['GPRI_rx1_coord'] = [rx1_coord[0], rx1_coord[1], rx1_coord[2], 'm', 'm', 'm']
-        slc_dict['GPRI_rx2_coord'] = [rx2_coord[0], rx2_coord[1], rx2_coord[2], 'm', 'm', 'm']
-        slc_dict['GPRI_az_start_angle'] = [self.az_start, 'degrees']
-        slc_dict['GPRI_az_angle_step'] = [az_step, 'degrees']
-        slc_dict['GPRI_ant_elev_angle'] = [self.antenna_elevation, 'degrees']
-        slc_dict['GPRI_ref_north'] = [self.geographic_coordinates[0], 'degrees']
-        slc_dict['GPRI_ref_east'] = [self.geographic_coordinates[1], 'degrees']
-        slc_dict['GPRI_ref_alt'] = [self.geographic_coordinates[2], 'm']
-        slc_dict['GPRI_geoid'] = [self.geographic_coordinates[3], 'm']
+        slc_dict['GPRI_tx_coord'] = [tx_coord[0], tx_coord[1], tx_coord[2]]
+        slc_dict['GPRI_rx1_coord'] = [rx1_coord[0], rx1_coord[1], rx1_coord[2]]
+        slc_dict['GPRI_rx2_coord'] = [rx2_coord[0], rx2_coord[1], rx2_coord[2]]
+        slc_dict['GPRI_az_start_angle'] = self.az_start
+        slc_dict['GPRI_az_angle_step'] = az_step
+        slc_dict['GPRI_ant_elev_angle'] = self.antenna_elevation
+        slc_dict['GPRI_ref_north'] = self.geographic_coordinates[0]
+        slc_dict['GPRI_ref_east'] = self.geographic_coordinates[1]
+        slc_dict['GPRI_ref_alt'] = self.geographic_coordinates[2]
+        slc_dict['GPRI_geoid'] = self.geographic_coordinates[3]
         return slc_dict
 
 
