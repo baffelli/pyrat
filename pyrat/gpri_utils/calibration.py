@@ -120,7 +120,7 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     # az_vec_image = _np.deg2rad(self.slc.GPRI_az_start_angle[0]) + _np.arange(self.slc.shape[0]) * _np.deg2rad(
     #     self.slc.GPRI_az_angle_step[0])
     # Compute integration window size in samples
-    ws_samp = ws // slc.GPRI_az_angle_step[0]
+    ws_samp = ws // slc.GPRI_az_angle_step
     # Filtered slc has different sizes depending
     # if we keep all the samples after filtering
     if not discard_samples:

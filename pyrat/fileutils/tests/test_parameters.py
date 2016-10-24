@@ -11,6 +11,9 @@ class TestParameters(unittest.TestCase):
     def testDotAccess(self):
         self.params.range_samples
 
+    def testAttribute(self):
+        self.params.file_title
+
     def testItemAccess(self):
         self.params['range_samples']
 
@@ -29,3 +32,7 @@ class TestParameters(unittest.TestCase):
         self.params.range_samples = self.dummy_val
         self.params['range_samples'] = self.dummy_val
         self.assertEqual(self.params.range_samples, self.params['range_samples'])
+
+
+    def testSaving(self):
+        self.params.to_file('./test_save.par')

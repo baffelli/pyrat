@@ -119,26 +119,23 @@ def format_multiple(par):
         par_str = str(par)
     return par_str
 
-def format_key_unit_dict(dict):
+
+def flatify(arr):
     """
-    Used to format a dict of form
-    {value: single value or list of values, unit: nothing or list of units}
+    Flatten a one-elmenent array
     Parameters
     ----------
-    dict
+    arr
 
     Returns
     -------
 
     """
-    value = dict.get('value')
-    unit = dict.get('unit')
-    value_str = format_multiple(value)
-    if unit:
-        unit_str = format_multiple(unit)
-    else:
-        unit_str = ''
-    return value_str + ' ' + unit_str
+    try:
+        item, = arr
+        return item
+    except (TypeError, ValueError):
+        return arr
 
 
 class parameterParser:
@@ -198,6 +195,10 @@ class parameterParser:
     def parse(self, text_object):
         return self.grammar.param_grammar.parseString(text_object)
 
+    def as_ordered_dict(self, text_object):
+        parsed = self.parse(text_object)
+        result_dict = _coll.OrderedDict(parsed.asDict())
+        return result_dict
 
 class ParameterFile(object):
     """
@@ -208,59 +209,68 @@ class ParameterFile(object):
         if isinstance(args[0], str):
             parser = parameterParser()
             with open(args[0], 'r') as par_text:
-                parsedResults = parser.parse(par_text.read())
-            res_dict = parsedResults.asDict()
+                # parsedResults = parser.parse(par_text.read())
+                res_dict = parser.as_ordered_dict(par_text.read())
         elif hasattr('get', args[0]):
             res_dict = args[0]
-        plain_dict = {}
-        unit_dict = {}
-        self.file_title = res_dict.pop('file_title')
-        for (key,item) in res_dict.items():
-            try:
-                value = item['value']
-            except (KeyError, TypeError):
-                value = item
-            try:
-                single_value, = value
-            except (ValueError,TypeError):
-                single_value = value
-            plain_dict[key] = single_value
-        for (key,item) in res_dict.items():
-            try:
-                value= item['unit']
-            except (KeyError, TypeError):
-                value = item
-            try:
-                single, = value
-            except (TypeError,ValueError):
-                single_value = value
-            unit_dict[key] = single_value
-        self.params = plain_dict
-        self.units = unit_dict
+        file_title = res_dict.pop('file_title')
+        params = _coll.OrderedDict()
+        for key, item in res_dict.items():
+            params[key] = _coll.OrderedDict()
+            for (subkey, subitem) in item.items():
+                params[key][subkey] = flatify(subitem)
+        self.file_title = file_title
+        self.params = params
+
+
 
 
     def __getattr__(self, key):
-        try:
-            return self.params[key]
-        except KeyError:
-            raise AttributeError("This attribute does not exist in the specified parameterfile")
+        if key in self.__dict__:
+            return self.__dict__[key]
+        else:
+            try:
+                return self.params[key]['value']
+            except KeyError:
+                raise AttributeError("This attribute does not exist in the specified parameterfile")
+
 
 
 
     def __setattr__(self, key, value):
         if 'params' in self.__dict__:
             if key in self.__dict__['params']:
-                self.__dict__['params'][key] = value
+                self.__dict__['params'][key]['value'] = value
         else:
             super(ParameterFile, self).__setattr__(key, value)
 
 
     def __getitem__(self, key):
-        return self.params[key]
+        return self.params[key]['value']
 
     def __setitem__(self, key, value):
-        self.params[key] = value
+        self.params[key]['value'] = value
 
+    def format_key_unit_dict(self, key):
+        """
+        Used to format a dict of form
+        {value: single value or list of values, unit: nothing or list of units}
+        Parameters
+        ----------
+        dict
+
+        Returns
+        -------
+
+        """
+        value = self.params[key]['value']
+        unit = self.params[key].get('unit')
+        value_str = format_multiple(value)
+        if unit:
+            unit_str = format_multiple(unit)
+        else:
+            unit_str = ''
+        return value_str + ' ' + unit_str
 
 
     # def __getattr__(self, key):
@@ -316,13 +326,11 @@ class ParameterFile(object):
         return {key: item['unit'] for (key, item) in iter(self)}
 
     def to_file(self, par_file):
-        self_1 = self.copy()
         with open(par_file, 'w') as fout:
-            if 'file_title' in self:
-                fout.write(self_1.pop('file_title') + '\n')
-            for key in iter(self_1):
-                par = self_1[key]
-                par_str= format_key_unit_dict(par)
+            if hasattr(self, 'file_title'):
+                fout.write(self.file_title)
+            for key, value in self.params.items():
+                par_str= self.format_key_unit_dict(key)
                 key_str = "{key}:".format(key=key).ljust(40)
                 par_str_just = par_str.ljust(20)
                 line = "{key} {par_str}\n".format(key=key_str, par_str=par_str_just)

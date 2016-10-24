@@ -221,16 +221,15 @@ class gammaDataset(_np.ndarray):
             pass
         obj = image.view(cls)
         # d1 = _cp.copy(par_dict)
-        obj.params = par_dict
+        obj._params = par_dict
         return obj
 
     def __getattr__(self, item):
-        return self.params.__getattr__(item)
+        return self._params.__getattr__(item)
 
     def __setattr__(self, key, value):
         if 'params' in self.__dict__:
-            if key in self.__dict__['params']:
-                self.__dict__['params'][key] = value
+            self._params.__setattr__(key, value)
         else:
             super(gammaDataset, self).__setattr__(key, value)
 
@@ -304,7 +303,7 @@ class gammaDataset(_np.ndarray):
         self = args[0].astype(type_mapping[args[0].image_format])
         # In this case, we want to write both parameters and binary file
         if len(args) is 3:
-            write_dataset(self, self.__dict__, args[1], args[2])
+            write_dataset(self, self.params, args[1], args[2])
         # In this case, we only want to write the binary
         else:
             _np.array(self).tofile(args[1])
@@ -353,14 +352,14 @@ class gammaDataset(_np.ndarray):
 
     @property
     def r_vec(self):
-        return self['near_range_slc'][0] + _np.arange(self['range_samples'][0]) * \
-                                                    self['range_pixel_spacing'][0]
+        return self.near_range_slc + _np.arange(self.range_samples) * \
+                                                    self.range_pixel_spacing
 
 
     @property
     def az_vec(self):
-        return self['GPRI_az_start_angle'] + _np.arange(self['azimuth_lines']) * \
-                                                         self['GPRI_az_angle_step']
+        return self.GPRI_az_start_angle + _np.arange(self.azimuth_lines) * \
+                                                         self.GPRI_az_angle_step
 
 
 
@@ -1007,11 +1006,11 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     rawdata_corr = rawdata * 1
     # Now correct the squint
     freqvec = SLC.radar_frequency + _np.linspace(-SLC.chirp_bandwidth / 2, SLC.chirp_bandwidth / 2,
-                                                    rawdata.shape)
+                                                    rawdata.shape[0])
     squint_vec = squint_function(freqvec, squint_rate)
     squint_vec = squint_vec / SLC.GPRI_az_angle_step
     squint_vec = squint_vec - squint_vec[
-        freqvec.shape // 2]  # In addition, we correct for the beam motion during the chirp
+        freqvec.shape[0] // 2]  # In addition, we correct for the beam motion during the chirp
     # Normal angle vector
     angle_vec = _np.arange(SLC.shape[1])
     # Correct by interpolation
