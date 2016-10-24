@@ -1,6 +1,6 @@
 import collections as _coll
 import datetime as _dt
-
+import copy as _cp
 import pyparsing as _pp
 
 
@@ -269,6 +269,12 @@ class ParameterFile(object):
         except KeyError:
             key_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
             raise KeyError(key_msg)
+
+    def copy(self):
+        params = _cp.deepcopy(self.params)
+        new_pf = ParameterFile(params)
+        return new_pf
+
 
     def __setitem__(self, key, value, unit=None):
         if 'params' in self.__dict__:

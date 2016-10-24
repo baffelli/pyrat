@@ -28,7 +28,7 @@ import pandas as pd
 
 from . import parameters as _par
 
-
+import copy as _cp
 # Constants for gpri
 ra = 6378137.0000  # WGS-84 semi-major axis
 rb = 6356752.3141  # WGS-84 semi-minor axis
@@ -221,23 +221,42 @@ class gammaDataset(_np.ndarray):
             pass
         obj = image.view(cls)
         # d1 = _cp.copy(par_dict)
-        obj._params = par_dict
+        obj._params = par_dict.copy()
         return obj
 
     def __getattr__(self, item):
         return self._params.__getattr__(item)
 
     def __setattr__(self, key, value):
-        if 'params' in self.__dict__:
+        if '_params' in self.__dict__:
             self._params.__setattr__(key, value)
         else:
             super(gammaDataset, self).__setattr__(key, value)
 
 
-    def __array_finalize__(self, obj):
-        if obj is None: return
-        if hasattr(obj, '__dict__'):
-            self.__dict__ = obj.__dict__
+    # def __array_finalize__(self, obj):
+    #     if obj is None: return
+    #     # if hasattr(obj, '__dict__'):
+    #     #     self.__dict__ = _cp.copy(obj.__dict__)
+    #     obj = super(gammaDataset,self).__array_finalize__(obj)
+    #     print(obj)
+    #     obj.__dict__['_params'] = self._params.copy()
+    #     return obj
+
+    def  __array_wrap__(self, obj):
+        print('   self type is %s' % type(self))
+        print('   obj type is %s' % type(obj))
+        new_arr = super(gammaDataset,self).__array_wrap__(obj)
+        # if hasattr(self, '__dict__'):
+        #     print('here')
+        #     new_arr.__dict__ = _cp.copy(self.__dict__)
+        # if hasattr(self, '_params'):
+        #     print('here')
+        new_arr.__dict__['_params'] = self._params.copy()
+        print(self._params)
+        print(new_arr._params)
+        return new_arr
+
 
     def __getslice__(self, start, stop):
         """This solves a subtle bug, where __getitem__ is not called, and all
@@ -259,22 +278,29 @@ class gammaDataset(_np.ndarray):
             sl = item
 
         # Get the slice from the object by calling the corresponding numpy function
-        new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).view(type(self))
+        new_obj_1 = (super(gammaDataset, self).__getitem__(sl)).__array_wrap__(self)
         #This concludes the part where we extract data from the array.
         #now we need to adjust the attributes to adjust to the new spacing
         try:#if we pass an integer, we do not need to do anything
-            r_vec_sl = self.r_vec[int(sl[0])]
-            az_vec_sl = self.az_vec[int(sl[1])]
             try:
-                az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step[0]#azimuth over/undersampling time
+                sl[0]
+                r_vec_sl = self.r_vec[sl[0]]
+                az_vec_sl = self.az_vec[sl[1]]
+            except (TypeError, IndexError):
+                sl = _np.unravel_index(sl, self.shape)
+                r_vec_sl = self.r_vec[sl[0]]
+                az_vec_sl = self.az_vec[sl[1]]
+
+            try:
+                az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step#azimuth over/undersampling time
             except IndexError:
                 az_osf = 1
             try:
-                r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing[0]#range sampling
+                r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing#range sampling
             except IndexError:
                 r_osf = 1
-            new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
-            new_obj_1.prf[0] = az_osf * self.prf[0]
+            new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
+            new_obj_1.prf = az_osf * self.prf
             try:
                 start_angle = az_vec_sl[0]
             except IndexError:
@@ -284,18 +310,18 @@ class gammaDataset(_np.ndarray):
             except IndexError:
                 start_r = r_vec_sl
             try:
-                new_obj_1.near_range_slc[0] = start_r
-                new_obj_1.GPRI_az_start_angle[0] = start_angle
-                new_obj_1.GPRI_az_angle_step[0] = self.GPRI_az_angle_step[0] * az_osf
-                new_obj_1.range_pixel_spacing[0] = self.range_pixel_spacing[0] * r_osf
-                new_obj_1.azimuth_line_time[0] = az_osf * self.azimuth_line_time[0]
-                new_obj_1.prf[0] = 1/az_osf * self.prf[0]
+                new_obj_1.near_range_slc = start_r
+                new_obj_1.GPRI_az_start_angle = start_angle
+                new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
+                new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
+                new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
+                new_obj_1.prf = 1/az_osf * self.prf
                 new_obj_1.range_samples = len(r_vec_sl)
                 new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
-            except:
+            except Exception as e:
                 pass
-        except:
-            pass
+        except Exception as e:
+                pass
         return new_obj_1
 
 
@@ -352,6 +378,7 @@ class gammaDataset(_np.ndarray):
 
     @property
     def r_vec(self):
+        print(self.range_samples)
         return self.near_range_slc + _np.arange(self.range_samples) * \
                                                     self.range_pixel_spacing
 
