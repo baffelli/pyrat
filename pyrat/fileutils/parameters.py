@@ -184,14 +184,14 @@ class ParameterParser:
         # Date (year-month-day or year month day)
         # Extendend date
         self.grammar.time = _pp.Group(
-            _pp.Word(_pp.nums, exact=2)('h').setParseAction(
-                ambigous_int_parse) + _pp.Literal(':') + _pp.Word(_pp.nums, exact=2)('m').setParseAction(
+            _pp.Word(_pp.nums)('h').setParseAction(
+                ambigous_int_parse) + _pp.Literal(':') + _pp.Word(_pp.nums)('m').setParseAction(
                 ambigous_int_parse) + _pp.Literal(':') + _pp.Word(
                 _pp.nums )('s').setParseAction(
                 ambigous_int_parse)  + _pp.Literal('.') + _pp.Word(_pp.nums)('us').setParseAction(
-                ambigous_int_parse) + _pp.Literal('+') + _pp.Word(_pp.nums)('tz_h').setParseAction(
+                ambigous_int_parse) + _pp.Optional(_pp.Group(_pp.Literal('+') + _pp.Word(_pp.nums)('tz_h').setParseAction(
                 ambigous_int_parse) + _pp.Literal(':') + _pp.Word(_pp.nums)('tz_m').setParseAction(
-                ambigous_int_parse))('time')
+                ambigous_int_parse))))('time')
         self.grammar.date = _pp.Group(
             _pp.Word(_pp.nums + '.',min=4, max=6)('year').setParseAction(
                 ambigous_int_parse) + _pp.Optional(
@@ -400,7 +400,6 @@ class ParameterFile(object):
         out_str = ""
         if 'file_title' in self_1:
             title = self_1.params.pop('file_title')
-            print(title)
             out_str += title['value'] + '\n'
         for key, value in self_1.params.items():
             par_str = self_1.format_key_unit_dict(key)
@@ -411,7 +410,6 @@ class ParameterFile(object):
         return out_str
 
     def to_file(self, par_file):
-        print(str(self))
         if isinstance(par_file, str):
             with open(par_file, 'w+') as fout:
                 fout.writelines(str(self))

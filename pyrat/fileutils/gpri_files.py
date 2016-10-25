@@ -208,6 +208,7 @@ class gammaDataset(_np.ndarray):
     def __new__(cls, *args, **kwargs):
         par_dict = args[0]
         image = args[1]
+        print(args)
         if isinstance(par_dict, str):#user passes paths
             try:#user passes file paths
                 par_path = args[0]
@@ -315,7 +316,7 @@ class gammaDataset(_np.ndarray):
                 new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
                 new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
                 new_obj_1.prf = 1/az_osf * self.prf
-                new_obj_1.range_samples = len(r_vec_sl)
+                new_obj_1.range_samples = self.shape[0]
                 new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
             except Exception as e:
                 pass
@@ -324,17 +325,14 @@ class gammaDataset(_np.ndarray):
         return new_obj_1
 
 
-    def tofile(*args,**kwargs):
-        if 'image_format' in args[0]:
-            self = args[0].astype(type_mapping[args[0].image_format])
-        else:
-            self = args[0].astype(type_mapping[kwargs.get('dt')])
+    def to_file(self, *args,**kwargs):
+        arr = self.astype(type_mapping[self.image_format])
         # In this case, we want to write both parameters and binary file
-        if len(args) is 3:
-            write_dataset(self, self._params, args[1], args[2])
+        if len(args) is 2:
+            write_dataset(arr, self._params, args[0], args[1])
         # In this case, we only want to write the binary
         else:
-            _np.array(self).tofile(args[1])
+            _np.array(self).tofile(args[0])
 
 
 

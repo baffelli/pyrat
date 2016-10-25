@@ -1,4 +1,5 @@
 import unittest
+import datetime as dt
 from pyrat.fileutils.parameters import ParameterParser
 
 
@@ -11,11 +12,20 @@ class TestParser(unittest.TestCase):
         self.parser = ParameterParser()
 
     def testIntParsing(self):
-        hf = """
-        array: {arr}
+        hf = """ffs st\narray: {arr}
         """.format(arr=' '.join(map(str, self.array)))
         parsed = self.parser.parse(hf)
-        self.assertEqual(parsed['array']['value'] , list(self.array) )
+        print(parsed)
+        self.assertEqual(parsed.asDict()['array']['value'] , list(self.array) )
+
+    def testDateParsing(self):
+        date = dt.datetime(year=2016, month=6, day=14, hour=13, minute=12, second=23, microsecond=23)
+        hf = """
+        date: {dt}\n""".format(dt=date)
+        parsed = self.parser.parse(hf)
+        pd = parsed.asDict()
+        print(pd)
+        self.assertEqual(pd['date']['value'], date)
 
     def testUnitParsing(self):
         hf = """array: {arr} {units}

@@ -381,8 +381,8 @@ def complex_interpolate(image, osf):
     image_interp.range_pixel_spacing = osf[0] * image.range_pixel_spacing
     image_interp.azimuth_line_time = osf[1] * image.azimuth_line_time
     image_interp.prf = osf[1] * image.prf
-    image_interp.azimuth_lines = image_interp.shape
-    image_interp.range_samples = image_interp.shape
+    image_interp.azimuth_lines = image_interp.shape[0]
+    image_interp.range_samples = image_interp.shape[1]
     return image_interp
 
 
