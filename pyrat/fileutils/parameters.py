@@ -62,7 +62,9 @@ def float_parse(s, l, t):
 
 
 def text_parse(s, l, t):
-    return t.asDict()
+    t1 = t.asDict()
+    t1['value'] = t1['value'].strip()
+    return t1
 
 
 def compound_unit_parse(s, l, t):
@@ -404,7 +406,7 @@ class ParameterFile(object):
         for key, value in self_1.params.items():
             par_str = self_1.format_key_unit_dict(key)
             key_str = "{key}:".format(key=key).ljust(40)
-            par_str_just = par_str.ljust(20)
+            par_str_just = par_str
             line = "{key} {par_str}\n".format(key=key_str, par_str=par_str_just)
             out_str += line
         return out_str

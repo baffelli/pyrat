@@ -26,6 +26,7 @@ class TestParser(unittest.TestCase):
         pd = parsed.asDict()
         self.assertEqual(pd['date']['value'], date)
 
+
     def testShortDateParsing(self):
         dt_str = dt.datetime(2015,8,3).date()
         hf="""date: {dt}""".format(dt=dt_str)
