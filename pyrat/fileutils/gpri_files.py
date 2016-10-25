@@ -558,7 +558,6 @@ def load_dataset(par_file, bin_file, **kwargs):
         par_dict =_PF(par_file)
     except e:
         print(e)
-    print(par_dict)
     # Map type to gamma
     if dtype is None:
         try:
@@ -581,6 +580,7 @@ def load_dataset(par_file, bin_file, **kwargs):
 
 def write_dataset(dataset, par_dict, par_file, bin_file):
     # Write the  binary file
+    print(par_dict)
     try:
         _np.array(dataset).T.tofile(bin_file, "")
     except AttributeError:
