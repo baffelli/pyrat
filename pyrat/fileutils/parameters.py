@@ -247,7 +247,6 @@ class ParameterFile(object):
         elif hasattr(args[0], 'items'):
             res_dict = args[0]
             file_title = res_dict.get('file_title')
-            print(res_dict)
         params = _coll.OrderedDict()
         for key, item in res_dict.items():
             params[key] = _coll.OrderedDict()
@@ -280,6 +279,9 @@ class ParameterFile(object):
         except KeyError:
             key_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
             raise KeyError(key_msg)
+
+    def items_with_unit(self):
+        return [(key, value) for key, value in self.params.items()]
 
     def keys(self):
         return self.params.keys()

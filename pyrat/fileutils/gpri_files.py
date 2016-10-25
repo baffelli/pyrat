@@ -309,7 +309,7 @@ class gammaDataset(_np.ndarray):
                 start_r = r_vec_sl[0]
             except IndexError:
                 start_r = r_vec_sl
-            try:
+            try:#TODO set parameters depending on the access vector
                 new_obj_1.near_range_slc = start_r
                 new_obj_1.GPRI_az_start_angle = start_angle
                 new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
@@ -348,6 +348,9 @@ class gammaDataset(_np.ndarray):
             sl = key
         super(gammaDataset, self).__setitem__(key, value)
 
+    def add_parameter(self, key, value, unit=None):
+        self._params.add_parameter(key, value, unit=unit)
+
     def to_tempfile(self):
         tf_par, tf = temp_dataset()
         self.tofile(tf_par.name, tf.name)
@@ -369,8 +372,8 @@ class gammaDataset(_np.ndarray):
             arr_dec = self[:, ::dec]
         arr_dec = self.__array_wrap__(arr_dec)
         arr_dec /= dec
-        print(self.GPRI_az_angle_step)
-        print(arr_dec.GPRI_az_angle_step)
+        # print(self.GPRI_az_angle_step)
+        # print(arr_dec.GPRI_az_angle_step)
         arr_dec.GPRI_az_angle_step = dec * self.GPRI_az_angle_step
         arr_dec.azimuth_line_time = dec * self.azimuth_line_time
         arr_dec.prf = self.prf / dec
@@ -380,13 +383,13 @@ class gammaDataset(_np.ndarray):
 
     @property
     def r_vec(self):
-        return self.near_range_slc + _np.arange(self.range_samples) * \
+        return self.near_range_slc + _np.arange(self.shape[0]) * \
                                                     self.range_pixel_spacing
 
 
     @property
     def az_vec(self):
-        return self.GPRI_az_start_angle + _np.arange(self.azimuth_lines) * \
+        return self.GPRI_az_start_angle + _np.arange(self.shape[1]) * \
                                                          self.GPRI_az_angle_step
 
 
@@ -583,7 +586,7 @@ def write_dataset(dataset, par_dict, par_file, bin_file):
     except AttributeError:
         raise TypeError("The dataset is not a numpy ndarray")
     # Write the parameter file
-    dict_to_par(par_dict, par_file)
+    par_dict.tofile(par_file)
 
 
 def path_helper(location, date, time, slc_dir='slc', data_dir='/media/bup/Data'):
@@ -663,7 +666,6 @@ def load_raw(par_path, path, nchan=2):
     :return:
     """
     par = par_to_dict(par_path)
-    print(par)
     nsamp = par['CHP_num_samp']
     npat = count_pat(par['TX_RX_SEQ'])
     # If multiplexed data, we have two channels
