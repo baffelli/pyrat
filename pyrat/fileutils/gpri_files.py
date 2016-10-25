@@ -242,14 +242,21 @@ class gammaDataset(_np.ndarray):
             super(gammaDataset, self).__setattr__(key, value)
 
 
-    # def __array_finalize__(self, obj):
-    #     if obj is None: return
-    #     # if hasattr(obj, '__dict__'):
-    #     #     self.__dict__ = _cp.copy(obj.__dict__)
-    #     obj = super(gammaDataset,self).__array_finalize__(obj)
-    #     print(obj)
-    #     obj.__dict__['_params'] = self._params.copy()
-    #     return obj
+    def __array_finalize__(self, obj):
+        print("Obj_type is {t}".format(t=type(obj)))
+        print("Self_type is {t}".format(t=type(self)))
+        if obj is None: return
+        print('new from template')
+        if '_params' in obj.__dict___:
+            self.__dict__ = obj.__dict__
+            self.__dict__._params = obj._params.copy()
+
+        # if hasattr(obj, '__dict__'):
+        #     self.__dict__ = _cp.copy(obj.__dict__)
+        # obj = super(gammaDataset,self).__array_finalize__(obj)
+        # if '_params' in self.__dict__:
+        #     obj._params = obj._params.copy()
+        # return obj
 
     def  __array_wrap__(self, obj):
         new_arr = super(gammaDataset,self).__array_wrap__(obj)
