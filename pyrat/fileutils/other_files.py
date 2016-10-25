@@ -52,7 +52,7 @@ def load_shapefile(path, mode=0):
     driver = ogr.GetDriverByName('ESRI Shapefile')
     dataSource = driver.Open(path, mode)
     if dataSource is None:
-        print("Could not open " + str(path))
+        raise FileNotFoundError("Could not open " + str(path))
     else:
         return dataSource
 

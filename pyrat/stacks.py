@@ -25,7 +25,6 @@ class stack:
 def moving_window(par_paths, paths, n=3, **kwargs):
     stack = [gpf.gammaDataset(par_path, path, **kwargs) for par_path, path in zip(par_paths, paths)]
     for i in range(len(stack) - n + 1):
-            print('yielding')
             yield stack[i:i+n]
 
 

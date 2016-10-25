@@ -92,7 +92,6 @@ rule extract_channel:
         chan = "raw_chan/{dataname}_{chan}.raw",
         chan_par = "raw_chan/{dataname}_{chan}.raw_par"
     run:
-        print(wildcards.chan)
         raw = gpf.rawData(input.raw_par, input.raw, channel_mapping=config['channel_mapping'])
         raw_chan = raw.extract_channel(wildcards.chan[0:3], wildcards.chan[-1])
         raw_chan.tofile(output.chan_par, output.chan)
@@ -132,10 +131,8 @@ rule range_compression:
         slc_par = "slc_{type, (desq)|(chan)}/{rawname}.slc.par"
     run:
         raw = gpf.rawData(input.raw_par, input.raw)
-        print(raw.shape)
         slc = gpf.range_compression(raw, rmin=config['range_compression']['rmin'], rmax=config['range_compression']['rmax'],
         kbeta=config['range_compression']['k'], dec=1, zero=config['range_compression']['z'], f_c=None, bw=66e6, rvp_corr=False, scale=True)
-        print(slc.shape)
         slc.tofile(output.slc_par, output.slc)
 
 
@@ -282,15 +279,8 @@ rule decimate:
     run:
         from scipy.ndimage import zoom
         slc_input = gpf.gammaDataset(input.slc_par, input.slc)
-#        dec = int(config['range_compression']['decimated_sample_spacing'] / slc_input.GPRI_az_angle_step[0])
         slc_dec = slc_input.decimate(params.dec, mode=params.dec_mode)
-        osr = slc_dec.GPRI_az_angle_step / params.spacing
-#        slc_dec_1 = cf.complex_interpolate(slc_dec, (1, osr))
-#        print(slc_dec_1.shape)
-#        new_dict = slc_dec.__dict__
-#        new_dict['azimuth_samples'] = slc_dec_1.shape[1]
-#        new_dict['GPRI_az_angle_step'] = [params.spacing, 'deg']
-#        slc_dec_1 = gpf.gammaDataset(new_dict, slc_dec_1)
+        print(slc_dec)
         slc_dec.tofile(output.slc_par, output.slc)
 
 

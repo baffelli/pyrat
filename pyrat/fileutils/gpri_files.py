@@ -27,6 +27,7 @@ import warnings as _warn
 import pandas as pd
 
 from . import parameters as _par
+from .parameters import ParameterFile as _PF
 
 import copy as _cp
 # Constants for gpri
@@ -208,11 +209,10 @@ class gammaDataset(_np.ndarray):
     def __new__(cls, *args, **kwargs):
         par_dict = args[0]
         image = args[1]
-        print(args)
         if isinstance(par_dict, str):#user passes paths
             try:#user passes file paths
-                par_path = args[0]
-                bin_path = args[1]
+                par_path = par_dict
+                bin_path = image
                 memmap = kwargs.get('memmap', False)
                 dtype = kwargs.get('dtype', None)
                 image, par_dict = load_dataset(par_path, bin_path, memmap=memmap, dtype=dtype)
@@ -325,7 +325,7 @@ class gammaDataset(_np.ndarray):
         return new_obj_1
 
 
-    def to_file(self, *args,**kwargs):
+    def tofile(self, *args,**kwargs):
         arr = self.astype(type_mapping[self.image_format])
         # In this case, we want to write both parameters and binary file
         if len(args) is 2:
@@ -355,7 +355,7 @@ class gammaDataset(_np.ndarray):
 
     def decimate(self, dec, mode='sum'):
         if mode == 'sum':
-            arr_dec = _np.zeros((self.shape[0], int(self.shape[1] // dec)), dtype=_np.complex64)
+            arr_dec = _np.zeros((self.shape[0], int(self.shape[1] // dec)), dtype=gammaDataset)
             for idx_az in range(arr_dec.shape[1]):
                 # Decimated pulse
                 dec_pulse = _np.zeros_like(self[:, 0])
@@ -369,6 +369,8 @@ class gammaDataset(_np.ndarray):
             arr_dec = self[:, ::dec]
         arr_dec = self.__array_wrap__(arr_dec)
         arr_dec /= dec
+        print(self.GPRI_az_angle_step)
+        print(arr_dec.GPRI_az_angle_step)
         arr_dec.GPRI_az_angle_step = dec * self.GPRI_az_angle_step
         arr_dec.azimuth_line_time = dec * self.azimuth_line_time
         arr_dec.prf = self.prf / dec
@@ -378,7 +380,6 @@ class gammaDataset(_np.ndarray):
 
     @property
     def r_vec(self):
-        print(self.range_samples)
         return self.near_range_slc + _np.arange(self.range_samples) * \
                                                     self.range_pixel_spacing
 
@@ -425,7 +426,7 @@ def dict_to_par(par_dict, par_file):
     :return:
     None
     """
-    par_dict.to_file(par_file)
+    par_dict.tofile(par_file)
     # with open(par_file, 'w') as fout:
     #     for key in iter(par_dict):
     #         par = par_dict[key]
@@ -549,7 +550,12 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
 def load_dataset(par_file, bin_file, **kwargs):
     dtype = kwargs.get('dtype', None)
     memmap = kwargs.get('memmap', False)
-    par_dict = par_to_dict(par_file)
+    print(par_file)
+    try:
+        par_dict =_PF(par_file)
+    except e:
+        print(e)
+    print(par_dict)
     # Map type to gamma
     if dtype is None:
         try:

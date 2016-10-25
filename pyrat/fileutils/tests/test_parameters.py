@@ -54,7 +54,7 @@ class TestParameters(unittest.TestCase):
 
     def testSaving(self):
         self.params.file_title = "tezt + \n"
-        self.params.to_file('./test_save.par')
+        self.params.tofile('./test_save.par')
 
     def testKeyError(self):
         with self.assertRaises(KeyError):
@@ -77,6 +77,6 @@ class TestRawParameters(unittest.TestCase):
     #     self.assertIn('CHP_num_samp', self.params)
 
     def testSaving(self):
-        self.params.to_file('./test_save_raw.par')
+        self.params.tofile('./test_save_raw.par')
 
 

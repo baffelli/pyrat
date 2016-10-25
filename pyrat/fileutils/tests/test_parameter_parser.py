@@ -15,7 +15,7 @@ class TestParser(unittest.TestCase):
         hf = """ffs st\narray: {arr}
         """.format(arr=' '.join(map(str, self.array)))
         parsed = self.parser.parse(hf)
-        print(parsed)
+
         self.assertEqual(parsed.asDict()['array']['value'] , list(self.array) )
 
     def testDateParsing(self):
@@ -24,15 +24,19 @@ class TestParser(unittest.TestCase):
         date: {dt}\n""".format(dt=date)
         parsed = self.parser.parse(hf)
         pd = parsed.asDict()
-        print(pd)
         self.assertEqual(pd['date']['value'], date)
+
+    def testShortDateParsing(self):
+        dt_str = dt.datetime(2015,8,3).date()
+        hf="""date: {dt}""".format(dt=dt_str)
+        parsed = self.parser.parse(hf)
+        self.assertEqual(parsed.asDict()['date']['value'], dt_str)
+        pd = parsed.asDict()
 
     def testUnitParsing(self):
         hf = """array: {arr} {units}
         """.format(arr=' '.join(map(str, self.array)), units=' '.join(map(str, self.units)))
         parsed = self.parser.parse(hf)
-        print(hf)
-        print(parsed)
-        print(parsed['array'])
+
         self.assertEqual(parsed.asDict()['array']['unit'] , self.units )
 

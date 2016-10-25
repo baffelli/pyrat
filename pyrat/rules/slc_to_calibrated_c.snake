@@ -119,7 +119,6 @@ rule covariance:
         S = mat.scatteringMatrix(params.S_root, gpri=True, suffix='slc_dec')
         topography = gpf.gammaDataset(input.topo_params, input.topo)
         if wildcards.type == 'flat':
-            print(topography.__dict__)
             C_flat = cal.scattering_matrix_to_flat_covariance(S, topography, topography.baseline_vector[2])
             C_flat.to_gamma(params.C_root, bistatic=True)
         else:

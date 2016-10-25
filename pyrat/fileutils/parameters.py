@@ -205,11 +205,11 @@ class ParameterParser:
             _pp.Literal('title') + self.grammar.keyword_sep + self.grammar.text_parameter('value').setParseAction(
                 text_parse))
         # normal keyword
-        self.grammar.normal_kw =  ~_pp.Literal('title') + _pp.Word(
+        self.grammar.normal_kw = _pp.Word(
             _pp.alphanums + '_') + self.grammar.keyword_sep
         # line of normal values
-        self.grammar.normal_line = _pp.Group(self.grammar.normal_kw + ( self.grammar.date |
-            self.grammar.array |
+        self.grammar.normal_line = _pp.Group(self.grammar.normal_kw + ( self.grammar.date ^
+            self.grammar.array ^
             self.grammar.text_parameter('value').setParseAction(text_parse)))
         # title
         self.grammar.file_title = _pp.Combine(_pp.ZeroOrMore((SOL + ~(_pp.Group(
@@ -409,7 +409,7 @@ class ParameterFile(object):
             out_str += line
         return out_str
 
-    def to_file(self, par_file):
+    def tofile(self, par_file):
         if isinstance(par_file, str):
             with open(par_file, 'w+') as fout:
                 fout.writelines(str(self))

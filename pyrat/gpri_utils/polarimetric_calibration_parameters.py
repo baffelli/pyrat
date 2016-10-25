@@ -39,7 +39,6 @@ if args.subparser_name == 'measure':
     phi_t = (VV_HH_phase_bias + cross_pol_bias) / 2
     phi_r = (VV_HH_phase_bias - cross_pol_bias) / 2
     cal_dict = _od()
-    print(g)
     cal_dict['f'] = f.real
     cal_dict['g'] = g.real
     cal_dict['transmit_phase_imbalance'] = phi_t

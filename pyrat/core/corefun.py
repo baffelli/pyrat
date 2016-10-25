@@ -246,7 +246,6 @@ def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2, 4)):
             ptarg_zoom = _np.array(ptarg_zoom).transpose([2, 3, 0, 1])
     mx_zoom = _np.argmax(_np.abs(ptarg_zoom))
     mx_list_zoom = _np.unravel_index(mx_zoom, ptarg_zoom.shape)
-    print(ptarg_zoom.shape)
     mx_r_zoom, mx_az_zoom = mx_list_zoom[0:2]
     rplot = ptarg_zoom[(Ellipsis, mx_az_zoom) + (Ellipsis,) * additional_dim]
     azplot = ptarg_zoom[(mx_r_zoom, Ellipsis) + (Ellipsis,) * additional_dim]
@@ -381,8 +380,8 @@ def complex_interpolate(image, osf):
     image_interp.range_pixel_spacing = osf[0] * image.range_pixel_spacing
     image_interp.azimuth_line_time = osf[1] * image.azimuth_line_time
     image_interp.prf = osf[1] * image.prf
-    image_interp.azimuth_lines = image_interp.shape[0]
-    image_interp.range_samples = image_interp.shape[1]
+    image_interp.azimuth_lines = image_interp.shape[1]
+    image_interp.range_samples = image_interp.shape[0]
     return image_interp
 
 
