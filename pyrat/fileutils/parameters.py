@@ -243,23 +243,24 @@ class ParameterFile(object):
             params[key] = _coll.OrderedDict()
             for (subkey, subitem) in item.items():
                 params[key][subkey] = flatify(subitem)
-        self.file_title = file_title
+        # params['file_title'] = {'value': file_title, 'unit': None}
+        # self.file_title = file_title
         self.params = params
+        self.add_parameter('file_title', file_title)
 
     def __getattr__(self, key):
-        if key in self.__dict__:
-            return self.__dict__[key]
-        else:
-            try:
-                return self.params[key]['value']
-            except KeyError:
-                attr_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
-                raise AttributeError(attr_msg)
+        try:
+            return self.params[key]['value']
+        except KeyError:
+            attr_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
+            raise AttributeError(attr_msg)
 
     def __setattr__(self, key, value):
         if 'params' in self.__dict__:
             if key in self.__dict__['params']:
                 self.__dict__['params'][key]['value'] = value
+            else:
+                raise AttributeError("{key} does not exist in the specified parameterfile, use  add_parameter to add it to the file".format(key=key))
         else:
             super(ParameterFile, self).__setattr__(key, value)
 
@@ -270,6 +271,16 @@ class ParameterFile(object):
             key_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
             raise KeyError(key_msg)
 
+    def get(self,key):
+        try:
+            return self.params[key]
+        except KeyError:
+            return None
+
+
+    def add_parameter(self,key,value, unit=None):
+        self.params.update({key: {'value': value, unit: unit}})
+
     def copy(self):
         params = _cp.deepcopy(self.params)
         new_pf = ParameterFile(params)
@@ -278,12 +289,12 @@ class ParameterFile(object):
 
     def __setitem__(self, key, value, unit=None):
         if 'params' in self.__dict__:
-            print(self.params)
             try:
                 self.params[key]['value'] = value
-            except (KeyError,AttributeError):
-                print('here')
-                self.params.update({key:{'value': value, 'unit': unit}})
+            except KeyError:
+                raise KeyError(
+                    "{key} does not exist in the specified parameterfile, use  add_parameter to add it to the file".format(
+                        key=key))
 
     def format_key_unit_dict(self, key):
         """
@@ -358,13 +369,26 @@ class ParameterFile(object):
         """
         return {key: item['unit'] for (key, item) in iter(self)}
 
+
+    def __str__(self):
+        self_1 = self.copy()
+        out_str = ""
+        if 'file_title' in self_1:
+            out_str += self_1.format_key_unit_dict('file_title')
+        self_1.params.pop('file_title')
+        for key, value in self_1.params.items():
+            par_str = self_1.format_key_unit_dict(key)
+            key_str = "{key}:".format(key=key).ljust(40)
+            par_str_just = par_str.ljust(20)
+            line = "{key} {par_str}\n".format(key=key_str, par_str=par_str_just)
+            out_str += line
+        return out_str
+
     def to_file(self, par_file):
-        with open(par_file, 'w') as fout:
-            if hasattr(self, 'file_title'):
-                fout.write(self.file_title)
-            for key, value in self.params.items():
-                par_str = self.format_key_unit_dict(key)
-                key_str = "{key}:".format(key=key).ljust(40)
-                par_str_just = par_str.ljust(20)
-                line = "{key} {par_str}\n".format(key=key_str, par_str=par_str_just)
-                fout.write(line)
+        print(str(self))
+        if isinstance(par_file, str):
+            with open(par_file, 'w+') as fout:
+                fout.writelines(str(self))
+        elif hasattr(par_file, 'read'):
+            par_file.writelines(str(self))
+

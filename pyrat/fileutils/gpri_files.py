@@ -224,12 +224,19 @@ class gammaDataset(_np.ndarray):
         obj._params = par_dict.copy()
         return obj
 
-    def __getattr__(self, item):
-        return self._params.__getattr__(item)
+    def __getattr__(self, key):
+        if '_params' in self.__dict__:
+            try:
+                return self._params.__getattr__(key)
+            except AttributeError:
+                raise AttributeError('{obj}')
 
     def __setattr__(self, key, value):
         if '_params' in self.__dict__:
-            self._params.__setattr__(key, value)
+            try:
+                self._params.__setattr__(key, value)
+            except AttributeError:
+                super(gammaDataset, self).__setattr__(key, value)
         else:
             super(gammaDataset, self).__setattr__(key, value)
 
@@ -244,19 +251,9 @@ class gammaDataset(_np.ndarray):
     #     return obj
 
     def  __array_wrap__(self, obj):
-        print('   self type is %s' % type(self))
-        print('   obj type is %s' % type(obj))
         new_arr = super(gammaDataset,self).__array_wrap__(obj)
-        # if hasattr(self, '__dict__'):
-        #     print('here')
-        #     new_arr.__dict__ = _cp.copy(self.__dict__)
-        # if hasattr(self, '_params'):
-        #     print('here')
         if '_params' in self.__dict__:
-            print('hie')
             new_arr.__dict__['_params'] = self._params.copy()
-        print(self._params)
-        print(new_arr._params)
         return new_arr
 
 
@@ -327,8 +324,11 @@ class gammaDataset(_np.ndarray):
         return new_obj_1
 
 
-    def tofile(*args):
-        self = args[0].astype(type_mapping[args[0].image_format])
+    def tofile(*args,**kwargs):
+        if 'image_format' in args[0]:
+            self = args[0].astype(type_mapping[args[0].image_format])
+        else:
+            self = args[0].astype(type_mapping[kwargs.get('dt')])
         # In this case, we want to write both parameters and binary file
         if len(args) is 3:
             write_dataset(self, self._params, args[1], args[2])
@@ -659,6 +659,7 @@ def load_raw(par_path, path, nchan=2):
     :return:
     """
     par = par_to_dict(par_path)
+    print(par)
     nsamp = par['CHP_num_samp']
     npat = count_pat(par['TX_RX_SEQ'])
     # If multiplexed data, we have two channels
@@ -718,7 +719,7 @@ class rawData(gammaDataset):
             channel_mapping = kwargs['channel_mapping']
         data, par_dict = load_raw(args[0], args[1])
         obj = data.view(cls)
-        obj._params = par_dict
+        obj._params = par_dict.copy()
         obj.nsamp = obj.CHP_num_samp // 1
         obj.block_length = obj.CHP_num_samp + 1
         obj.chirp_duration = obj.block_length / obj.ADC_sample_rate
@@ -735,11 +736,11 @@ class rawData(gammaDataset):
         obj.mapping_dict = channel_mapping
         return obj
 
-    # def tofile(*args):
-    #     self = args[0]
-    #     # In this case, we want to write both parameters and binary file
-    #     if len(args) is 3:
-    #         write_dataset(self, self.__dict__, args[1], args[2])
+    def tofile(*args):
+        self = args[0]
+        # In this case, we want to write both parameters and binary file
+        if len(args) is 3:
+            write_dataset(self, self._params, args[1], args[2])
 
     def extract_channel(self, pat, ant):
         if self.npats > 1:

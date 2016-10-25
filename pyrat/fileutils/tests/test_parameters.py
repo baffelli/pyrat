@@ -33,8 +33,8 @@ class TestParameters(unittest.TestCase):
     def testItemSet(self):
         self.params['range_samples'] = self.dummy_val
 
-    def testAddItem(self):
-        self.params['olo'] = 34
+    def testAddAttribute(self):
+        self.params.add_parameter('olo', 34)
 
     def testSetEquality(self):
         self.params.range_samples = self.dummy_val
@@ -43,8 +43,19 @@ class TestParameters(unittest.TestCase):
 
 
     def testSaving(self):
+        self.params.file_title += "tezt"
         self.params.to_file('./test_save.par')
 
+    def testKeyError(self):
+        with self.assertRaises(KeyError):
+            self.params['paolo']
+
+    def testAttributeError(self):
+        with self.assertRaises(AttributeError):
+            self.params.paolo
+
+    def testRepr(self):
+        print(str(self.params))
 
 class TestRawParameters(unittest.TestCase):
     def setUp(self):
