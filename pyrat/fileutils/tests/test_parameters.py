@@ -6,7 +6,7 @@ class TestParameters(unittest.TestCase):
 
     def setUp(self):
         self.dummy_val = 5
-        self.params = ParameterFile('./test_params.par')
+        self.params = ParameterFile('../default_slc_par.par')
         self.params_copy = self.params.copy()
 
     def testCopy(self):
@@ -22,6 +22,16 @@ class TestParameters(unittest.TestCase):
     def testItemAccess(self):
         self.params['range_samples']
 
+    def testItems(self):
+        for item, value in self.params.items():
+            print(value)
+
+    def testContains(self):
+        self.assertTrue('range_samples' in self.params)
+
+    def testPop(self):
+        self.params.pop('range_samples')
+        self.assertFalse('range_samples' in self.params)
 
     def testAccessEquality(self):
         self.assertEqual(self.params['range_samples'], self.params.range_samples)
@@ -43,7 +53,7 @@ class TestParameters(unittest.TestCase):
 
 
     def testSaving(self):
-        self.params.file_title += "tezt"
+        self.params.file_title = "tezt + \n"
         self.params.to_file('./test_save.par')
 
     def testKeyError(self):

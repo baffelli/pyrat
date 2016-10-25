@@ -95,14 +95,21 @@ class arrayContainer:
 
     def array_parse(self, s, l, t):
         for key in t.keys():
-            if key in self.dict:
-                self.dict[key].append((t[key]))
+            if key in self.dict:#Units and keys are parsed from left to right and vice versa, hence they need to be inserted in a different order
+                if key == 'unit':
+                    self.dict[key].append(t[key])
+                elif key == 'value':
+                    self.dict[key].insert(0, t[key])
             else:
                 self.dict[key] = [t[key]]
+
+
+
         return self.dict
 
     def reset(self):
         self.dict = {}
+        self.count = 0
 
 
 def format_multiple(par):
@@ -144,7 +151,7 @@ def flatify(arr):
         return arr
 
 
-class parameterParser:
+class ParameterParser:
     def __init__(self):
         self.array_container = arrayContainer()
         EOL = _pp.LineEnd().suppress().setParseAction(self.array_container.reset)
@@ -160,14 +167,14 @@ class parameterParser:
         # Definition of unit
         self.grammar.base_units = _pp.Literal('dB') | _pp.Literal('s') | _pp.Literal('m') | _pp.Literal(
             'Hz') | _pp.Literal('degrees') | _pp.Literal('arc-sec') | _pp.Literal('decimal degrees') | _pp.Literal('1')
-        self.grammar.repeated_unit = (self.grammar.base_units + _pp.Optional('^' + _pp.Word('-123')))
+        self.grammar.repeated_unit = (self.grammar.base_units + _pp.Optional(_pp.Literal('^') + _pp.Optional(_pp.Literal('-')) +_pp.Word(_pp.nums)))
         self.grammar.unit = _pp.Group(
             self.grammar.repeated_unit + _pp.Optional(_pp.ZeroOrMore('/' + self.grammar.repeated_unit)))(
             'unit').setParseAction(compound_unit_parse)
         # definition of numbers
         self.grammar.float_re = _pp.Regex('[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?').setParseAction(float_parse)
         self.grammar.int = _pp.Word(_pp.nums).setParseAction(int_parse)
-        self.grammar.number = (self.grammar.float_re | self.grammar.int)('value')
+        self.grammar.number = (self.grammar.int ^ self.grammar.float_re)('value')
         # Recursive Definition of array:
         array = _pp.Forward()
         array << (
@@ -230,7 +237,7 @@ class ParameterFile(object):
 
     def __init__(self, *args):
         if isinstance(args[0], str):
-            parser = parameterParser()
+            parser = ParameterParser()
             with open(args[0], 'r') as par_text:
                 # parsedResults = parser.parse(par_text.read())
                 res_dict = parser.as_ordered_dict(par_text.read())
@@ -271,6 +278,23 @@ class ParameterFile(object):
             key_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
             raise KeyError(key_msg)
 
+    def keys(self):
+        return self.params.keys()
+
+    def pop(self, key):
+        if key in self:
+            return self.params.pop(key)['value']
+
+    def items(self):
+        return [(key, value['value']) for key,value in self.params.items()]
+
+    def __contains__(self, item):
+        if item in self.keys():
+            return True
+        else:
+            return False
+
+
     def get(self,key):
         try:
             return self.params[key]
@@ -279,7 +303,8 @@ class ParameterFile(object):
 
 
     def add_parameter(self,key,value, unit=None):
-        self.params.update({key: {'value': value, unit: unit}})
+        if key not in self:
+            self.params.update({key: {'value': value, unit: unit}})
 
     def copy(self):
         params = _cp.deepcopy(self.params)
@@ -374,8 +399,9 @@ class ParameterFile(object):
         self_1 = self.copy()
         out_str = ""
         if 'file_title' in self_1:
-            out_str += self_1.format_key_unit_dict('file_title')
-        self_1.params.pop('file_title')
+            title = self_1.params.pop('file_title')
+            print(title)
+            out_str += title['value'] + '\n'
         for key, value in self_1.params.items():
             par_str = self_1.format_key_unit_dict(key)
             key_str = "{key}:".format(key=key).ljust(40)

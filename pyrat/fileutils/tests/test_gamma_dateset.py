@@ -13,8 +13,7 @@ class TestRaw(unittest.TestCase):
 
     def test_to_file(self):
         self.raw.tofile(self.raw_path + '_temp_par', self.raw_path + '_temp')
-        # new_raw = rawData(self.raw_path + '_temp_par', self.raw_path + '_temp')
-        # self.assertEqual(self.raw, new_raw)
+        new_raw = rawData(self.raw_path + '_temp_par', self.raw_path + '_temp')
 
     # def testDotAccess(self):
     #     self.params.range_samples

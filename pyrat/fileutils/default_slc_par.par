@@ -34,7 +34,7 @@ adc_sampling_rate:     1.997687e+08  Hz
 chirp_bandwidth:       1.997685e+08  Hz
 prf:                   31.249375  Hz
 azimuth_proc_bandwidth: 0.0  Hz
-doppler_polynomial:     0.0 0.0 0.0 0.0 Hz Hz/m Hz/m^2 Hz/m^3e
+doppler_polynomial:     0.0 0.0 0.0 0.0 Hz Hz/m Hz/m^2 Hz/m^3
 doppler_poly_dot:       0.0 0.0 0.0 0.0
 doppler_poly_ddot:      0.0 0.0 0.0 0.0
 receiver_gain:          12.000  dB
