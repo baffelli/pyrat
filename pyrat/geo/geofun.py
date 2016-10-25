@@ -921,13 +921,14 @@ def gdal_to_dict(ds):
     proj_dict['datum_rotation_beta'] = {'value':0.0, 'unit':'arc-sec'}
     proj_dict['datum_rotation_gamma'] = {'value':0.0, 'unit':'arc-sec'}
     # Part 4: Projection Parameters for UTM, TM, OMCH, LCC, PS, PC, AEAC, LCC2, OM, HOM coordinates
-    proj_dict['projection_name'] = 'OM - Switzerland'
+    proj_dict['projection_name'] = {'value':'OM - Switzerland'}
     if proj_dict['DEM_projection'] in ['UTM', "TM", "OMCH", "LCC", "PS", "PC", "AEAC", "LCC2", "OM", "HOM"]:
         proj_dict['center_latitude'] = {'value': ell_arr[2]}
         proj_dict['center_longitude'] = {'value': ell_arr[3]}
         proj_dict['projection_k0'] = {'value': ell_arr[8]}
         proj_dict['false_easting'] = {'value': ell_arr[6]}
         proj_dict['false_northing'] = {'value': ell_arr[7]}
+    proj_dict['file_title'] = {'value': 'DEM Parameters'}
     proj_dict = _params.ParameterFile(proj_dict)
     return proj_dict
 

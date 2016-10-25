@@ -244,9 +244,10 @@ class ParameterFile(object):
                 # parsedResults = parser.parse(par_text.read())
                 res_dict = parser.as_ordered_dict(par_text.read())
                 file_title = res_dict.pop('file_title')
-        elif hasattr(args[0], 'get'):
+        elif hasattr(args[0], 'items'):
             res_dict = args[0]
             file_title = res_dict.get('file_title')
+            print(res_dict)
         params = _coll.OrderedDict()
         for key, item in res_dict.items():
             params[key] = _coll.OrderedDict()
@@ -406,7 +407,7 @@ class ParameterFile(object):
         for key, value in self_1.params.items():
             par_str = self_1.format_key_unit_dict(key)
             key_str = "{key}:".format(key=key).ljust(40)
-            par_str_just = par_str
+            par_str_just = par_str.rjust(20)
             line = "{key} {par_str}\n".format(key=key_str, par_str=par_str_just)
             out_str += line
         return out_str
