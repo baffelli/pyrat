@@ -29,6 +29,8 @@ import pandas as pd
 from . import parameters as _par
 from .parameters import ParameterFile as _PF
 
+import re as _re
+
 import copy as _cp
 # Constants for gpri
 ra = 6378137.0000  # WGS-84 semi-major axis
@@ -84,10 +86,25 @@ channel_dict = {
 }
 
 
+def cleanup_extension(filename):
+    """
+
+    Parameters
+    ----------
+    filename
+
+    Returns
+    -------
+
+    """
+
 def gamma_datatype_code_from_extension(filename):
     """
         Get the numeric datatype from the filename extensions
     """
+    #Regex to split string for cases such as
+    #slc_dec, diff_gc
+    split_re = _re.compile("(\w+)(_)(dec|gc)")
     mapping = {'slc': 1,
                'slc_dec': 1,
                'mli': 0,
@@ -104,12 +121,16 @@ def gamma_datatype_code_from_extension(filename):
                "u": 0,
                "lv_theta": 0,
                "bmp": 2,
-                "tif":2,}
+                "tif":2,
+               "diff":1,
+               "int":1}
     for i in [0, 1, 2, 3]:
         for j in [0, 1, 2, 3]:
             mapping["c{i}{j}".format(i=i, j=j)] = 1  # covariance elements
-            # Split the file name to the latest extesnsion
+    # Split the file name to the latest extesnsion
     extension = filename.split('.')[-1]
+    # clean_extensions = _re.search(split_re, extension).groups()[0]
+    # print(clean_extensions)
     return mapping[extension]
 
 
@@ -129,6 +150,8 @@ def gt_mapping_from_extension(filename):
         'u': 2,
         'lv_theta': 2,
         'sh_map': 5,
+        'int':4,
+        'diff':4
     }
     extension = filename.split('.')[-1]
     extension = _re.sub("(_(f)*(gc))+", "", extension)
@@ -233,8 +256,24 @@ class gammaDataset(_np.ndarray):
                 raise AttributeError('{tp} object has no attribute {attr}'.format(tp=type(self), attr=key))
 
     def __getattribute__(self, item):
-        print('calling superior gettatribute')
         return super(gammaDataset, self).__getattribute__(item)
+
+    def add_parameter(self, key, value, unit=None):
+        """
+        Permanently add a parameter to the parameter file
+        The parameter added in this manner can be accessed as normal attributes,
+        but they will be saved in the parameter file
+        Parameters
+        ----------
+        key
+        value
+        unit
+
+        Returns
+        -------
+
+        """
+        self._params.add_parameter(key, value, unit=unit)
 
     def __setattr__(self, key, value):
         if '_params' in self.__dict__:
@@ -265,7 +304,7 @@ class gammaDataset(_np.ndarray):
 
     def  __array_wrap__(self, obj):
         new_arr = super(gammaDataset,self).__array_wrap__(obj)
-        new_arr.__dict__ = _cp.deepcopy(self.__dict__)
+        # new_arr.__dict__ = _cp.deepcopy(self.__dict__)
         if '_params' in self.__dict__:
             new_arr.__dict__['_params'] = self._params.copy()
         return new_arr

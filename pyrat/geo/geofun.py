@@ -989,6 +989,21 @@ def geo_coord_to_dem_coord(coord, dem_par):
     y_DEM = coord[1] - dem_par.corner_north / dem_par.post_north
     return (x_DEM, y_DEM)
 
+#TODO: only works with omch
+def basemap_dict_from_gt(DS):
+    """
+    Creates a dict of parameters to be used with Basemap
+    Parameters
+    ----------
+    DS
+
+    Returns
+    -------
+
+    """
+    sr = _osr.SpatialReference().ImportFromWkt(DS.GetProjection)
+
+
 
 def segment_geotif(gt, dem_par):
     """

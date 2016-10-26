@@ -493,7 +493,7 @@ def dismph_palette(data, N=20,**kwargs):
     ext = [ ampl.min(), ampl.max(),phase.min(), phase.max(), ]
     return rgb, ext
 
-def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, peak=False, N=24, sf=1, repeat=False, coherence=False, black_background=True):
+def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, peak=False, N=24, sf=1, repeat=False, coherence=False, black_background=True, coherence_threshold=0.3):
     pal = circular_palette(N, repeat=repeat)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     # Extract amplitude and phase
@@ -506,8 +506,8 @@ def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, peak=False, N=24, sf=1,
     #
     # Scale with intensity
     if coherence:
-        hsv[:, :, 1] = ampl
-        hsv[_np.abs(data) < 0.1] = 0
+        hsv[:, :, 2] = ampl
+        hsv[_np.abs(data) < coherence_threshold] = 0
     else:
         hsv[:, :, 2] = scale_array(_np.abs(data) ** k)
     # Convert back to rgb

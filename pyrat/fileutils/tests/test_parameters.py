@@ -64,6 +64,10 @@ class TestParameters(unittest.TestCase):
         copy_params = ParameterFile(self.copy_path)
         self.assertEqual(self.params.image_format, copy_params.image_format)
 
+    def testItems(self):
+        print(self.params.items_with_unit())
+        self.assertEqual(1,2)
+
     def testCreateEmptyAndAdd(self):
         params = ParameterFile({})
         params.add_parameter('image',23,'m')

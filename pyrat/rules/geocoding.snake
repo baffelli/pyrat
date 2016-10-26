@@ -128,7 +128,7 @@ rule geocode_forward:
         par_dict = gpf.par_to_dict(input.reference_mli_par)
         nlines = par_dict.azimuth_lines
         filetype = gpf.gamma_datatype_code_from_extension(input.data)
-        cmd = "geocode {{input.lut}} {{input.data}} {out_width} {{output.geocoded_file}} {data_width} {nlines} 0 {dtype} >> {{log}}".format(data_width=data_width,
+        cmd = "geocode {{input.lut}} {{input.data}} {out_width} {{output.geocoded_file}} {data_width} {nlines} 0 {dtype}".format(data_width=data_width,
         out_width=dem_width, nlines=nlines, dtype=filetype)
         shell(cmd)
 
@@ -191,19 +191,20 @@ rule gc_map_inversion:
 			shell(cmd)
 
 
-##############################################################################
-###	This rule gproduces a geotiff from the data
+#############################################################################
+##	This rule gproduces a geotiff from the data
 #TODO fix it to make work with other file types
-#rule to_geotiff:
-#	input:
-#		file = "{filename}.{ext}",
-#		dem_seg_par = "geo/{location}.dem_seg.par",
-#	output:
-#		gt = "{filename}.tif"
-#	run:
-#		dt_code = gpf.gamma_datatype_code_from_extension(input.file)
-#		gt_cmd = "data2geotiff {input.dem_seg_par} {input.file}" + str(dt_code) +  "{output.gt}"
-#		shell(gt_cmd)
+rule to_geotiff:
+    input:
+        file = "{filename}.{ext}",
+        dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
+    output:
+        gt = "{filename}.{ext}.tif"
+    run:
+        dt_code = gpf.gt_mapping_from_extension(input.file)
+        print(dt_code)
+        gt_cmd = "data2geotiff {{input.dem_seg_par}} {{input.file}} {dt_code}  {{output.gt}}".format(dt_code=dt_code)
+        shell(gt_cmd)
 #
 
 

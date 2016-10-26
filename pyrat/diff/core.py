@@ -14,13 +14,12 @@ class Interferogram(gpf.gammaDataset):
             slave_par = gpf.par_to_dict(slave_par_path)
             ifgram, ifgram_par = gpf.load_dataset(args[0], args[1], **kwargs)
             ifgram = ifgram.view(cls)
-            print(ifgram.__dict__)
             ifgram._params = ifgram_par.copy()
-            print(ifgram._params)
             #Add properties of master and slave to the dict by adding them and appending
             # for (prop, prop_value) in master_par.items_with_unit():
             #     new_key = 'master_' + prop
-            #     ifgram.add_parameters(new_key, prop_value['value'], unit=prop_value['units'])
+            #     print(prop_value)
+            #     ifgram.add_parameter(new_key, prop_value['value'], unit=prop_value.get('unit'))
             # # geometrical properties that are inherited from GPRI SLC/MLI
             # GPRI_prop = ["near_range_slc", "GPRI_az_start_angle", "GPRI_az_angle_step", "range_pixel_spacing", "azimuth_line_time",
             #               "prf", "GPRI_ref_north",  "GPRI_ref_east", "GPRI_ref_alt", "GPRI_geoid"]
