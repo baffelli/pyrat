@@ -137,14 +137,16 @@ rule sh_map:
         reference_mli_par =  config['geocoding']['ref_mli_par'],
         u = 'geo/{dataname}.u_fgc',
         theta = 'geo/{dataname}.lv_theta_fgc',
-        inc = 'geo/{dataname}.inc_fgc'
+        inc = 'geo/{dataname}.inc_fgc',
+        psi = 'geo/{dataname}.psi_fgc'
     output:
         sh_map = 'geo/{dataname}.sh_map'
     run:
         u, inc_par = gpf.load_dataset(input.reference_mli_par, input.u)
         theta, inc_par = gpf.load_dataset(input.reference_mli_par, input.theta)
         inc, inc_par = gpf.load_dataset(input.reference_mli_par, input.inc)
-        sh_map = geo.shadow_map(u, theta, inc)
+        psi, inc_par = gpf.load_dataset(input.reference_mli_par, input.psi)
+        sh_map = geo.shadow_map(u, theta, inc, psi)
         sh_map.T.astype(gpf.type_mapping['UCHAR']).tofile(output.sh_map)
 
 

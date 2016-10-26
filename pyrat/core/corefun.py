@@ -15,7 +15,7 @@ from scipy import ndimage as _nd
 from scipy.interpolate import splrep, sproot
 
 from ..fileutils import gpri_files as _gpf
-from ..geo import geofun as _gf
+# from ..geo import geofun as _gf
 
 
 def outer_product(data, data1, large=False):
@@ -44,9 +44,9 @@ def dB(arr, power=True):
     return factor * _np.log10(_np.abs(arr))
 
 
-def fspf(T, window):
-    T_gc, x_vec, y_vec = _gf.geocode_image(T, 1)
-    T_sm = smooth(T_gc, window)
+# def fspf(T, window):
+#     T_gc, x_vec, y_vec = _gf.geocode_image(T, 1)
+#     T_sm = smooth(T_gc, window)
 
 
 def smooth(T, window, fun=_nd.filters.uniform_filter):

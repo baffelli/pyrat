@@ -64,7 +64,7 @@ type_mapping = {
     'INTEGER*2': _np.dtype('>i2'),
     'INTEGER': _np.dtype('>i'),
     'REAL*4': _np.dtype('>f4'),
-    'UCHAR': _np.dtype('>b')
+    'UCHAR': _np.dtype('>B')
 }
 
 ls_mapping = {
@@ -120,6 +120,7 @@ def gamma_datatype_code_from_extension(filename):
                "sh_map": 3,
                "u": 0,
                "lv_theta": 0,
+               "psi":0,
                "bmp": 2,
                 "tif":2,
                "diff":1,
@@ -148,6 +149,7 @@ def gt_mapping_from_extension(filename):
         'dem_seg': 4,
         'inc': 2,
         'u': 2,
+        'psi':2,
         'lv_theta': 2,
         'sh_map': 5,
         'int':4,
