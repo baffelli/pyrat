@@ -12,8 +12,10 @@ class Interferogram(gpf.gammaDataset):
             slave_par_path = kwargs.pop('slave_par')
             master_par = gpf.par_to_dict(master_par_path)
             slave_par = gpf.par_to_dict(slave_par_path)
-            # ifgram, ifgram_par = gpf.load_dataset(args[0], args[1], **kwargs)
-            ifgram = gpf.gammaDataset(args[0], args[1]).view(cls)
+            ifgram, ifgram_par = gpf.load_dataset(args[0], args[1], **kwargs)
+            ifgram = ifgram.view(cls)
+            print(ifgram.__dict__)
+            ifgram._params = ifgram_par.copy()
             print(ifgram._params)
             #Add properties of master and slave to the dict by adding them and appending
             # for (prop, prop_value) in master_par.items_with_unit():

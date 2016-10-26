@@ -230,7 +230,11 @@ class gammaDataset(_np.ndarray):
             try:
                 return self._params.__getattr__(key)
             except AttributeError:
-                raise AttributeError('{obj}')
+                raise AttributeError('{tp} object has no attribute {attr}'.format(tp=type(self), attr=key))
+
+    def __getattribute__(self, item):
+        print('calling superior gettatribute')
+        return super(gammaDataset, self).__getattribute__(item)
 
     def __setattr__(self, key, value):
         if '_params' in self.__dict__:
@@ -243,13 +247,14 @@ class gammaDataset(_np.ndarray):
 
 
     def __array_finalize__(self, obj):
-        print("Obj_type is {t}".format(t=type(obj)))
-        print("Self_type is {t}".format(t=type(self)))
+        #self is the newly create instance
+        #obj thje object from which the view has been taken
         if obj is None: return
-        print('new from template')
-        if '_params' in obj.__dict___:
-            self.__dict__ = obj.__dict__
-            self.__dict__._params = obj._params.copy()
+        elif type(obj) is type(self):
+            if hasattr(obj, "__dict__"):
+                # if '_params' in obj.__dict___:
+                self.__dict__ = obj.__dict__
+                self.__dict__['_params'] = obj._params.copy()
 
         # if hasattr(obj, '__dict__'):
         #     self.__dict__ = _cp.copy(obj.__dict__)
@@ -260,6 +265,7 @@ class gammaDataset(_np.ndarray):
 
     def  __array_wrap__(self, obj):
         new_arr = super(gammaDataset,self).__array_wrap__(obj)
+        new_arr.__dict__ = _cp.deepcopy(self.__dict__)
         if '_params' in self.__dict__:
             new_arr.__dict__['_params'] = self._params.copy()
         return new_arr
