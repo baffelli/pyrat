@@ -712,10 +712,16 @@ def geocode_image(image, pixel_size, *args):
 
 def shadow_map(slope_angle, inc_angle):
     import matplotlib.pyplot as plt
-    alpha = slope_angle - _np.pi/2
-    plt.imshow((slope_angle >= inc_angle))
+    opp_slope_angle = slope_angle  - _np.pi/2
+    look_angle = _np.pi * 2 - inc_angle
+    sh_map = 0 * inc_angle.astype(_np.int8)
+    sh_map[slope_angle > look_angle] += 2
+    sh_map[slope_angle < inc_angle] += 7
+    sh_map[opp_slope_angle > look_angle] += 8
+    sh_map[opp_slope_angle > -inc_angle] += 16
+
+    plt.imshow(sh_map)
     plt.show()
-    sh_map = 0
     return sh_map.astype(_np.int8)
 
 
