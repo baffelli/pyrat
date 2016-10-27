@@ -30,25 +30,54 @@ rule convert_dem:
         dem = "{name}.tif"
     output:
         gamma_dem = "{name}.dem",
-        gamma_dem_par = "{name}.dem_par"
+        gamma_dem_par = "{name}.dem.par"
     run:
         #Open the data set
         DS = gdal.Open(input.dem)
         #Convert
         geo.geotif_to_dem(input.dem, output.gamma_dem_par, output.gamma_dem)
 
+###############################################################################
+##	Rename DEM (to give it the same name as the DEM_SEG)
+rule rename_dem:
+    output:
+        dem = "geo/{tablename}.dem",
+        dem_par = "geo/{tablename}.dem.par"
+    input:
+        dem = config['geocoding']['DEM'],
+        dem_par = config['geocoding']['DEM'] + '.par'
+    run:
+        shell("cp {input.dem} {output.dem}")
+        shell("cp {input.dem_par} {output.dem_par}")
+
+###############################################################################
+##	Rename MLI (to give it the same name as the DEM_SEG)
+rule rename_mli:
+    output:
+        mli = "geo/{tablename}.mli",
+        mli_par = "geo/{tablename}.mli.par"
+    input:
+        mli_par = config['geocoding']['ref_mli_par'],
+        mli = config['geocoding']['ref_mli_par'].replace('.par','')
+    run:
+        shell("cp {input.mli_par} {output.mli_par}")
+        shell("cp {input.mli} {output.mli}")
+
+
 ##############################################################################
 ##	This rule produces the geocoding LUT
 rule geocoding_table:
     input:
-        reference_mli_par = config['geocoding']['ref_mli_par'],
-        dem = config['geocoding']['DEM'],
-        dem_par = config['geocoding']['DEM'] + '_par'
+        reference_mli_par = 'geo/{tablename}.mli.par',
+        reference_mli = 'geo/{tablename}.mli',
+        dem = 'geo/{tablename}.dem',
+        dem_par = 'geo/{tablename}.dem.par',
     output:
         lut = "geo/{tablename}.gpri_to_dem",
         dem_seg = "geo/{tablename}.dem_seg",
         dem_seg_par = "geo/{tablename}.dem_seg.par",
         sim_sar = "geo/{tablename}.sim_sar",
+        sim_sar_azd = "geo/{tablename}.sim_sar_azd",
         lv_theta = "geo/{tablename}.lv_theta",
         lv_phi = "geo/{tablename}.lv_phi",
         u = "geo/{tablename}.u",
@@ -56,34 +85,50 @@ rule geocoding_table:
         inc = "geo/{tablename}.inc",
         psi = "geo/{tablename}.psi",
         pix = "geo/{tablename}.pix",
-        ls_map = "geo/{tablename}.ls_map"
+        ls_map = "geo/{tablename}.ls_map",
     log:
         "logs/gc.log"
     params:
         lat_ovr = 1,
         lon_ovr = 1,
         frame = 100,
+        diff_par = "geo/{tablename}_refinement.diff_par",
+    wildcard_constraints:
+        ext = "(_initial)|(^$)"
     run:
-        #Determine tiepoints
-        scan_heading = config['geocoding']['scan_heading']
+        #Set scan heading
         ref_mli_par = gpf.par_to_dict(input.reference_mli_par)
-        ref_mli_par['GPRI_scan_heading'] = scan_heading
+        ref_mli_par['GPRI_scan_heading'] = config['geocoding']['scan_heading']
         gpf.dict_to_par(ref_mli_par, input.reference_mli_par)
-        cmd = "gc_GPRI_map {input.reference_mli_par} {input.dem_par} {input.dem} {output.dem_seg_par} {output.dem_seg} {output.lut} {params.lat_ovr} {params.lon_ovr} {output.sim_sar} {output.lv_theta} {output.lv_phi} {output.u} {output.v} {output.inc} {output.psi} {output.pix} {output.ls_map} {params.frame} > {log}"
-        shell(cmd)
+        gc_cmd = "gc_GPRI_map {input.reference_mli_par} {input.dem_par} {input.dem} {output.dem_seg_par} {output.dem_seg} {output.lut} {params.lat_ovr} {params.lon_ovr} {output.sim_sar} {output.lv_theta} {output.lv_phi} {output.u} {output.v} {output.inc} {output.psi} {output.pix} {output.ls_map} {params.frame} > {log}"
+        shell(gc_cmd)
+        #Geocode forwards
+        dem_width = gpf.par_to_dict(output.dem_seg_par).width
+        data_width = ref_mli_par['range_samples']
+        fwd_cmd = "geocode {{output.lut}} {{output.sim_sar}} {out_width} {{output.sim_sar_azd}} {data_width} - 0 0".format(data_width=data_width,
+    out_width=dem_width)
+        shell(fwd_cmd)
+        if config['geocoding']['refine_table']:
+            diff_par_cmd = "create_diff_par {input.reference_mli_par} - {params.diff_par} 1 0"
+            shell(diff_par_cmd)
+            off_cmd = "init_offsetm {output.sim_sar_azd} {input.reference_mli} {params.diff_par} 1 1 - - - - - 128 1"
+            shell(off_cmd)
 
 
 ##############################################################################
 #	This rule produces the geocoding LUT
+ruleorder: geocoding_table > geocode_forward#first we produce a coarse table, we then refine it if needed
 rule refined_table:
     input:
-        dem_par = "geo/{tablename}.deg_seg_par",
-        reference_mli_par = config['geocoding']['ref_mli_par'],
-        lut = "geo/{tablename}.gpri_to_dem_coarse",
-        sim_sar_fgc = "geo/{tablename}.sim_sar_fgc_coarse",
+        dem_seg_par = "geo/{tablename}.dem_seg.par",
+        reference_mli_par =  "geo/{tablename}.mli.par",
+        lut = "geo/{tablename}.gpri_to_dem",
+#        sim_sar_fgc = "geo/{tablename}.sim_sar_fgc_initial"
     output:
-        refined_lut =  "geo/{tablename}.gpri_to_dem.fine",
+        refined_lut =  "geo/{tablename}.gpri_to_dem_ref",
         diff_par = 'geo/{tablename}_refinment.diff_par'
+    params:
+        a = lambda wildcards: print(wildcards)
     run:
         ref_mli = input.reference_mli_par.replace(".par","")
         diff_par_cmd = "create_diff_par {input.reference_mli_par} - {output.diff_par} 1 0"
@@ -115,10 +160,10 @@ rule geocode_forward:
     input:
         dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
         lut = 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem',
-        reference_mli_par =  config['geocoding']['ref_mli_par'],
+        reference_mli_par = 'geo/' + config['geocoding']['table_name'] + '.mli.par',
         data = "{data}"
     output:
-        geocoded_file = "{data}_{ext,(fgct)|(fgc)|(fgc_coarse)}"
+        geocoded_file = "{data}_{ext,(fgct)|(fgc)}"
     log:
         "logs/gc.log"
     run:

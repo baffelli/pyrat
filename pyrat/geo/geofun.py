@@ -730,9 +730,11 @@ def shadow_map(u, lv_theta, inc, psi):
     # plt.subplot(2,1,2)
     # plt.imshow(inc,cmap='RdBu',vmin=0, vmax=_np.pi*2)
     # plt.show()
-    inc = _cf.smooth(inc, [5,5])
-    u = _cf.smooth(u, [5, 5])
+    # inc = _cf.smooth(inc, [5,5])
+    # u = _cf.smooth(u, [5, 5])
     sh_thresh = 0.04
+    plt.imshow((u - (inc - _np.pi/2)))
+    plt.show()
     sh_map[(u - (lv_theta - _np.pi/2)) <= sh_thresh] = 16
     # sh_map[(2 *_np.pi - u) < inc] = 16
     # #Shadow
@@ -981,6 +983,25 @@ def get_geotransform(dem_par):
 
     """
     return dem_par.corner_east, dem_par.post_east, 0, dem_par.corner_north,0 , dem_par.post_north
+
+def estimate_heading(mli_par, radar_coord, carto_azimuth):
+    """
+    Estimates the heading of GPRI data using
+    the mli parameters, a reference location in radar coordinates
+    and its azimuth as read from the map
+    Parameters
+    ----------
+    mli_par
+    radar_coord
+    geographical_coord
+
+    Returns
+    -------
+
+    """
+    #eccess heading of the point (heading w.r.t radar image center)
+    xc_heading = mli_par.GPRI_az_angle_step * (radar_coord[1] - mli_par.azimuth_lines / 2)
+    return carto_azimuth - xc_heading
 
 def geo_coord_to_dem_coord(coord, dem_par):
     """

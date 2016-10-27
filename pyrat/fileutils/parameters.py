@@ -67,6 +67,7 @@ def text_parse(s, l, t):
     return t1
 
 
+
 def compound_unit_parse(s, l, t):
     """
     Join the elements of a compound unit
@@ -214,9 +215,8 @@ class ParameterParser:
             self.grammar.array ^
             self.grammar.text_parameter('value').setParseAction(text_parse)))
         # title
-        self.grammar.file_title = _pp.Combine(_pp.ZeroOrMore((SOL + ~(_pp.Group(
-            _pp.Word(_pp.alphanums + '_') + self.grammar.keyword_sep)) + self.grammar.text_parameter + _pp.LineEnd())))(
-            'file_title')
+        self.grammar.file_title = _pp.Group(_pp.Combine(_pp.ZeroOrMore((SOL + ~(self.grammar.normal_kw) + self.grammar.text_parameter + _pp.LineEnd())))(
+            'value'))('file_title')
         # Normal line
         self.grammar.line = (_pp.Dict(
             (self.grammar.normal_line) | _pp.Dict(self.grammar.title))) + EOL
@@ -228,7 +228,13 @@ class ParameterParser:
 
     def as_ordered_dict(self, text_object):
         parsed = self.parse(text_object)
-        result_dict = _coll.OrderedDict(parsed.asDict())
+        result_dict = _coll.OrderedDict()
+        for p in parsed.asList():#really ugly way to obtaine ordered results, until "asDict()" supports
+            try:
+                name, value = p
+                result_dict[name] = value
+            except ValueError:
+                result_dict['file_title'] = flatify(p)
         return result_dict
 
 
