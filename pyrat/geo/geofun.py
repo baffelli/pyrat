@@ -710,40 +710,12 @@ def geocode_image(image, pixel_size, *args):
 
 
 
-def shadow_map(u, lv_theta, inc, psi):
-    sh_map = lv_theta * 0
-    current_max = u[0, :] * 1
-    for idx_r in range(1, lv_theta.shape[0]):
-        current_inc = u[idx_r, :]
-        sh_map[idx_r, current_inc < current_max] = 1
-        current_max = _np.select([current_inc <= current_max, current_inc > current_max], [current_max, current_inc])
+def shadow_map(slope_angle, inc_angle):
     import matplotlib.pyplot as plt
-    sh_map = u * 0 + 1
-    lay_map = u * 0
-    #True shadow
-    # slope_angle =_np.mod(_np.pi *2 - u ,  2* _np.pi)
-    # # plt.plot(lv_theta[sl])
-    # plt.plot(inc[sl])
-    # plt.show()
-    # plt.subplot(2,1,1)
-    # plt.imshow(u,cmap='RdBu',vmin=0, vmax=_np.pi*2)
-    # plt.subplot(2,1,2)
-    # plt.imshow(inc,cmap='RdBu',vmin=0, vmax=_np.pi*2)
-    # plt.show()
-    # inc = _cf.smooth(inc, [5,5])
-    # u = _cf.smooth(u, [5, 5])
-    sh_thresh = 0.04
-    plt.imshow((u - (inc - _np.pi/2)))
+    alpha = slope_angle - _np.pi/2
+    plt.imshow((slope_angle >= inc_angle))
     plt.show()
-    sh_map[(u - (lv_theta - _np.pi/2)) <= sh_thresh] = 16
-    # sh_map[(2 *_np.pi - u) < inc] = 16
-    # #Shadow
-    # sh_map[-u < lv_theta] = 16
-    # #LAyover
-    # lay_map[u > lv_theta] = 7
-    # sh_map += lay_map
-    plt.imshow(sh_map)
-    plt.show()
+    sh_map = 0
     return sh_map.astype(_np.int8)
 
 
