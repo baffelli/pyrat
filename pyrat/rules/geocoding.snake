@@ -208,17 +208,6 @@ rule sh_map:
         sh_map.T.astype(gpf.type_mapping['UCHAR']).tofile(output.sh_map)
 
 
-#rule to_gt:
-#	input:
-#		file = "{filename}",
-#		dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par'
-#	output:
-#		gt = "{filename}.tif"
-#	run:
-#		dt_code = gpf.gt_mapping_from_extension(input.file)
-#		gt_cmd = "data2geotiff {input.dem_seg_par} {input.file} " + str(dt_code) +  " {output.gt}"
-#		shell(gt_cmd)
-
 rule to_rec:
     input:
         reference_mli_par =  config['geocoding']['ref_mli_par'],
@@ -236,9 +225,9 @@ rule to_rec:
 ##	This produces the inverted geocoding map (dem to radar)
 rule gc_map_inversion:
 	input:
-            dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
-            lut	= 'geo/' + config['geocoding']['table_name'] + '.gpri_to_dem',
-			reference_mli_par = config['geocoding']['ref_mli_par'],
+            dem_seg_par = "geo/{tablename}.dem_seg.par",
+            lut	= "geo/{tablename}.gpri_to_dem",
+			reference_mli_par ="geo/{tablename}.mli.par",
 	output:
 			inverse_lut = "geo/{tablename}.dem_to_gpri"
 	run:
@@ -268,43 +257,6 @@ rule to_geotiff:
 #
 
 
-
-
-
-#TODO fix refinement of LUT
-###############################################################################
-###	This rule refines the LUT
-#rule refine_geocoding:
-#	input:
-#		lut = "geo/{slcname}.gpri_to_dem",
-#		dem_seg_par = "geo/{slcname}.dem_seg.par",
-#		dem = "geo/{slcname}.dem_seg",
-#		sim = "geo/{slcname}.sim_sar",
-#		reference_mli = "slc_corr/{date}_{time}_AAAl.mli",
-#		reference_mli_par =  "slc_corr/{date}_{time}_AAAl.slc.par",
-#	output:
-#		lut_fine = "geo/{date}_{time}_fine.gpri_to_dem",
-#		sim_radar = "geo/{date}_{time}.sim_sar_gc",
-#		diff_par = "geo/{date}_{time}_dem_ref_offset.diff_par",
-#		sim_radar_ras = "geo/{date}_{time}.sim_sar_gc.ras",
-#		#gcp = "{location}/{date}/geo/{location}.gcp"
-#	params:
-##		reference_ras = temp(reference_mli[0] + '.ras'),
-#	shell:
-#		"""
-##			lut_width=$(get_value {input.dem_seg_par} width)
-##			radar_width=$(get_value {input.reference_mli}'.par' range_samples)
-##			#Geocode using unrefined LUT
-##			geocode {input.lut} {input.sim} ${{lut_width}} {output.sim_radar} ${{radar_width}} - 0 0
-##			#Convert the two images to rasters
-###			raspwr {output.sim_radar} ${{radar_width}} - - - - - - - {output.sim_radar_ras}
-###			raspwr {input.reference_mli} ${{radar_width}} - - - - 0.5 0.2 - {params.reference_ras}
-##			#find gcp
-##			create_diff_par {input.dem_seg_par} - {output.diff_par} 2 0
-###			init_offsetm {input.reference_mli} {output.sim_radar} {output.diff_par} - - {params.ridx} {params.azidx} - - 0.1 128
-##			gc_map_fine {input.lut}  ${{lut_width}}  {output.diff_par}  {output.lut_fine} 1
-#			cp {input.lut} {output.lut_fine}
-#		"""
 
 
 

@@ -315,7 +315,7 @@ class ParameterFile(object):
 
     def add_parameter(self,key,value, unit=None):
         if key not in self:
-            self.params.update({key: {'value': value, unit: unit}})
+            self.params.update({key: {'value': value, 'unit': unit}})
 
     def copy(self):
         params = _cp.deepcopy(self.params)

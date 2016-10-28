@@ -426,8 +426,6 @@ class gammaDataset(_np.ndarray):
             arr_dec = self[:, ::dec]
         arr_dec = self.__array_wrap__(arr_dec)
         arr_dec /= dec
-        # print(self.GPRI_az_angle_step)
-        # print(arr_dec.GPRI_az_angle_step)
         arr_dec.GPRI_az_angle_step = dec * self.GPRI_az_angle_step
         arr_dec.azimuth_line_time = dec * self.azimuth_line_time
         arr_dec.prf = self.prf / dec
@@ -445,9 +443,6 @@ class gammaDataset(_np.ndarray):
     def az_vec(self):
         return self.GPRI_az_start_angle + _np.arange(self.shape[1]) * \
                                                          self.GPRI_az_angle_step
-
-
-
 
     @property
     def phase_center(self):
@@ -607,11 +602,7 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
 def load_dataset(par_file, bin_file, **kwargs):
     dtype = kwargs.get('dtype', None)
     memmap = kwargs.get('memmap', False)
-    print(par_file)
-    try:
-        par_dict =_PF(par_file)
-    except e:
-        print(e)
+    par_dict =_PF(par_file)
     # Map type to gamma
     if dtype is None:
         try:

@@ -7,6 +7,9 @@ from pyrat.visualization.visfun import bilinear_interpolate, scale_array
 from ..fileutils import gpri_files as _gpf
 from ..fileutils import parameters as _params
 
+
+from scipy.interpolate import  interp2d, RectBivariateSpline
+
 from ..core import corefun as _cf
 
 def copy_and_modify_gt(RAS, gt):
@@ -1021,7 +1024,6 @@ def basemap_dict_from_gt(DS):
     sr = _osr.SpatialReference().ImportFromWkt(DS.GetProjection)
 
 
-
 def segment_geotif(gt, dem_par):
     """
     Segement a geotif to correspond to the size
@@ -1057,3 +1059,36 @@ def segment_geotif(gt, dem_par):
     plt.imshow(dest.ReadAsArray())
     plt.show()
     return dest
+
+
+class GeocodingTable(_gpf.gammaDataset):
+    """
+    Class to represent geocoding tables (
+    """
+    def __new__(cls, dem_par, lut):
+        lut, dem_par = _gpf.load_dataset(dem_par, lut, dtype=_gpf.type_mapping["FCOMPLEX"])
+        lut = lut.view(cls)
+        lut._params = dem_par.copy()
+        #Create Coordinate grid
+        gt = lut.geotransform
+        # x = gt[0] + _np.arange(lut.shape[0]) * gt[1]
+        # y = (gt[3] + _np.arange(lut.shape[1]) * gt[5])[::-1]
+        # # lut.r_interp = RectBivariateSpline(x,y, lut.real)
+        # # lut.az_interp = RectBivariateSpline(x, y, lut.imag)
+        return lut
+
+    def geo_coord_to_dem_coord(self, coord):
+        gt = get_geotransform(self)
+        x = (coord[0] - gt[0]) / gt[1]
+        y = (coord[1] - gt[3]) / gt[5]
+        return (x,y)
+
+    def geo_coord_to_radar_coord(self,geo_coord):
+        dem_coord = self.geo_coord_to_dem_coord(geo_coord)
+        # transf = bilinear_interpolate(self,dem_coord[1], dem_coord[0])
+        coord = self[int(dem_coord[0]),int(dem_coord[1])]
+        return coord.real, coord.imag
+
+    @property
+    def geotransform(self):
+        return get_geotransform(self)
