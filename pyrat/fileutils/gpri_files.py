@@ -422,6 +422,8 @@ class gammaDataset(_np.ndarray):
                         print('decimating line: ' + str(current_idx))
                     dec_pulse += self[:, current_idx]
                 arr_dec[:, idx_az] = dec_pulse
+        # elif mode == 'vectorized':
+        #     arr_dec = _np.mean(_np.reshape(self, arr_dec.shape + (,dec)),axis=-1)
         else:
             arr_dec = self[:, ::dec]
         arr_dec = self.__array_wrap__(arr_dec)
