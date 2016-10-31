@@ -14,19 +14,19 @@ class Interferogram(gpf.gammaDataset):
         if "master_par" in kwargs:
             master_par_path = kwargs.pop('master_par')
             slave_par_path = kwargs.pop('slave_par')
-            master_par = gpf.par_to_dict(master_par_path)
-            slave_par = gpf.par_to_dict(slave_par_path)
-            for (prop, prop_value) in master_par.items_with_unit():
-                new_key = 'master_' + prop
-                ifgram.add_parameter(new_key, prop_value['value'], unit=prop_value.get('unit'))
-            for (prop, prop_value) in slave_par.items_with_unit():
-                new_key = 'slave_' + prop
-                ifgram.add_parameter(new_key, prop_value['value'], unit=prop_value.get('unit'))
+            ifgram.master_par = gpf.par_to_dict(master_par_path)
+            ifgram.slave_par = gpf.par_to_dict(slave_par_path)
+            ifgram.add_parameter('slave_mli', slave_par_path)
+            ifgram.add_parameter('master_mli', master_par_path)
+        elif "slave_mli" in ifgram._params:
+            ifgram.slave_par = gpf.par_to_dict(ifgram._params.slave_mli)
+            ifgram.master_par = gpf.par_to_dict(ifgram._params.master_mli)
         return ifgram
 
     @property
     def temporal_baseline(self):
-        return self.master_start_time - self.slave_start_time
+        print(self.master_par.start_time)
+        return self.master_par.start_time - self.slave_par.start_time
 
     def tofile(self, par_path, bin_path):
         arr = self.astype(gpf.type_mapping['FCOMPLEX'])

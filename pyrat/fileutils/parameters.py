@@ -129,10 +129,11 @@ def format_multiple(par):
     """
     if isinstance(par, str):
         par_str = par
-    elif hasattr(par, '__getitem__'):
-        par_str = ' '.join(str(x) for x in par)
     else:
-        par_str = str(par)
+        try:
+            par_str = ' '.join(str(x) for x in par)
+        except TypeError:
+            par_str = str(par)
     return par_str
 
 

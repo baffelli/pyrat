@@ -157,11 +157,11 @@ rule slc_shift:
         rlks=1,
         azlks=1,
         rlks_init=1,
-        azlks_init=5,
-        rwin_init=256,
-        azwin_init=256,
-        rwin=10,
-        azwin=512,
+        azlks_init=2,
+        rwin_init=64,
+        azwin_init=64,
+        rwin=64,
+        azwin=64,
         noff_r=20,
         noff_az=20,
     run:
@@ -279,8 +279,8 @@ rule decimate:
     run:
         from scipy.ndimage import zoom
         slc_input = gpf.gammaDataset(input.slc_par, input.slc)
+        print(slc_input._params)
         slc_dec = slc_input.decimate(params.dec, mode=params.dec_mode)
-        print(slc_dec)
         slc_dec.tofile(output.slc_par, output.slc)
 
 
