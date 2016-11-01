@@ -6,7 +6,6 @@ import pyrat.core.corefun as cf
 import pyrat.gpri_utils.calibration as cal
 import pyrat.core.matrices as mat
 from snakemake.remote.SFTP import RemoteProvider
-SFTP = RemoteProvider(username="baffelli", private_key="/home/baffelli/.ssh/id_rsa")
 
 #this matches a slc name in the form YYYYMMDD_HHMMSS or YYYYMMDD_HHMMSS_TXRXRX{upper or lower}
 slc_regex = "(\d{8})_(\d{6})((_[A-B]{3}[l-u]))?"
@@ -17,34 +16,7 @@ slc_regex = "(\d{8})_(\d{6})((_[A-B]{3}[l-u]))?"
 ruleorder: extract_channel > range_compression
 
 
-##############################################################################
-# This rule copys the raw data from the storage server on the local disk
-ruleorder: copy_raw_from_server_to_data_disk_working > copy_raw_from_server_to_data_disk
-rule copy_raw_from_server_to_data_disk:
-    input:
-        raw = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/unique_data/{project_name}/raw/{date}_{time}.raw", static=True),
-        raw_par = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/unique_data/{project_name}/raw/{date}_{time}.raw_par", static=True)
-    output:
-        raw = "/data/{project_name}/raw/{date}_{time}.raw",
-        raw_par = "/data/{project_name}/raw/{date}_{time}.raw_par"
-    shell:
-       """
-        cp {input.raw} {output.raw}
-        cp {input.raw_par} {output.raw_par}
-       """
 
-rule copy_raw_from_server_to_data_disk_working:
-    input:
-        raw = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/working/{project_name}/raw/{date}_{time}.raw", static=True),
-        raw_par = SFTP.remote("ifu-eo-srv-1.ethz.ch/local/working/{project_name}/raw/{date}_{time}.raw_par",static=True)
-    output:
-        raw = "/data/{project_name}/raw/{date}_{time}.raw",
-        raw_par = "/data/{project_name}/raw/{date}_{time}.raw_par"
-    shell:
-       """
-        cp {input.raw} {output.raw}
-        cp {input.raw_par} {output.raw_par}
-       """
 
 
 if config['project_name']:
