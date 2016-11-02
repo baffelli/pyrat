@@ -108,15 +108,18 @@ rule geocoding_table:
         #Geocode forwards
         dem_width = gpf.par_to_dict(output.dem_seg_par).width
         data_width = ref_mli_par['range_samples']
-        fwd_cmd = "geocode {{output.lut}} {{output.sim_sar}} {out_width} {{output.sim_sar_azd}} {data_width} - 0 0".format(data_width=data_width,
-    out_width=dem_width)
+        data_nlines = ref_mli_par['azimuth_lines']
+        print(dem_width)
+        print(data_width)
+        fwd_cmd = "geocode {{output.lut}} {{output.sim_sar}} {width_in} {{output.sim_sar_azd}} {data_width} {data_nlines} 0 0".format(width_in=dem_width,
+    data_width=data_width, data_nlines=data_nlines)
         shell(fwd_cmd)
-        if config['geocoding']['refine_table']:
+        if config['geocoding'].get('refine_table'):
             diff_par_cmd = "create_diff_par {input.reference_mli_par} - {params.diff_par} 1 0"
             shell(diff_par_cmd)
             off_cmd = "init_offsetm {input.reference_mli} {output.sim_sar_azd} {params.diff_par} 1 1 - - - - - 256 1"
             shell(off_cmd)
-            off_cmd = "offset_pwrm {input.reference_mli} {output.sim_sar_azd} {params.diff_par} {params.offs} {params.ccp} 64 64 - - 5 5 - - 0 0 - "
+            off_cmd = "offset_pwrm {input.reference_mli} {output.sim_sar_azd} {params.diff_par} {params.offs} {params.ccp}  64 - - 5 5 - - 0 0 - "
             shell(off_cmd)
             fit_cmd = "offset_fitm {params.offs} {params.ccp} {params.diff_par} - - - 1 0"
             shell(fit_cmd)
