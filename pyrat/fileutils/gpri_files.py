@@ -344,17 +344,6 @@ class gammaDataset(_np.ndarray):
         elif hasattr(sl, '__iter__'):
             r_vec_sl = self.r_vec[sl[0]]
             az_vec_sl = self.az_vec[sl[1]]
-        #This is the general case when two items are passed, then we slice both azimuth and range
-        # try:
-        #     sl[0]
-        #     r_vec_sl = self.r_vec[sl[0]]
-        #     az_vec_sl = self.az_vec[sl[1]]
-        # # First, a number is passed. In this case, we slice the azimuth because
-        # # the user specified a specific range cell
-        # except TypeError:
-        #     print(self.r_vec)
-        #     r_vec_sl = self.r_vec[sl]
-        #     az_vec_sl = self.az_vec
         try:
             az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step#azimuth over/undersampling time
         except (IndexError, TypeError):
@@ -403,53 +392,8 @@ class gammaDataset(_np.ndarray):
             new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
             new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
             new_obj_1.prf = 1/az_osf * self.prf
-            # new_obj_1.range_samples = new_obj_1.shape[0]
-            # new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
         except AttributeError:
             pass
-        #This concludes the part where we extract data from the array.
-        #now we need to adjust the attributes to adjust to the new spacing
-        # try:#if we pass an integer, we do not need to do anything
-        #     try:
-        #         sl[0]
-        #         r_vec_sl = self.r_vec[sl[0]]
-        #         az_vec_sl = self.az_vec[sl[1]]
-        #     except (TypeError, IndexError):
-        #         sl = _np.unravel_index(sl, self.shape)
-        #         r_vec_sl = self.r_vec[sl[0]]
-        #         az_vec_sl = self.az_vec[sl[1]]
-        #
-        #     try:
-        #         az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step#azimuth over/undersampling time
-        #     except IndexError:
-        #         az_osf = 1
-        #     try:
-        #         r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing#range sampling
-        #     except IndexError:
-        #         r_osf = 1
-        #     new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
-        #     new_obj_1.prf = az_osf * self.prf
-        #     try:
-        #         start_angle = az_vec_sl[0]
-        #     except IndexError:
-        #         start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
-        #     try:
-        #         start_r = r_vec_sl[0]
-        #     except IndexError:
-        #         start_r = r_vec_sl
-        #     try:#TODO set parameters depending on the access vector
-        #         new_obj_1.near_range_slc = start_r
-        #         new_obj_1.GPRI_az_start_angle = start_angle
-        #         new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
-        #         new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
-        #         new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
-        #         new_obj_1.prf = 1/az_osf * self.prf
-        #         new_obj_1.range_samples = self.shape[0]
-        #         new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
-        #     except Exception as e:
-        #         pass
-        # except Exception as e:
-        #         pass
         return new_obj_1
 
     @property
@@ -1061,6 +1005,27 @@ def model_squint(freq_vec):
 def linear_squint(freq_vec, sq_parameters):
     return _np.polynomial.polynomial.polyval(freq_vec, [0, sq_parameters])
 
+def interpolation_core(rawdata, squint_vec, angle_vec):
+    """
+    Core interpolation function used by correct_squint and correct_squint_in_SLC
+    Parameters
+    ----------
+    rawdata
+    squint_vec
+    angle_vec
+
+    Returns
+    -------
+
+    """
+    rawdata_corr = rawdata * 1
+    for idx_freq in range(rawdata.shape[0]):
+        az_new = angle_vec - squint_vec[idx_freq]
+        rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, rawdata[idx_freq, :], left=0.0, right=0.0)
+        if idx_freq % 500 == 0:
+            print_str = "interp sample: {idx}, ,shift: {sh} samples".format(idx=idx_freq, sh=az_new[0] - angle_vec[0])
+            print(print_str)
+    return rawdata_corr
 
 def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
     # We require a function to compute the squint angle
@@ -1076,15 +1041,10 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     squint_vec = _np.insert(squint_vec, 0, 0)
     rotation_squint = _np.insert(rotation_squint, 0, 0)
     # Interpolated raw channel
-    raw_channel_interp = _np.zeros_like(raw_channel)
-    for idx in range(0, raw_channel.shape[0]):
-        az_new = angle_vec + squint_vec[idx] - rotation_squint[idx]
-        if idx % 500 == 0:
-            print_str = "interp sample: {idx}, ,shift: {sh} samples".format(idx=idx, sh=az_new[0] - angle_vec[0])
-            print(print_str)
-        raw_channel_interp[idx, :] = _np.interp(az_new, angle_vec, raw_channel[idx, :], left=0.0, right=0.0)
+    raw_channel_interp = interpolation_core(raw_channel, squint_vec, angle_vec)
     raw_channel_interp.__array_wrap__(raw_channel)
     return raw_channel_interp
+
 
 
 def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9):
@@ -1111,26 +1071,23 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     shift = _np.ones(SLC.shape[0])
     shift[1::2] = -1
     # Convert the data into raw samples
-    # for idx_line in range(SLC.shape[1]):
     rawdata = _np.fft.irfft(SLC[:, :] * shift[:,None],axis=0,) * TSF
     rawdata_corr = rawdata * 1
     # Now correct the squint
     freqvec = SLC.radar_frequency + _np.linspace(-SLC.chirp_bandwidth / 2, SLC.chirp_bandwidth / 2,
                                                     rawdata.shape[0])
+
     squint_vec = squint_function(freqvec, squint_rate)
     squint_vec = squint_vec / SLC.GPRI_az_angle_step
     squint_vec = squint_vec - squint_vec[
         freqvec.shape[0] // 2]  # In addition, we correct for the beam motion during the chirp
     # Normal angle vector
     angle_vec = _np.arange(SLC.shape[1])
-    # Correct by interpolation
-    #TODO investigate why needs to subtract squint instead of adding
-    for idx_freq in range(rawdata.shape[0]):
-        az_new = angle_vec - squint_vec[idx_freq]
-        rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, rawdata[idx_freq, :], left=0.0, right=0.0)
+    rawdata_corr = interpolation_core(rawdata,squint_vec, angle_vec)
     # Now range compress again (this function is really boring
-    for idx_line in range(SLC.shape[1]):
-        SLC_corr[:, idx_line] = _np.fft.rfft(rawdata_corr[:, idx_line])/ TSF *shift
+    SLC_corr= _np.fft.rfft(rawdata_corr,axis=0 )/ TSF *shift[:,None]
+    SLC_corr = SLC.__array_wrap__(SLC_corr)#Call array wrap to make sure properties are correctly set
+    assert  SLC_corr.shape == SLC.shape, "failed"
     return SLC_corr
 
 
