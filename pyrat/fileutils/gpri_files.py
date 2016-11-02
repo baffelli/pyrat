@@ -165,7 +165,7 @@ def gt_mapping_from_extension(filename):
         'diff':2,
         'mli':2,
         'cc':2,
-        'aps':0,
+        'aps':2,
     }
     # extension = filename.split('.')[-1]
     filename =_os.path.basename(filename)
