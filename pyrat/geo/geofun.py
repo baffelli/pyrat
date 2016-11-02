@@ -1077,6 +1077,9 @@ class GeocodingTable(_gpf.gammaDataset):
         # # lut.az_interp = RectBivariateSpline(x, y, lut.imag)
         return lut
 
+    def __getitem__(self, item):
+        return super(_gpf.gammaDataset,self).__getitem__(item)
+
     def geo_coord_to_dem_coord(self, coord):
         gt = get_geotransform(self)
         x = (coord[0] - gt[0]) / gt[1]

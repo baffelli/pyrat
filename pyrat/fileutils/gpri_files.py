@@ -115,6 +115,7 @@ def gamma_datatype_code_from_extension(filename):
                'int': 1,
                'sm': 1,
                'cc': 0,
+               'unw':0,
                "sim_sar": 0,
                "ls_map": 3,
                "sh_map": 3,
@@ -123,16 +124,23 @@ def gamma_datatype_code_from_extension(filename):
                "psi":0,
                "bmp": 2,
                 "tif":2,
-               "diff":1,
-               "int":1}
+               "diff":0,
+               "int":1,
+               'aps':0}
+    filename = _os.path.basename(filename)
+    filename_re = "|".join(["({})".format(key) for key in mapping.keys()])
+    print(filename_re)
     for i in [0, 1, 2, 3]:
         for j in [0, 1, 2, 3]:
             mapping["c{i}{j}".format(i=i, j=j)] = 1  # covariance elements
     # Split the file name to the latest extesnsion
     extension = filename.split('.')[-1]
+    # print(extension)
+    matches = _re.search(filename_re, filename)
+    print(matches)
     # clean_extensions = _re.search(split_re, extension).groups()[0]
     # print(clean_extensions)
-    return mapping[extension]
+    return mapping[matches.group(0)]
 
 
 def gt_mapping_from_extension(filename):
@@ -148,16 +156,23 @@ def gt_mapping_from_extension(filename):
         'ls_map': 5,
         'dem_seg': 4,
         'inc': 2,
+        'unw':2,
         'u': 2,
         'psi':2,
         'lv_theta': 2,
         'sh_map': 5,
         'int':4,
-        'diff':4
+        'diff':2,
+        'mli':2,
+        'cc':2,
+        'aps':0,
     }
-    extension = filename.split('.')[-1]
-    extension = _re.sub("(_(f)*(gc))+", "", extension)
-    return mapping[extension]
+    # extension = filename.split('.')[-1]
+    filename =_os.path.basename(filename)
+    extension = _re.sub("(_(f)*(gc))+", "", filename)
+    filename_re = "|".join(["({})".format(key) for key in mapping.keys()])
+    matches = _re.search(filename_re, extension)
+    return mapping[matches.group(0)]
 
 
 ls_map_dic = {0: "NOT_TESTED",

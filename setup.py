@@ -9,6 +9,6 @@ setup(name='pyrat',
       license='MIT',
       packages=setuptools.find_packages(exclude='pyrat.core.tests'),
       zip_safe=False,
-      install_requires=['numpy', 'matplotlib', 'pyparsing'],
+      install_requires=['numpy', 'matplotlib', 'pyparsing', 'pyfftw', 'gdal'],
       package_data={'pyrat': ['rules/*'], 'default_slc_params':'fileutils/default_slc_par.par'},
       include_package_data=True)
