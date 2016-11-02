@@ -101,7 +101,7 @@ rule geocoding_table:
     run:
         #Set scan heading
         ref_mli_par = gpf.par_to_dict(input.reference_mli_par)
-        ref_mli_par['GPRI_scan_heading'] = config['geocoding']['scan_heading']
+        ref_mli_par.GPRI_scan_heading = config['geocoding']['scan_heading']
         gpf.dict_to_par(ref_mli_par, input.reference_mli_par)
         gc_cmd = "gc_GPRI_map {input.reference_mli_par} {input.dem_par} {input.dem} {output.dem_seg_par} {output.dem_seg} {output.lut} {params.lat_ovr} {params.lon_ovr} {output.sim_sar} {output.lv_theta} {output.lv_phi} {output.u} {output.v} {output.inc} {output.psi} {output.pix} {output.ls_map} {params.frame} > {log}"
         shell(gc_cmd)
@@ -111,7 +111,7 @@ rule geocoding_table:
         data_nlines = ref_mli_par['azimuth_lines']
         print(dem_width)
         print(data_width)
-        fwd_cmd = "geocode {{output.lut}} {{output.sim_sar}} {width_in} {{output.sim_sar_azd}} {data_width} {data_nlines} 0 0".format(width_in=dem_width,
+        fwd_cmd = "geocode {{output.lut}} {{output.sim_sar}} {width_in} {{output.sim_sar_azd}} {data_width} - 0 0".format(width_in=dem_width,
     data_width=data_width, data_nlines=data_nlines)
         shell(fwd_cmd)
         if config['geocoding'].get('refine_table'):

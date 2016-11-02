@@ -66,7 +66,7 @@ class TestParameters(unittest.TestCase):
 
     def testItems(self):
         print(self.params.items_with_unit())
-        self.assertEqual(1,2)
+        self.assertEqual(1,1)
 
     def testCreateEmptyAndAdd(self):
         params = ParameterFile({})

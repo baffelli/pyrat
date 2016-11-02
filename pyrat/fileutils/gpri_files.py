@@ -292,24 +292,25 @@ class gammaDataset(_np.ndarray):
         #obj thje object from which the view has been taken
         if obj is None: return
         elif type(obj) is type(self):
-            if hasattr(obj, "__dict__"):
-                # if '_params' in obj.__dict___:
-                self.__dict__ = obj.__dict__
-                self.__dict__['_params'] = obj._params.copy()
+            #New object has params, we pass
+            if hasattr(self, '__dict__'):
+                if '_params' in self.__dict__:
+                    pass
+                else:
+                    self.__dict__['_params'] = obj._params.copy()
+            else:
+                self.__dict__ = _cp.deepcopy(obj.__dict__)
 
-        # if hasattr(obj, '__dict__'):
-        #     self.__dict__ = _cp.copy(obj.__dict__)
-        # obj = super(gammaDataset,self).__array_finalize__(obj)
-        # if '_params' in self.__dict__:
-        #     obj._params = obj._params.copy()
-        # return obj
+
 
     def  __array_wrap__(self, obj):
         new_arr = super(gammaDataset,self).__array_wrap__(obj)
-        # new_arr.__dict__ = _cp.deepcopy(self.__dict__)
         if '_params' in self.__dict__:
-            new_arr.__dict__['_params'] = self._params.copy()
+            if '_params' not in new_arr.__dict__:
+                new_arr.__dict__['_params'] = self._params.copy()
         return new_arr
+
+
 
 
     def __getslice__(self, start, stop):
@@ -332,51 +333,142 @@ class gammaDataset(_np.ndarray):
             sl = item
 
         # Get the slice from the object by calling the corresponding numpy function
-        new_obj_1 = (super(gammaDataset, self).__getitem__(sl))
+        new_obj_1 = super(gammaDataset, self).__getitem__(sl)
+        #A single number was passed, we return the corresponding azimuth line
+        if isinstance(sl, int) or isinstance(sl, slice):
+            try:
+                r_vec_sl = self.r_vec[sl]
+            except IndexError:
+                r_vec_sl = self.r_vec
+            az_vec_sl = self.az_vec
+        elif hasattr(sl, '__iter__'):
+            r_vec_sl = self.r_vec[sl[0]]
+            az_vec_sl = self.az_vec[sl[1]]
+        #This is the general case when two items are passed, then we slice both azimuth and range
+        # try:
+        #     sl[0]
+        #     r_vec_sl = self.r_vec[sl[0]]
+        #     az_vec_sl = self.az_vec[sl[1]]
+        # # First, a number is passed. In this case, we slice the azimuth because
+        # # the user specified a specific range cell
+        # except TypeError:
+        #     print(self.r_vec)
+        #     r_vec_sl = self.r_vec[sl]
+        #     az_vec_sl = self.az_vec
+        try:
+            az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step#azimuth over/undersampling time
+        except (IndexError, TypeError):
+            az_osf = 1
+        try:
+            r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing#range sampling
+        except  (IndexError, TypeError):
+            r_osf = 1
+        try:
+            start_angle = az_vec_sl[0]
+        except (TypeError, IndexError):
+            start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
+        try:
+            start_r = r_vec_sl[0]
+        except (TypeError, IndexError):
+            start_r = r_vec_sl
+        try:
+            #Compute the new shape
+            if new_obj_1.ndim > 1:
+                new_lines = new_obj_1.shape[1]
+                new_width = new_obj_1.shape[0]
+            else:
+                new_width = 1
+                if len(new_obj_1.shape) > 0:
+                    new_lines = new_obj_1.shape[0]
+                else:
+                    new_lines = 1
+            #First set shape properties
+            width_prop = ["width", "range_samples", "CHP_num_samp", "map_width",
+                        "interferogram_width"]
+            for wp in width_prop:
+                try:
+                    setattr(new_obj_1, wp, new_width)
+                except AttributeError:
+                    pass
+            #Same with azimuth
+            line_prop = ["nlines", "azimuth_lines", "interferogram_azimuth_lines", "map_azimuth_lines",]
+            for wp in line_prop:
+                try:
+                    setattr(new_obj_1, wp,new_lines)
+                except AttributeError:
+                    pass
+            new_obj_1.near_range_slc = start_r
+            new_obj_1.GPRI_az_start_angle = start_angle
+            new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
+            new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
+            new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
+            new_obj_1.prf = 1/az_osf * self.prf
+            # new_obj_1.range_samples = new_obj_1.shape[0]
+            # new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
+        except AttributeError:
+            pass
         #This concludes the part where we extract data from the array.
         #now we need to adjust the attributes to adjust to the new spacing
-        try:#if we pass an integer, we do not need to do anything
-            try:
-                sl[0]
-                r_vec_sl = self.r_vec[sl[0]]
-                az_vec_sl = self.az_vec[sl[1]]
-            except (TypeError, IndexError):
-                sl = _np.unravel_index(sl, self.shape)
-                r_vec_sl = self.r_vec[sl[0]]
-                az_vec_sl = self.az_vec[sl[1]]
-
-            try:
-                az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step#azimuth over/undersampling time
-            except IndexError:
-                az_osf = 1
-            try:
-                r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing#range sampling
-            except IndexError:
-                r_osf = 1
-            new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
-            new_obj_1.prf = az_osf * self.prf
-            try:
-                start_angle = az_vec_sl[0]
-            except IndexError:
-                start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
-            try:
-                start_r = r_vec_sl[0]
-            except IndexError:
-                start_r = r_vec_sl
-            try:#TODO set parameters depending on the access vector
-                new_obj_1.near_range_slc = start_r
-                new_obj_1.GPRI_az_start_angle = start_angle
-                new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
-                new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
-                new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
-                new_obj_1.prf = 1/az_osf * self.prf
-                new_obj_1.range_samples = self.shape[0]
-                new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
-            except Exception as e:
-                pass
-        except Exception as e:
-                pass
+        # try:#if we pass an integer, we do not need to do anything
+        #     try:
+        #         sl[0]
+        #         r_vec_sl = self.r_vec[sl[0]]
+        #         az_vec_sl = self.az_vec[sl[1]]
+        #     except (TypeError, IndexError):
+        #         sl = _np.unravel_index(sl, self.shape)
+        #         r_vec_sl = self.r_vec[sl[0]]
+        #         az_vec_sl = self.az_vec[sl[1]]
+        #
+        #     try:
+        #         az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step#azimuth over/undersampling time
+        #     except IndexError:
+        #         az_osf = 1
+        #     try:
+        #         r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing#range sampling
+        #     except IndexError:
+        #         r_osf = 1
+        #     new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
+        #     new_obj_1.prf = az_osf * self.prf
+        #     try:
+        #         start_angle = az_vec_sl[0]
+        #     except IndexError:
+        #         start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
+        #     try:
+        #         start_r = r_vec_sl[0]
+        #     except IndexError:
+        #         start_r = r_vec_sl
+        #     try:#TODO set parameters depending on the access vector
+        #         new_obj_1.near_range_slc = start_r
+        #         new_obj_1.GPRI_az_start_angle = start_angle
+        #         new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
+        #         new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
+        #         new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
+        #         new_obj_1.prf = 1/az_osf * self.prf
+        #         new_obj_1.range_samples = self.shape[0]
+        #         new_obj_1.azimuth_lines = new_obj_1.shape[1] if new_obj_1.ndim > 1 else 0
+        #     except Exception as e:
+        #         pass
+        # except Exception as e:
+        #         pass
         return new_obj_1
+
+    @property
+    def r_vec(self):
+        if self.ndim > 1:
+            return self.near_range_slc + _np.arange(self.shape[0]) * \
+                                                    self.range_pixel_spacing
+        else:
+            return self.near_range_slc
+
+
+    @property
+    def az_vec(self):
+        if self.ndim > 1:
+            idx = 1
+        else:
+            idx = 0
+        return self.GPRI_az_start_angle + _np.arange(self.shape[idx]) * \
+                                                         self.GPRI_az_angle_step
 
 
     def tofile(self, *args,**kwargs):
@@ -435,16 +527,6 @@ class gammaDataset(_np.ndarray):
         arr_dec.azimuth_lines = arr_dec.shape[1]
         return arr_dec
 
-    @property
-    def r_vec(self):
-        return self.near_range_slc + _np.arange(self.shape[0]) * \
-                                                    self.range_pixel_spacing
-
-
-    @property
-    def az_vec(self):
-        return self.GPRI_az_start_angle + _np.arange(self.shape[1]) * \
-                                                         self.GPRI_az_angle_step
 
     @property
     def phase_center(self):
@@ -543,7 +625,7 @@ def get_width(par_path):
         Helper function to get the width of a gamma format file
     """
     par_dict = par_to_dict(par_path)
-    for name_string in ["width", "range_samples", "CHP_num_samp", "number_of_nonzero_range_pixels_1",
+    for name_string in ["width", "range_samples", "CHP_num_samp", "map_width",
                         "interferogram_width"]:
         try:
             width = getattr(par_dict, name_string)
