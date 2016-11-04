@@ -1084,13 +1084,13 @@ class GeocodingTable(_gpf.gammaDataset):
         gt = get_geotransform(self)
         x = (coord[0] - gt[0]) / gt[1]
         y = (coord[1] - gt[3]) / gt[5]
-        return (x,y)
+        return [x,y]
 
     def geo_coord_to_radar_coord(self,geo_coord):
         dem_coord = self.geo_coord_to_dem_coord(geo_coord)
         # transf = bilinear_interpolate(self,dem_coord[1], dem_coord[0])
         coord = self[int(dem_coord[0]),int(dem_coord[1])]
-        return coord.real, coord.imag
+        return [coord.real, coord.imag]
 
     @property
     def geotransform(self):
