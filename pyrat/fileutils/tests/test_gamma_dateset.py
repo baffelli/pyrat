@@ -41,6 +41,10 @@ class TestSLC(unittest.TestCase):
         self.assertAlmostEqual(slc_sl.GPRI_az_angle_step, -self.slc.GPRI_az_angle_step)
         self.assertAlmostEqual(slc_sl.near_range_slc, self.slc.near_range_slc )
         self.assertAlmostEqual(slc_sl.near_range_slc, self.slc.near_range_slc)
+
+    def testMask(self):
+        slc_mask = np.ma.masked_array(self.slc)
+        slc_mask.min()
     #
     # def testDecimation(self):
     #     slc_sl = self.slc.decimate(5)

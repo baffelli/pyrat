@@ -312,7 +312,13 @@ class gammaDataset(_np.ndarray):
                 if '_params' in self.__dict__:
                     pass
                 else:
-                    self.__dict__['_params'] = obj._params.copy()
+                    if hasattr(obj, '_params'):
+                        try:
+                            self.__dict__['_params']  = obj._params.copy()
+                        except:
+                            self.__dict__['_params'] = {}
+                    else:
+                        pass
             else:
                 self.__dict__ = _cp.deepcopy(obj.__dict__)
 
@@ -348,66 +354,69 @@ class gammaDataset(_np.ndarray):
             sl = item
 
         # Get the slice from the object by calling the corresponding numpy function
-        new_obj_1 = super(gammaDataset, self).__getitem__(sl)
+        new_obj_1 = _np.ndarray.__getitem__(self, sl)
         #A single number was passed, we return the corresponding azimuth line
-        if isinstance(sl, int) or isinstance(sl, slice):
+        try:
+            if isinstance(sl, int) or isinstance(sl, slice):
+                try:
+                    r_vec_sl = self.r_vec[sl]
+                except IndexError:
+                    r_vec_sl = self.r_vec
+                az_vec_sl = self.az_vec
+            elif hasattr(sl, '__iter__'):
+                r_vec_sl = self.r_vec[sl[0]]
+                az_vec_sl = self.az_vec[sl[1]]
             try:
-                r_vec_sl = self.r_vec[sl]
-            except IndexError:
-                r_vec_sl = self.r_vec
-            az_vec_sl = self.az_vec
-        elif hasattr(sl, '__iter__'):
-            r_vec_sl = self.r_vec[sl[0]]
-            az_vec_sl = self.az_vec[sl[1]]
-        try:
-            az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step#azimuth over/undersampling time
-        except (IndexError, TypeError):
-            az_osf = 1
-        try:
-            r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing#range sampling
-        except  (IndexError, TypeError):
-            r_osf = 1
-        try:
-            start_angle = az_vec_sl[0]
-        except (TypeError, IndexError):
-            start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
-        try:
-            start_r = r_vec_sl[0]
-        except (TypeError, IndexError):
-            start_r = r_vec_sl
-        try:
-            #Compute the new shape
-            if new_obj_1.ndim > 1:
-                new_lines = new_obj_1.shape[1]
-                new_width = new_obj_1.shape[0]
-            else:
-                new_width = 1
-                if len(new_obj_1.shape) > 0:
-                    new_lines = new_obj_1.shape[0]
+                az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step#azimuth over/undersampling time
+            except (IndexError, TypeError):
+                az_osf = 1
+            try:
+                r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing#range sampling
+            except  (IndexError, TypeError):
+                r_osf = 1
+            try:
+                start_angle = az_vec_sl[0]
+            except (TypeError, IndexError):
+                start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
+            try:
+                start_r = r_vec_sl[0]
+            except (TypeError, IndexError):
+                start_r = r_vec_sl
+            try:
+                #Compute the new shape
+                if new_obj_1.ndim > 1:
+                    new_lines = new_obj_1.shape[1]
+                    new_width = new_obj_1.shape[0]
                 else:
-                    new_lines = 1
-            #First set shape properties
-            width_prop = ["width", "range_samples", "CHP_num_samp", "map_width",
-                        "interferogram_width"]
-            for wp in width_prop:
-                try:
-                    setattr(new_obj_1, wp, new_width)
-                except AttributeError:
-                    pass
-            #Same with azimuth
-            line_prop = ["nlines", "azimuth_lines", "interferogram_azimuth_lines", "map_azimuth_lines",]
-            for wp in line_prop:
-                try:
-                    setattr(new_obj_1, wp,new_lines)
-                except AttributeError:
-                    pass
-            new_obj_1.near_range_slc = start_r
-            new_obj_1.GPRI_az_start_angle = start_angle
-            new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
-            new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
-            new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
-            new_obj_1.prf = 1/az_osf * self.prf
-        except AttributeError:
+                    new_width = 1
+                    if len(new_obj_1.shape) > 0:
+                        new_lines = new_obj_1.shape[0]
+                    else:
+                        new_lines = 1
+                #First set shape properties
+                width_prop = ["width", "range_samples", "CHP_num_samp", "map_width",
+                            "interferogram_width"]
+                for wp in width_prop:
+                    try:
+                        setattr(new_obj_1, wp, new_width)
+                    except AttributeError:
+                        pass
+                #Same with azimuth
+                line_prop = ["nlines", "azimuth_lines", "interferogram_azimuth_lines", "map_azimuth_lines",]
+                for wp in line_prop:
+                    try:
+                        setattr(new_obj_1, wp,new_lines)
+                    except AttributeError:
+                        pass
+                new_obj_1.near_range_slc = start_r
+                new_obj_1.GPRI_az_start_angle = start_angle
+                new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
+                new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
+                new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
+                new_obj_1.prf = 1/az_osf * self.prf
+            except AttributeError:
+                pass
+        except:
             pass
         return new_obj_1
 
