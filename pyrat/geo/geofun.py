@@ -8,7 +8,8 @@ from ..fileutils import gpri_files as _gpf
 from ..fileutils import parameters as _params
 
 
-from scipy.interpolate import  interp2d, RectBivariateSpline
+import scipy.ndimage as _ndim
+import scipy.interpolate as _interp
 
 from ..core import corefun as _cf
 
@@ -661,7 +662,7 @@ def geocode_image(image, pixel_size, *args):
     except AttributeError:
         if len(args) > 0:
             r_vec = args[0]
-            az_vec = args[1]
+            az_vec = _np.deg2rad(args[1])
         else:
             raise TypeError
     # Desired grid
@@ -671,6 +672,7 @@ def geocode_image(image, pixel_size, *args):
     az_max = _np.max(az_vec)
     az_min = _np.min(az_vec)
     az_step = _np.abs(az_vec[1] - az_vec[0])
+    az_sign = -_np.sign(az_vec[1] - az_vec[0])
     r_step = _np.abs(r_vec[1] - r_vec[0])
     # Compute desired grid
     az_vec_1 = _np.linspace(az_min, az_max, num=8)
@@ -695,7 +697,10 @@ def geocode_image(image, pixel_size, *args):
     az_idx = _np.clip(az_idx, 0, image.shape[1] - 1)
     az_idx = az_idx.astype(_np.float)
     r_idx = r_idx.astype(_np.float)
-    gc = bilinear_interpolate(image, az_idx, r_idx)
+    #Create interpolation function for y
+
+    gc = _ndim.map_coordinates(image,_np.vstack((r_idx.flatten(),az_idx.flatten())),mode='constant',cval=0,order=1, prefilter=False).reshape(r_idx.shape)
+    # gc = bilinear_interpolate(image, az_idx, r_idx)
     gc[az_idx.astype(_np.long) == image.shape[1] - 1] = _np.nan
     gc[r_idx.astype(_np.long) == image.shape[0] - 1] = _np.nan
     gc[az_idx.astype(_np.long) == 0] = _np.nan
