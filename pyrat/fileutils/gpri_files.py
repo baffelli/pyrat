@@ -491,7 +491,7 @@ class gammaDataset(_np.ndarray):
         arr_dec.GPRI_az_angle_step = dec * self.GPRI_az_angle_step
         arr_dec.azimuth_line_time = dec * self.azimuth_line_time
         arr_dec.prf = self.prf / dec
-        arr_dec.azimuth_looks *= dec
+        # arr_dec.azimuth_looks *= dec
         arr_dec.azimuth_lines = arr_dec.shape[1]
         return arr_dec
 
