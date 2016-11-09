@@ -48,9 +48,16 @@ class Plist(object):
 
     def cartesian_coord(self, pos):
         (r, az) = self.radar_coords(pos)
-        x = r * _np.cos(az)
-        y = r * _np.sin(az)
+        x = r * _np.cos(_np.deg2rad(az))
+        y = r * _np.sin(_np.deg2rad(az))
         return (x,y)
+
+    def to_location_list(self):
+        res = []
+        for idx_pt, pt in enumerate(self):
+            coord = self.cartesian_coord(pt)
+            res.append(coord)
+        return res
 
 
 class Pdata(object):
@@ -68,3 +75,15 @@ class Pdata(object):
 
     def __getslice__(self, sl):
         return self.pdata.__getslice__(sl)
+
+    @property
+    def nrecords(self):
+        return self.pdata.shape[0]
+
+    def to_location_list(self):
+        res = []
+        for idx_pt, pt in enumerate(self.plist):
+            val = self.pdata[:, idx_pt]
+            coord = self.plist.cartesian_coord(pt)
+            res.append((list(coord) + list(val)))
+        return res
