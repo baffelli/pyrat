@@ -9,11 +9,17 @@ from ..fileutils.gpri_files import type_mapping as tm
 def itab(n_slc, window, stride, step, n_ref):
     tab = []
     #list with reference numbers
-    reference = range(n_ref,n_ref)
-    for image_counter, idx_master in enumerate(range(1, n_slc, step)):
-        for idx_slave in range(idx_master + 1, idx_master + 1 + window, stride):
-            if idx_slave < n_slc:
-                tab.append([idx_master, idx_slave, image_counter, 1])
+    if stride == 0:
+        reference = [n_ref]
+        window = 0
+    else:
+        reference = list(range(n_ref,n_slc, stride))
+    counter = 1
+    for master in reference:
+        for slave in range(master + step, n_slc, step):
+            line = [master, slave, counter]
+            counter += 1
+            tab.append(line)
     return tab
 
 
