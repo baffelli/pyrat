@@ -29,8 +29,8 @@ class Plist(object):
     """
 
     def __init__(self, plist_path, r_slc_par_path, **kwargs):
-        plist = _np.fromfile(plist_path, dtype=_np.dtype('>i'))
-        self.plist = plist.reshape(len(plist) // 2, 2).tolist()
+        plist = _np.fromfile(plist_path, dtype=_np.dtype('>i4'))
+        self.plist = list(plist.reshape((len(plist)//2, 2)))
         self.params = par.ParameterFile(r_slc_par_path)
 
     def __getitem__(self, item):
@@ -46,18 +46,20 @@ class Plist(object):
     def __len__(self):
         return self.plist.__len__()
 
-    def closest_index(self, index):
+    def closest_index(self, pos):
         """
         Find the point target index closest to
         the specified coordinate
         Parameters
         ----------
-        index
+        pos
 
         Returns
         -------
         """
-        residual = _np.sum((_np.array(self.plist) - _np.array(index)[None, :]) ** 2, axis=1)
+        plist_arr = _np.array(self.plist)
+        print(plist_arr.shape)
+        residual = _np.sum((plist_arr- _np.array(pos)[None, :]) ** 2, axis=1)
         idx = _np.argmin(residual)
         return idx
 
