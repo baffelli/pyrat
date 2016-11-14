@@ -17,7 +17,7 @@ def itab(n_slc, window, stride, step, n_ref):
     counter = 1
     for master in reference:
         for slave in range(master + step, master+ step+window, step):
-            if slave < master:
+            if slave < n_slc:
                 line = [master, slave, counter]
                 counter += 1
                 tab.append(line)
