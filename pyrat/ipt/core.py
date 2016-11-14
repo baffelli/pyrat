@@ -16,10 +16,11 @@ def itab(n_slc, window, stride, step, n_ref):
         reference = list(range(n_ref,n_slc, stride))
     counter = 1
     for master in reference:
-        for slave in range(master + step, n_slc, step):
-            line = [master, slave, counter]
-            counter += 1
-            tab.append(line)
+        for slave in range(master + step, master+ step+window, step):
+            if slave < master:
+                line = [master, slave, counter]
+                counter += 1
+                tab.append(line)
     return tab
 
 
@@ -101,6 +102,14 @@ class Pdata(object):
     @property
     def nrecords(self):
         return self.pdata.shape[0]
+
+    @property
+    def ridx(self):
+        return [x[0] for x in self.plist]
+
+    @property
+    def azidx(self):
+        return [x[1] for x in self.plist]
 
     def to_location_list(self):
         res = []
