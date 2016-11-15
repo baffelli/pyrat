@@ -17,9 +17,8 @@ def noise_fun(m, sigma):
 class LinearSystem:
     def __init__(self, F=None, H=None, x0=None, B=0, Q=None, R=None):
         self.x = x0
-        self.z = np.dot(H, x0)
-        self.x_noisy = noise_fun(x0, Q)
-        self.z_noisy = noise_fun(self.z, R)
+        self.x_noisy = noise_fun(self.x, Q)
+        self.z = noise_fun(np.dot(H, self.x), R)
         self.F = F
         self.H = H
         self.Q = Q
@@ -42,12 +41,12 @@ class LinearSystem:
         self.x_noisy = np.random.multivariate_normal(np.dot(self.F, self.x_noisy), self.Q)
 
     def output(self):
-        self.z = np.dot(self.H, self.x)
+        # self.z = np.dot(self.H, self.x)
         if np.isscalar(self.R):
             noise_fun = lambda m, v: m + np.random.randn(*m.shape) * np.sqrt(v)
         else:
             noise_fun = lambda m, v: np.random.multivariate_normal(m, v)
-        self.z_noisy = noise_fun(np.dot(self.H, self.x_noisy), self.R)
+        self.z = noise_fun(np.dot(self.H, self.x_noisy), self.R)
 
 class KalmanFilter:
     def __init__(self, nstates, noutpus, ninputs=0, F=None, B=None, H=None, R=None, Q=None):
