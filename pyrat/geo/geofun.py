@@ -1066,6 +1066,9 @@ def segment_geotif(gt, dem_par):
     return dest
 
 
+
+
+
 class GeocodingTable(_gpf.gammaDataset):
     """
     Class to represent geocoding tables (

@@ -1,5 +1,6 @@
 import numpy as np
-
+import gdal as _gd
+import queue
 
 def special_inv(M):
     if np.isscalar(M):
@@ -15,6 +16,9 @@ def noise_fun(m, sigma):
         return np.random.multivariate_normal(m, sigma)
 
 class LinearSystem:
+    """
+    Simple class to implement a linear system
+    """
     def __init__(self, F=None, H=None, x0=None, B=0, Q=None, R=None):
         self.x = x0
         self.x_noisy = noise_fun(self.x, Q)
@@ -39,6 +43,7 @@ class LinearSystem:
         """
         self.x = np.dot(self.F, self.x)
         self.x_noisy = np.random.multivariate_normal(np.dot(self.F, self.x_noisy), self.Q)
+        return self.x_noisy
 
     def output(self):
         # self.z = np.dot(self.H, self.x)
@@ -47,6 +52,31 @@ class LinearSystem:
         else:
             noise_fun = lambda m, v: np.random.multivariate_normal(m, v)
         self.z = noise_fun(np.dot(self.H, self.x_noisy), self.R)
+
+
+
+
+
+class InterferogramStackSimulator:
+    def __init(self, model ,nstack=5, lam=1.7e-2, dt=120*60):
+        self.nstack = nstack#number of element of stack
+        self.lam = lam #wavelength
+        self.dt = dt#temporal baseline
+        self.x = []
+        self.model = model
+        self.x_memory = queue.Queue(maxsize=self.nstack)
+        self.z = np.zeros(self.nstack * self.model.x.shape[0])
+
+    def predict(self):
+        next_state = self.model.state_transition()
+        self.x.append(next_state)
+        self.x_memory.put(next_state)
+
+
+    def output(self):
+        dx = [self.x_memory[-1] - x for x in self.x_memory ]
+        return dx
+
 
 class KalmanFilter:
     def __init__(self, nstates, noutpus, ninputs=0, F=None, B=None, H=None, R=None, Q=None):
@@ -219,29 +249,4 @@ class KalmanFilter:
     def y(self):
         return np.dot(self.H, self.x)
 
-# class RealSystem:
-#
-#     def __init__(self, ls, P, Q):
-#         self.ls = ls
-#         self.P = P
-#         self.Q = Q
-#         self.x = []
-#         self.y = []
-#         self.x_hist = []
-#         self.y_hist = []
-#
-#     def step(self):
-#         self.ls.step()
-#
-#         print(self.ls.x)
-#         self.x =  np.random.multivariate_normal(self.ls.x, self.P)
-#         self.y =  np.random.multivariate_normal(self.ls.y, self.Q)
-#
-#         self.x_hist.append(self.x)
-#         self.y_hist.append(self.y)
-#
-# class KalmanFilter:
-#
-#     def __init__(self, system, P, Q):
-#         self.P = P
-#         self.Q = Q
+
