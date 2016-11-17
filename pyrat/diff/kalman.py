@@ -1,6 +1,7 @@
 import numpy as np
 import gdal as _gd
 import queue
+from .. ipt import core as ipt
 
 def special_inv(M):
     if np.isscalar(M):
@@ -42,39 +43,43 @@ class LinearSystem:
 
         """
         self.x = np.dot(self.F, self.x)
-        self.x_noisy = np.random.multivariate_normal(np.dot(self.F, self.x_noisy), self.Q)
-        return self.x_noisy
+        self.x_noisy = noise_fun(np.dot(self.F, self.x_noisy), self.Q)
+        return self.x
 
     def output(self):
         # self.z = np.dot(self.H, self.x)
-        if np.isscalar(self.R):
-            noise_fun = lambda m, v: m + np.random.randn(*m.shape) * np.sqrt(v)
-        else:
-            noise_fun = lambda m, v: np.random.multivariate_normal(m, v)
         self.z = noise_fun(np.dot(self.H, self.x_noisy), self.R)
-
+        return self.z
 
 
 
 
 class InterferogramStackSimulator:
-    def __init(self, model ,nstack=5, lam=1.7e-2, dt=120*60):
-        self.nstack = nstack#number of element of stack
+    def __init__(self, model ,stride=1, step=1, window=5, lam=1.7e-2):
+        self.window = window#number of interferograms in stack
+        self.stride = stride#increment of master
+        self.step = step#increment of slave
+        self.itab = ipt.itab()
         self.lam = lam #wavelength
-        self.dt = dt#temporal baseline
         self.x = []
         self.model = model
-        self.x_memory = queue.Queue(maxsize=self.nstack)
+        self.x_memory = queue.Queue(maxsize=self.window)
         self.z = np.zeros(self.nstack * self.model.x.shape[0])
 
     def predict(self):
+        #remove oldest
         next_state = self.model.state_transition()
         self.x.append(next_state)
-        self.x_memory.put(next_state)
+        try:
+            self.x_memory.put_nowait(next_state)
+        except:
+            pass
 
 
     def output(self):
-        dx = [self.x_memory[-1] - x for x in self.x_memory ]
+        reference = self.x_memory.get()
+        memory = list(self.x_memory.queue)
+        dx = [reference - x for x in memory ]
         return dx
 
 
@@ -233,7 +238,7 @@ class KalmanFilter:
                 raise np.LinAlgError("R is not positive definite, cannot be used as a state covariance matrix")
             self._R = value
         else:
-            raise np.LinAlgError("R is not of shape {}X{} or scalar".format(self.noutputs, self.noutputs))
+            raise TypeError("R is not of shape {}X{} or scalar".format(self.noutputs, self.noutputs))
 
 
     @property
