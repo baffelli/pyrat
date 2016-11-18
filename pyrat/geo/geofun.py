@@ -578,13 +578,6 @@ def raster_index_to_coordinate(GT, index):
     return coord_x, coord_y
 
 
-def get_ds_extent(ds):
-    gt = ds.GetGeoTransform()
-    gt_x_vec = tuple(_np.sort((gt[0], gt[0] + gt[1] * ds.RasterXSize)))
-    gt_y_vec = tuple(_np.sort((gt[3], gt[3] + gt[5] * ds.RasterYSize)))
-    return gt_x_vec[0], gt_x_vec[1], gt_y_vec[0], gt_y_vec[1]
-
-
 def get_dem_extent(par_dict):
     gt = [par_dict['corner_east'][0], par_dict['post_east'][0],
           0, 0, par_dict['corner_north'][0], par_dict['post_north'][0]]
@@ -973,10 +966,18 @@ def get_geotransform(dem_par):
     """
     return dem_par.corner_east, dem_par.post_east, 0, dem_par.corner_north,0 , dem_par.post_north
 
+
 def get_extent(geotransform, shape):
-    return geotransform[0], geotransform[0] + geotransform[1] * shape[0],geotransform[3], geotransform[3] + geotransform[5] * shape[1]
+
+    x = sorted((geotransform[0], geotransform[0] + geotransform[1] * shape[0]))
+    y = ((geotransform[3], geotransform[3] + geotransform[5] * shape[1]))
+    return x[0],x[1], y[0],y[1]
 
 
+def get_ds_extent(ds):
+    gt = ds.GetGeoTransform()
+    ext = get_extent(gt, (ds.RasterXSize, ds.RasterYSize))
+    return ext
 
 def estimate_heading(mli_par, radar_coord, carto_azimuth):
     """
