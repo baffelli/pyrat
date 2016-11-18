@@ -969,8 +969,8 @@ def get_geotransform(dem_par):
 
 def get_extent(geotransform, shape):
 
-    x = sorted((geotransform[0], geotransform[0] + geotransform[1] * shape[0]))
-    y = ((geotransform[3], geotransform[3] + geotransform[5] * shape[1]))
+    x = ((geotransform[0], geotransform[0] + geotransform[1] * shape[0]))
+    y = sorted((geotransform[3], geotransform[3] + geotransform[5] * shape[1]),reverse=True)
     return x[0],x[1], y[0],y[1]
 
 
