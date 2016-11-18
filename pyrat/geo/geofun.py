@@ -11,6 +11,8 @@ from ..fileutils import parameters as _params
 import scipy.ndimage as _ndim
 import scipy.interpolate as _interp
 
+import itertools as _iter
+
 from ..core import corefun as _cf
 
 def copy_and_modify_gt(RAS, gt):
@@ -956,6 +958,7 @@ def geotif_to_dem(gt, par_path, bin_path):
     dem = DS.ReadAsArray()
     dem.astype(_gpf.type_mapping[dem_dic['data_format']]).tofile(bin_path)
 
+
 def get_geotransform(dem_par):
     """
     Return geotransfrom from dem_par dictionary
@@ -969,6 +972,11 @@ def get_geotransform(dem_par):
 
     """
     return dem_par.corner_east, dem_par.post_east, 0, dem_par.corner_north,0 , dem_par.post_north
+
+def get_extent(geotransform, shape):
+    return geotransform[0], geotransform[0] + geotransform[1] * shape[0],geotransform[3], geotransform[3] + geotransform[5] * shape[1]
+
+
 
 def estimate_heading(mli_par, radar_coord, carto_azimuth):
     """
@@ -988,6 +996,9 @@ def estimate_heading(mli_par, radar_coord, carto_azimuth):
     #eccess heading of the point (heading w.r.t radar image center)
     xc_heading = mli_par.GPRI_az_angle_step * (radar_coord[1] - mli_par.azimuth_lines / 2)
     return carto_azimuth - xc_heading
+
+
+
 
 def geo_coord_to_dem_coord(coord, dem_par):
     """
@@ -1067,7 +1078,26 @@ def segment_geotif(gt, dem_par):
 
 
 
+def interpolate_complex(*args, **kwargs):
+    """
+    Returns a function to interpolate
+    a complex dataset if the input data is complex,
+    the normal scipy.ndimage.map_coordinates otherwise
+    Parameters
+    ----------
+    args
+    kwargs
 
+    Returns
+    -------
+
+    """
+    data = args[0]
+    if _np.any(_np.iscomplex(data)):
+        data_interp = _ndim.map_coordinates(data.real, *args[1:], **kwargs) + 1j *_ndim.map_coordinates(data.imag, *args[1:], **kwargs)
+    else:
+       data_interp = _ndim.map_coordinates(data, *args[1:], **kwargs)
+    return data_interp
 
 class GeocodingTable(_gpf.gammaDataset):
     """
@@ -1079,10 +1109,6 @@ class GeocodingTable(_gpf.gammaDataset):
         lut._params = dem_par.copy()
         #Create Coordinate grid
         gt = lut.geotransform
-        # x = gt[0] + _np.arange(lut.shape[0]) * gt[1]
-        # y = (gt[3] + _np.arange(lut.shape[1]) * gt[5])[::-1]
-        # # lut.r_interp = RectBivariateSpline(x,y, lut.real)
-        # # lut.az_interp = RectBivariateSpline(x, y, lut.imag)
         return lut
 
     def __getitem__(self, item):
@@ -1094,11 +1120,35 @@ class GeocodingTable(_gpf.gammaDataset):
         y = (coord[1] - gt[3]) / gt[5]
         return [x,y]
 
-    def geo_coord_to_radar_coord(self,geo_coord):
+    def geo_coord_to_radar_coord(self, geo_coord):
         dem_coord = self.geo_coord_to_dem_coord(geo_coord)
         # transf = bilinear_interpolate(self,dem_coord[1], dem_coord[0])
         coord = self[int(dem_coord[0]),int(dem_coord[1])]
         return [coord.real, coord.imag]
+
+    def radar_coord_to_dem_coord(self, coord):
+        dem_coord = interpolate_complex()
+
+    def get_extent(self):
+        gt = get_geotransform(self)
+        return get_extent(gt, self.shape)
+
+
+    def geocode_data(self, data):
+        output_shape = self.shape + data.shape[2:] if data.ndim > 2 else self.shape
+        data_gc = _np.zeros(output_shape).view(type(data))
+        interp_fun = lambda data: interpolate_complex(data, _np.vstack((self.real.flatten(), self.imag.flatten())), mode='constant', cval=_np.nan,
+                                   order=1, prefilter=False).reshape(self.shape)
+        if data.ndim > 2:
+            axis_shapes = [list(range(data.shape[i])) for i in range(2,data.ndim)]
+            #All combination of axes have to be interpolated on the same 2D grid,
+            #therefore we use itertools product function
+            for i, axes in enumerate(_iter.product(*axis_shapes)):
+                data_gc[(Ellipsis,)*2 + axes] = interp_fun(data[(Ellipsis,)*2 + axes][:,::-1]).reshape(self.shape)
+        else:
+            data_gc = interp_fun(data).reshape(self.shape).view(type(data))
+        data_gc = data.__array_wrap__(data_gc)
+        return data_gc
 
     @property
     def geotransform(self):

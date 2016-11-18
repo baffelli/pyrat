@@ -71,7 +71,7 @@ def smooth(T, window, fun=_nd.filters.uniform_filter):
     T1_out_real = fun(T1.real, window)
     T1_out_imag = fun(T1.imag, window)
     T1_out = T1_out_real + 1j * T1_out_imag
-    T1_out[_np.isnan(T)] = 0
+    T1_out[_np.isnan(T)] = _np.nan
     return T.__array_wrap__(T1_out)
 
 
@@ -258,8 +258,8 @@ def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2, 4)):
             rplot_analysis = rplot[0, 0]
             azplot_analysis = azplot[0, 0]
 
-        az_spacing = slc.GPRI_az_angle_step[0] / osf
-        r_spacing = slc.range_pixel_spacing[0] / osf
+        az_spacing = slc.GPRI_az_angle_step / osf
+        r_spacing = slc.range_pixel_spacing / osf
         # mx_val = _np.abs(ptarg_zoom)[(mx_r_zoom, mx_az_zoom)]
         # range resolution
         # Half power length

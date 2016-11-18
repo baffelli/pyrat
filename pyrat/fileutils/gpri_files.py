@@ -134,12 +134,10 @@ def gamma_datatype_code_from_extension(filename):
         for j in [0, 1, 2, 3]:
             mapping["c{i}{j}".format(i=i, j=j)] = 1  # covariance elements
     # Split the file name to the latest extesnsion
-    extension = filename.split('.')[-1]
+    extension = ''.join(filename.split('.')[1::])
     # print(extension)
-    matches = _re.search(filename_re, filename)
+    matches = _re.search(filename_re, extension)
     print(matches)
-    # clean_extensions = _re.search(split_re, extension).groups()[0]
-    # print(clean_extensions)
     return mapping[matches.group(0)]
 
 
@@ -169,9 +167,10 @@ def gt_mapping_from_extension(filename):
     }
     # extension = filename.split('.')[-1]
     filename =_os.path.basename(filename)
-    extension = _re.sub("(_(f)*(gc))+", "", filename)
+    extension = ''.join(_re.sub("(_(f)*(gc))+", "", filename).split('.')[1::])
     filename_re = "|".join(["({})".format(key) for key in mapping.keys()])
     matches = _re.search(filename_re, extension)
+    print(matches)
     return mapping[matches.group(0)]
 
 
@@ -325,7 +324,9 @@ class gammaDataset(_np.ndarray):
 
 
     def  __array_wrap__(self, obj):
-        new_arr = super(gammaDataset,self).__array_wrap__(obj)
+        # new_arr = super(gammaDataset,self).__array_wrap__(obj)
+        new_arr = obj.view(type(self))
+        new_arr.__dict__ =  _cp.deepcopy(self.__dict__)
         if '_params' in self.__dict__:
             if '_params' not in new_arr.__dict__:
                 new_arr.__dict__['_params'] = self._params.copy()
@@ -1008,7 +1009,7 @@ class rawData(gammaDataset):
         slc_dict['receiver_gain'] = 60 - self.IMA_atten_dB
         slc_dict['GPRI_TX_mode'] = self.TX_mode
         slc_dict['GPRI_TX_antenna'] = seq[0]
-        slc_dict['GPRI_RX_antenna'] = seq[1] + seq[3]
+        slc_dict.add_parameter('GPRI_RX_antennas', seq[1] + seq[3])
         slc_dict['GPRI_tx_coord'] = [tx_coord[0], tx_coord[1], tx_coord[2]]
         slc_dict['GPRI_rx1_coord'] = [rx1_coord[0], rx1_coord[1], rx1_coord[2]]
         slc_dict['GPRI_rx2_coord'] = [rx2_coord[0], rx2_coord[1], rx2_coord[2]]
