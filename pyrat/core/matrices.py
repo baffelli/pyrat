@@ -136,7 +136,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
             for tx, idx_tx, tx_name in zip([H_ant, V_ant], lst_tx, ['H', 'V']):
                 for rx, idx_rx, rx_name in zip([H_ant, V_ant], lst_rx, ['H', 'V']):
                     file_pattern = base_path + "_" + tx + rx + rx + chan + '.' + suffix
-                    ds, par = gpri_files.load_dataset(file_pattern, file_pattern + ".par", memmap=memmap)
+                    ds = gpri_files.gammaDataset( file_pattern + ".par", file_pattern, memmap=memmap)
                     s_matrix[:, :, idx_tx, idx_rx] = ds
                     # Set phase center
                     phase_center_array[tx_name + rx_name] = ds.phase_center
@@ -486,7 +486,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
         C.basis = 'pauli'
         return C
 
-    def to_gamma(*args, **kwargs):
+    def tofile(*args, **kwargs):
         bistatic = kwargs.get('bistatic', False)
         self = args[0]
         root_name = args[1]
@@ -503,7 +503,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
                 extension = ".c{i}{j}".format(i=chan_dict[chan_1], j=chan_dict[chan_2])
                 chan_name = root_name + extension
                 _np.array(self[:, :, chan_1, chan_2]).T.astype(gpri_files.type_mapping['FCOMPLEX']).tofile(chan_name)
-        gpri_files.dict_to_par(self.__dict__, root_name + '.par')
+        gpri_files.dict_to_par(self._params, root_name + '.par')
 
 
 def blockshaped(arr, nrows, ncols):

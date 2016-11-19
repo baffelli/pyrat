@@ -127,10 +127,10 @@ rule covariance:
         topography = gpf.gammaDataset(input.topo_params, input.topo)
         if wildcards.type == 'flat':
             C_flat = cal.scattering_matrix_to_flat_covariance(S, topography, topography.baseline_vector[2])
-            C_flat.to_gamma(params.C_root, bistatic=True)
+            C_flat.tofile(params.C_root, bistatic=True)
         else:
             C_mat = S.to_coherency_matrix(bistatic=True, basis='lexicographic')
-            C_mat.to_gamma(params.C_root, bistatic=True)
+            C_mat.tofile(params.C_root, bistatic=True)
 
 
 ##############################################################################
@@ -206,7 +206,7 @@ rule polcal:
         D = cal.distortion_matrix(phi_t, phi_r, f, g)
         D_inv = np.diag(1/np.diag(D))
         C_cal = np.float(K) * C_matrix_flat.transform(D_inv,D_inv.T.conj())
-        C_cal.to_gamma(params['C_output_root'], bistatic=True)
+        C_cal.tofile(params['C_output_root'], bistatic=True)
 
 
 
