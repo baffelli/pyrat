@@ -105,9 +105,11 @@ rule covariance:
         topo= "diff_corr/{slcname}_AAAl_AAAu.unw",
         topo_params= "diff_corr/{slcname}_AAAl_AAAu.diff_par"
     output:
-        C = expand("cov_{{type, (flat|normal)}}/{{slcname}}_{{rx}}.c{i}{j}", i=[0,1,2,3],
+        C = expand("cov_{{type}}/{{slcname}}_{{rx}}.c{i}{j}", i=[0,1,2,3],
         j=[0,1,2,3]),
-        par = "cov_{type, (flat|normal)}/{slcname}_{rx}.par",
+        par = "cov_{type}/{slcname}_{rx}.par",
+    wildcard_constraints:
+        type = "(flat)|(normal)"
     params:
         master_par = "slc_corr/{slcname}_AAAl.slc_dec.par",
         slave_par = "slc_corr/{slcname}_AAAu.slc_dec.par",
@@ -118,6 +120,9 @@ rule covariance:
     run:
         import matplotlib.pyplot as plt
         S = mat.scatteringMatrix(params.S_root, gpri=True, suffix='slc_dec')
+        print(S)
+        topo_par = gpf.par_to_dict(input.topo_params)
+        print(topo_par)
         topography = gpf.gammaDataset(input.topo_params, input.topo)
         if wildcards.type == 'flat':
             C_flat = cal.scattering_matrix_to_flat_covariance(S, topography, topography.baseline_vector[2])

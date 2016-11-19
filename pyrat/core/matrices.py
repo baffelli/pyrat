@@ -140,14 +140,14 @@ class scatteringMatrix(gpri_files.gammaDataset):
                     s_matrix[:, :, idx_tx, idx_rx] = ds
                     # Set phase center
                     phase_center_array[tx_name + rx_name] = ds.phase_center
-                    par_array[tx_name + rx_name] = ds.__dict__
+                    par_array[tx_name + rx_name] = ds._params.copy()
 
             if memmap:
                 s_matrix.flush()
             obj = s_matrix.view(cls)
             # Add attributes
             # Copy attributes from one channel
-            obj.__dict__ = _cp.deepcopy(HH_par)
+            obj._params = HH_par.copy()
             obj.geometry = 'polar'
             obj.phase_center_array = phase_center_array
             obj.par_array = par_array
