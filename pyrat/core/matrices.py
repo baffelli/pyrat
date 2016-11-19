@@ -412,7 +412,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
         obj.basis = basis
         obj.geometry = 'cartesian'
         if gamma:
-            obj.__dict__.update(par)
+            obj._params = par
         return obj
 
     def boxcar_filter(self, window, discard=False):
@@ -486,10 +486,9 @@ class coherencyMatrix(gpri_files.gammaDataset):
         C.basis = 'pauli'
         return C
 
-    def tofile(*args, **kwargs):
+    def tofile(self, *args, **kwargs):
         bistatic = kwargs.get('bistatic', False)
-        self = args[0]
-        root_name = args[1]
+        root_name = args[0]
         if self.basis is 'lexicographic':
             ending = 'c'
         else:
@@ -503,6 +502,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
                 extension = ".c{i}{j}".format(i=chan_dict[chan_1], j=chan_dict[chan_2])
                 chan_name = root_name + extension
                 _np.array(self[:, :, chan_1, chan_2]).T.astype(gpri_files.type_mapping['FCOMPLEX']).tofile(chan_name)
+        print(self._params)
         gpri_files.dict_to_par(self._params, root_name + '.par')
 
 

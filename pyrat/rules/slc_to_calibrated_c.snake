@@ -144,6 +144,7 @@ rule polcal_parameters:
         C_par = "cov_flat/{slcname}_{rx}.par",
         C_root = "cov_flat/{slcname}_{rx}",
     run:
+        import pyrat.fileutils.parameters as par
         C_matrix_flat = mat.coherencyMatrix(params['C_root'], params['C_par'], basis='lexicographic', gamma=True, bistatic=True)
         #        #The indices are in the raw coordinates, needs to decimate
         cal_ref = config['list_of_reflectors'][config['calibration']['reflector_index']]
@@ -157,11 +158,12 @@ rule polcal_parameters:
         phi_t, phi_r, f, g = cal.measure_imbalance(C_ptarg[mx_pos[0], mx_pos[1]], C_matrix_flat_av)
         K = cal.gpri_radcal(C_matrix_flat[:,:,0,0], [ridx, azidx], RCS)
         cal_dict = {}
-        cal_dict['phi_t'] = phi_t
-        cal_dict['phi_r'] = phi_r
-        cal_dict['f'] = f.real
-        cal_dict['g'] = g.real
-        cal_dict['K'] = K.real
+        cal_dict['phi_t'] = {'value': phi_t}
+        cal_dict['phi_r'] = {'value': phi_r}
+        cal_dict['f'] = {'value': f.real}
+        cal_dict['g'] = {'value': g.real}
+        cal_dict['K'] = {'value': K.real}
+        cal_dict = par.ParameterFile(cal_dict)
         gpf.dict_to_par(cal_dict, output.cal_par)
     #TODO fix it
 
@@ -206,6 +208,7 @@ rule polcal:
         D = cal.distortion_matrix(phi_t, phi_r, f, g)
         D_inv = np.diag(1/np.diag(D))
         C_cal = np.float(K) * C_matrix_flat.transform(D_inv,D_inv.T.conj())
+        print(C_cal)
         C_cal.tofile(params['C_output_root'], bistatic=True)
 
 

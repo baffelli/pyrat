@@ -412,7 +412,8 @@ class ParameterFile(object):
         out_str = ""
         if 'file_title' in self_1:
             title = self_1.params.pop('file_title')
-            out_str += title['value'] + '\n'
+            if title['value'] is not None:
+                out_str += title['value'] + '\n'
         for key, value in self_1.params.items():
             par_str = self_1.format_key_unit_dict(key)
             key_str = "{key}:".format(key=key).ljust(40)
