@@ -294,7 +294,7 @@ class gammaDataset(_np.ndarray):
     def __array_wrap__(self, obj):
         # new_arr = super(gammaDataset,self).__array_wrap__(obj)
         new_arr = obj.view(type(self))
-        new_arr.__dict__ = _cp.deepcopy(self.__dict__)
+        new_arr.__dict__ = self.__dict__.copy()
         if '_params' in self.__dict__:
             if '_params' not in new_arr.__dict__:
                 new_arr.__dict__['_params'] = self._params.copy()
@@ -516,7 +516,7 @@ def get_width(par_path):
     """
     par_dict = par_to_dict(par_path)
     for name_string in ["width", "range_samples", "CHP_num_samp", "map_width",
-                        "interferogram_width"]:
+                        "interferogram_width","range_samp_1"]:
         try:
             width = getattr(par_dict, name_string)
             return int(width)
@@ -552,6 +552,7 @@ def datatype_from_extension(filename):
 
 
 def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
+    print(width)
     # Get filesize
     filesize = _osp.getsize(bin_file)
     # Get itemsize
@@ -560,7 +561,6 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
     nlines = int(filesize) // (itemsize * width)
     # Shape of binary
     shape = (int(width), nlines)
-    print(bin_file, width)
     # load binary
     if memmap:
         with open(bin_file, 'rb') as mmp:

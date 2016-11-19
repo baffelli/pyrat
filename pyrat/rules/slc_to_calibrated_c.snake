@@ -40,9 +40,11 @@ rule interferogram:
         S2 = gpf.gammaDataset(input.slave + '.par', input.slave)
         diff_par = gpf.par_to_dict(output.diff_par)
         baseline = S1.phase_center - S2.phase_center
-        diff_par.baseline_vector =  baseline
+        diff_par.add_parameter('baseline_vector' ,  baseline)
+        diff_par.map_width = S1.range_samples
         gpf.dict_to_par(diff_par, output.diff_par)
-        ifgram = S1 * S2.conj()
+        print(S1.conj())
+        ifgram = np.array(S1) * np.array(S2.conj())
         ifgram.T.astype(gpf.type_mapping['FCOMPLEX']).tofile(output.ifgram)
 
 
@@ -72,6 +74,7 @@ rule coherence:
         ifgram_pwr = "{name}.pwr"
     run:
         width=gpf.get_width(input.ifgram_par)
+        print(width)
         shell("cpx_to_real {{input.ifgram}} {{output.ifgram_pwr}} {width} 3".format(width=width))
         shell("cc_wave {{input.ifgram}} - - {{output.cc}} {width} - -".format(width=width))
         shell("rascc_mask {{output.cc}} {{output.ifgram_pwr}} {width} - - - - - 0.3 0.5 - - - - - {{output.mask}}".format(width=width))
@@ -120,9 +123,7 @@ rule covariance:
     run:
         import matplotlib.pyplot as plt
         S = mat.scatteringMatrix(params.S_root, gpri=True, suffix='slc_dec')
-        print(S)
         topo_par = gpf.par_to_dict(input.topo_params)
-        print(topo_par)
         topography = gpf.gammaDataset(input.topo_params, input.topo)
         if wildcards.type == 'flat':
             C_flat = cal.scattering_matrix_to_flat_covariance(S, topography, topography.baseline_vector[2])

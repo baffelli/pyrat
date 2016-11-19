@@ -319,7 +319,7 @@ class ParameterFile(object):
             self.params.update({key: {'value': value, 'unit': unit}})
 
     def copy(self):
-        params = _cp.deepcopy(self.params)
+        params = _cp.deepcopy(self.params.copy())
         new_pf = ParameterFile(params)
         return new_pf
 

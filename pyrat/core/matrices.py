@@ -136,7 +136,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
             for tx, idx_tx, tx_name in zip([H_ant, V_ant], lst_tx, ['H', 'V']):
                 for rx, idx_rx, rx_name in zip([H_ant, V_ant], lst_rx, ['H', 'V']):
                     file_pattern = base_path + "_" + tx + rx + rx + chan + '.' + suffix
-                    ds = gpri_files.gammaDataset(file_pattern + ".par", file_pattern, memmap=memmap)
+                    ds, par = gpri_files.load_dataset(file_pattern, file_pattern + ".par", memmap=memmap)
                     s_matrix[:, :, idx_tx, idx_rx] = ds
                     # Set phase center
                     phase_center_array[tx_name + rx_name] = ds.phase_center
@@ -150,7 +150,7 @@ class scatteringMatrix(gpri_files.gammaDataset):
             obj._params = HH_par.copy()
             obj.geometry = 'polar'
             obj.phase_center_array = phase_center_array
-            obj.par_array = par_array
+            # obj.par_array = par_array
         else:
             if isinstance(args[1], _np.ndarray):
                 s_matrix = args[1]
