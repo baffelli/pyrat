@@ -163,7 +163,7 @@ rule polcal_parameters:
         cal_dict['g'] = g.real
         cal_dict['K'] = K.real
         gpf.dict_to_par(cal_dict, output.cal_par)
-
+    #TODO fix it
 
 ruleorder: fspf > polcal
 ##############################################################################

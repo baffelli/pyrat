@@ -191,7 +191,7 @@ def gpri_radcal(mli, tri_pos, sigma):
     # extract the point target response to get the maximum
     mli_ptarg, rplot, azplot, mx_idx, res_dic, r_vec, az_vec = corefun.ptarg(mli, tri_pos[0], tri_pos[1], sw=(2,2), rwin=5, azwin=5)
     # illuminated area
-    A_illum = mli.range_pixel_spacing[0] *_np.deg2rad(0.4) * mli.r_vec[tri_pos[0]]
+    A_illum = mli.range_pixel_spacing *_np.deg2rad(0.4) * mli.r_vec[tri_pos[0]]
     # Calibration factor
     K = sigma/(mli_ptarg[mx_idx] * A_illum)
     return K
