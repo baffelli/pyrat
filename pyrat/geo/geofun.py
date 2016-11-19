@@ -969,8 +969,8 @@ def get_geotransform(dem_par):
 
 def get_extent(geotransform, shape):
 
-    x = ((geotransform[0], geotransform[0] + geotransform[1] * shape[0]))
-    y = sorted((geotransform[3], geotransform[3] + geotransform[5] * shape[1]),reverse=True)
+    x = sorted((geotransform[0], geotransform[0] + geotransform[1] * shape[0]))
+    y = sorted((geotransform[3], geotransform[3] + geotransform[5] * shape[1]))
     return x[0],x[1], y[0],y[1]
 
 
@@ -1100,20 +1100,18 @@ def interpolate_complex(*args, **kwargs):
        data_interp = _ndim.map_coordinates(data, *args[1:], **kwargs)
     return data_interp
 
-class GeocodingTable(_gpf.gammaDataset):
+class GeocodingTable(object):
     """
     Class to represent geocoding tables (
     """
-    def __new__(cls, dem_par, lut):
+    def __init__(self, dem_par, lut):
         lut, dem_par = _gpf.load_dataset(dem_par, lut, dtype=_gpf.type_mapping["FCOMPLEX"])
-        lut = lut.view(cls)
-        lut._params = dem_par.copy()
-        #Create Coordinate grid
-        gt = lut.geotransform
-        return lut
+        # lut = lut.view(cls)
+        self.lut = lut
+        self.params = dem_par.copy()
 
     def __getitem__(self, item):
-        return super(_gpf.gammaDataset,self).__getitem__(item)
+        return self.lut.__getitem__(item)
 
     def geo_coord_to_dem_coord(self, coord):
         gt = get_geotransform(self)
@@ -1123,34 +1121,44 @@ class GeocodingTable(_gpf.gammaDataset):
 
     def geo_coord_to_radar_coord(self, geo_coord):
         dem_coord = self.geo_coord_to_dem_coord(geo_coord)
-        # transf = bilinear_interpolate(self,dem_coord[1], dem_coord[0])
         coord = self[int(dem_coord[0]),int(dem_coord[1])]
         return [coord.real, coord.imag]
 
     def radar_coord_to_dem_coord(self, coord):
-        dem_coord = interpolate_complex()
+        dist = _np.sqrt((self.lut.imag - coord[1])**2 + (self.lut.real - coord[0])**2)
+        # print(dist)
+        # input('a')
+        i = _np.argmin(dist)
+        dem_coord = _np.unravel_index(i, self.lut.shape)
+        # dem_coord = self.geocode_data(coord[0] + coord[1] * 1j)#first compute
+        return dem_coord
+
+    def dem_coord_to_geo_coord(self, coord):
+        gt = self.geotransform
+        x = coord[0] * gt[1] + gt[0]
+        y = coord[1] * gt[5] + gt[3]
+        return [x, y]
 
     def get_extent(self):
-        gt = get_geotransform(self)
-        return get_extent(gt, self.shape)
+        return get_extent(self.geotransform, self.lut.shape)
 
 
     def geocode_data(self, data):
-        output_shape = self.shape + data.shape[2:] if data.ndim > 2 else self.shape
+        output_shape = self.lut.shape + data.shape[2:] if data.ndim > 2 else self.lut.shape
         data_gc = _np.zeros(output_shape).view(type(data))
-        interp_fun = lambda data: interpolate_complex(data, _np.vstack((self.real.flatten(), self.imag.flatten())), mode='constant', cval=_np.nan,
-                                   order=1, prefilter=False).reshape(self.shape)
+        interp_fun = lambda data: interpolate_complex(data, _np.vstack((self.lut.real.flatten(), self.lut.imag.flatten())), mode='constant', cval=_np.nan,
+                                   order=1, prefilter=False).reshape(self.lut.shape)
         if data.ndim > 2:
             axis_shapes = [list(range(data.shape[i])) for i in range(2,data.ndim)]
             #All combination of axes have to be interpolated on the same 2D grid,
             #therefore we use itertools product function
             for i, axes in enumerate(_iter.product(*axis_shapes)):
-                data_gc[(Ellipsis,)*2 + axes] = interp_fun(data[(Ellipsis,)*2 + axes][:,::-1]).reshape(self.shape)
+                data_gc[(Ellipsis,)*2 + axes] = interp_fun(data[(Ellipsis,)*2 + axes]).reshape(self.lut.shape)
         else:
-            data_gc = interp_fun(data).reshape(self.shape).view(type(data))
+            data_gc = interp_fun(data).reshape(self.lut.shape).view(type(data))
         data_gc = data.__array_wrap__(data_gc)
         return data_gc
 
     @property
     def geotransform(self):
-        return get_geotransform(self)
+        return get_geotransform(self.params)

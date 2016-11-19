@@ -483,6 +483,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
         else:
             C = self
         C = self.__array_wrap__(C)
+        C.basis = 'pauli'
         return C
 
     def to_gamma(*args, **kwargs):

@@ -8,30 +8,23 @@ This module contains classes and function to deal with Gamma file formats
 @author: baffelli
 """
 import copy as _cp
+import datetime as _dt
 import mmap as _mm
 import os as _os
 import os.path as _osp
 import re as _re
 import sys as _sys
 import tempfile as _tf
-from collections import OrderedDict as _od
+import warnings as _warn
 
 import numpy as _np
 import scipy as _sp
 import scipy.signal as _sig
 from numpy.lib.stride_tricks import as_strided as _ast
 
-import datetime as _dt
-
-import warnings as _warn
-import pandas as pd
-
 from . import parameters as _par
 from .parameters import ParameterFile as _PF
 
-import re as _re
-
-import copy as _cp
 # Constants for gpri
 ra = 6378137.0000  # WGS-84 semi-major axis
 rb = 6356752.3141  # WGS-84 semi-minor axis
@@ -50,9 +43,6 @@ TSF = 32768
 # upper and lower channels and indices used to access them
 # raw file are interleaved, ch1, ch2, ch1, ch2
 ant_map = {'l': 0, 'u': 1}
-
-
-params_types = {'title':str, 'sensor':str, 'start_time':float, 'center_time':float}
 
 # This dict defines the mapping
 # between the gamma datasets and numpy
@@ -86,24 +76,12 @@ channel_dict = {
 }
 
 
-def cleanup_extension(filename):
-    """
-
-    Parameters
-    ----------
-    filename
-
-    Returns
-    -------
-
-    """
-
 def gamma_datatype_code_from_extension(filename):
     """
         Get the numeric datatype from the filename extensions
     """
-    #Regex to split string for cases such as
-    #slc_dec, diff_gc
+    # Regex to split string for cases such as
+    # slc_dec, diff_gc
     split_re = _re.compile("(\w+)(_)(dec|gc)")
     mapping = {'slc': 1,
                'slc_dec': 1,
@@ -115,18 +93,18 @@ def gamma_datatype_code_from_extension(filename):
                'int': 1,
                'sm': 1,
                'cc': 0,
-               'unw':0,
+               'unw': 0,
                "sim_sar": 0,
                "ls_map": 3,
                "sh_map": 3,
                "u": 0,
                "lv_theta": 0,
-               "psi":0,
+               "psi": 0,
                "bmp": 2,
-                "tif":2,
-               "diff":0,
-               "int":1,
-               'aps':0}
+               "tif": 2,
+               "diff": 0,
+               "int": 1,
+               'aps': 0}
     filename = _os.path.basename(filename)
     filename_re = "|".join(["({})".format(key) for key in mapping.keys()])
     print(filename_re)
@@ -154,33 +132,24 @@ def gt_mapping_from_extension(filename):
         'ls_map': 5,
         'dem_seg': 4,
         'inc': 2,
-        'unw':2,
+        'unw': 2,
         'u': 2,
-        'psi':2,
+        'psi': 2,
         'lv_theta': 2,
         'sh_map': 5,
-        'int':4,
-        'diff':2,
-        'mli':2,
-        'cc':2,
-        'aps':2,
+        'int': 4,
+        'diff': 2,
+        'mli': 2,
+        'cc': 2,
+        'aps': 2,
     }
     # extension = filename.split('.')[-1]
-    filename =_os.path.basename(filename)
+    filename = _os.path.basename(filename)
     extension = ''.join(_re.sub("(_(f)*(gc))+", "", filename).split('.')[1::])
     filename_re = "|".join(["({})".format(key) for key in mapping.keys()])
     matches = _re.search(filename_re, extension)
     print(matches)
     return mapping[matches.group(0)]
-
-
-ls_map_dic = {0: "NOT_TESTED",
-              1: "TESTED",
-              2: "TRUE_LAYOVER",
-              4: "LAYOVER",
-              8: 'TRUE_SHADOW',
-              16: 'SHADOW'
-              }
 
 
 def get_image_size(path, width, type_name):
@@ -242,14 +211,15 @@ def datetime_from_par_dict(par):
     sod = _dt.timedelta(seconds=float(par['start_time'][0]))
     date = _dt.datetime.strptime(par['title'][0], '%Y-%m-%d')
     dto = date + sod
-    return  dto
+    return dto
+
 
 class gammaDataset(_np.ndarray):
     def __new__(cls, *args, **kwargs):
         par_dict = args[0]
         image = args[1]
-        if isinstance(par_dict, str):#user passes paths
-            try:#user passes file paths
+        if isinstance(par_dict, str):  # user passes paths
+            try:  # user passes file paths
                 par_path = par_dict
                 bin_path = image
                 memmap = kwargs.get('memmap', False)
@@ -257,7 +227,7 @@ class gammaDataset(_np.ndarray):
                 image, par_dict = load_dataset(par_path, bin_path, memmap=memmap, dtype=dtype)
             except Exception as e:
                 Exception("Input parameters format unrecognized ")
-        else:#user passes binary and dictionary
+        else:  # user passes binary and dictionary
             pass
         obj = image.view(cls)
         # d1 = _cp.copy(par_dict)
@@ -300,20 +270,20 @@ class gammaDataset(_np.ndarray):
         else:
             super(gammaDataset, self).__setattr__(key, value)
 
-
     def __array_finalize__(self, obj):
-        #self is the newly create instance
-        #obj thje object from which the view has been taken
-        if obj is None: return
+        # self is the newly create instance
+        # obj thje object from which the view has been taken
+        if obj is None:
+            return
         elif type(obj) is type(self):
-            #New object has params, we pass
+            # New object has params, we pass
             if hasattr(self, '__dict__'):
                 if '_params' in self.__dict__:
                     pass
                 else:
                     if hasattr(obj, '_params'):
                         try:
-                            self.__dict__['_params']  = obj._params.copy()
+                            self.__dict__['_params'] = obj._params.copy()
                         except:
                             self.__dict__['_params'] = {}
                     else:
@@ -321,19 +291,14 @@ class gammaDataset(_np.ndarray):
             else:
                 self.__dict__ = _cp.deepcopy(obj.__dict__)
 
-
-
-    def  __array_wrap__(self, obj):
+    def __array_wrap__(self, obj):
         # new_arr = super(gammaDataset,self).__array_wrap__(obj)
         new_arr = obj.view(type(self))
-        new_arr.__dict__ =  _cp.deepcopy(self.__dict__)
+        new_arr.__dict__ = _cp.deepcopy(self.__dict__)
         if '_params' in self.__dict__:
             if '_params' not in new_arr.__dict__:
                 new_arr.__dict__['_params'] = self._params.copy()
         return new_arr
-
-
-
 
     def __getslice__(self, start, stop):
         """This solves a subtle bug, where __getitem__ is not called, and all
@@ -356,7 +321,7 @@ class gammaDataset(_np.ndarray):
 
         # Get the slice from the object by calling the corresponding numpy function
         new_obj_1 = _np.ndarray.__getitem__(self, sl)
-        #A single number was passed, we return the corresponding azimuth line
+        # A single number was passed, we return the corresponding azimuth line
         try:
             if isinstance(sl, int) or isinstance(sl, slice):
                 try:
@@ -368,23 +333,23 @@ class gammaDataset(_np.ndarray):
                 r_vec_sl = self.r_vec[sl[0]]
                 az_vec_sl = self.az_vec[sl[1]]
             try:
-                az_osf = (az_vec_sl[1] -  az_vec_sl[0])/ self.GPRI_az_angle_step#azimuth over/undersampling time
+                az_osf = (az_vec_sl[1] - az_vec_sl[0]) / self.GPRI_az_angle_step  # azimuth over/undersampling time
             except (IndexError, TypeError):
                 az_osf = 1
             try:
-                r_osf = (r_vec_sl[1] -  r_vec_sl[0])/ self.range_pixel_spacing#range sampling
+                r_osf = (r_vec_sl[1] - r_vec_sl[0]) / self.range_pixel_spacing  # range sampling
             except  (IndexError, TypeError):
                 r_osf = 1
             try:
                 start_angle = az_vec_sl[0]
             except (TypeError, IndexError):
-                start_angle = az_vec_sl#the azimuth vector is a single number ("object sliced to death")
+                start_angle = az_vec_sl  # the azimuth vector is a single number ("object sliced to death")
             try:
                 start_r = r_vec_sl[0]
             except (TypeError, IndexError):
                 start_r = r_vec_sl
             try:
-                #Compute the new shape
+                # Compute the new shape
                 if new_obj_1.ndim > 1:
                     new_lines = new_obj_1.shape[1]
                     new_width = new_obj_1.shape[0]
@@ -394,19 +359,19 @@ class gammaDataset(_np.ndarray):
                         new_lines = new_obj_1.shape[0]
                     else:
                         new_lines = 1
-                #First set shape properties
+                # First set shape properties
                 width_prop = ["width", "range_samples", "CHP_num_samp", "map_width",
-                            "interferogram_width"]
+                              "interferogram_width"]
                 for wp in width_prop:
                     try:
                         setattr(new_obj_1, wp, new_width)
                     except AttributeError:
                         pass
-                #Same with azimuth
-                line_prop = ["nlines", "azimuth_lines", "interferogram_azimuth_lines", "map_azimuth_lines",]
+                # Same with azimuth
+                line_prop = ["nlines", "azimuth_lines", "interferogram_azimuth_lines", "map_azimuth_lines", ]
                 for wp in line_prop:
                     try:
-                        setattr(new_obj_1, wp,new_lines)
+                        setattr(new_obj_1, wp, new_lines)
                     except AttributeError:
                         pass
                 new_obj_1.near_range_slc = start_r
@@ -414,7 +379,7 @@ class gammaDataset(_np.ndarray):
                 new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
                 new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
                 new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
-                new_obj_1.prf = 1/az_osf * self.prf
+                new_obj_1.prf = 1 / az_osf * self.prf
             except AttributeError:
                 pass
         except:
@@ -425,10 +390,9 @@ class gammaDataset(_np.ndarray):
     def r_vec(self):
         if self.ndim > 1:
             return self.near_range_slc + _np.arange(self.shape[0]) * \
-                                                    self.range_pixel_spacing
+                                         self.range_pixel_spacing
         else:
             return self.near_range_slc
-
 
     @property
     def az_vec(self):
@@ -437,10 +401,9 @@ class gammaDataset(_np.ndarray):
         else:
             idx = 0
         return self.GPRI_az_start_angle + _np.arange(self.shape[idx]) * \
-                                                         self.GPRI_az_angle_step
+                                          self.GPRI_az_angle_step
 
-
-    def tofile(self, *args,**kwargs):
+    def tofile(self, *args, **kwargs):
         arr = self.astype(type_mapping[self.image_format])
         # In this case, we want to write both parameters and binary file
         if len(args) is 2:
@@ -448,8 +411,6 @@ class gammaDataset(_np.ndarray):
         # In this case, we only want to write the binary
         else:
             _np.array(self).tofile(args[0])
-
-
 
     def __setitem__(self, key, value):
         # Construct indices
@@ -496,7 +457,6 @@ class gammaDataset(_np.ndarray):
         arr_dec.azimuth_lines = arr_dec.shape[1]
         return arr_dec
 
-
     @property
     def phase_center(self):
 
@@ -519,6 +479,7 @@ class gammaDataset(_np.ndarray):
             return ph_center
         except AttributeError:
             return 0
+
 
 def dict_to_par(par_dict, par_file):
     """
@@ -543,50 +504,10 @@ def dict_to_par(par_dict, par_file):
     #         line = "{key}: {par_str} \n".format(key=key, par_str = par_str_just)
     #         fout.write(line)
 
-# def par_to_dict(par_file):
-#     """
-#     This function converts a gamma '.par' file into
-#     a dict of parameters
-#     :param par_file:
-#     A string containing the path to the parameter file
-#     :return:
-#     A dict of parameters
-#     """
-#     par_dict = _od()
-#     #this regex matches floats
-#     float_re = "[-+]?([0 - 9] *\.[0 - 9] + | [0 - 9] +)."
-#     with open(par_file, 'r') as fin:
-#         # Skip first line
-#         # fin.readline()
-#         for line in fin:
-#             if line:
-#                 split_array = line.replace('\n', '').split(':', 1)
-#                 if len(split_array) > 1:
-#                     key = split_array[0]
-#                     if key == 'time_start' or key == 'date':  # The utc time string should not be split
-#                         l = split_array[1:]
-#                     else:
-#                         l = []
-#                         param = split_array[1].split()
-#                         for p in param:
-#                             try:
-#                                 l.append(float(p))
-#                             except ValueError:
-#                                 l.append(p)
-#                 try:
-#                     if len(l) > 1:
-#                         par_dict[key] = l
-#                     else:
-#                         par_dict[key] = l[0]
-#                 except:
-#                     pass
-#     return par_dict
-
 
 def par_to_dict(par_path):
     par = _par.ParameterFile(par_path)
     return par
-
 
 
 def get_width(par_path):
@@ -630,9 +551,6 @@ def datatype_from_extension(filename):
     return mapping[extension]
 
 
-
-
-
 def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
     # Get filesize
     filesize = _osp.getsize(bin_file)
@@ -642,6 +560,7 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
     nlines = int(filesize) // (itemsize * width)
     # Shape of binary
     shape = (int(width), nlines)
+    print(bin_file, width)
     # load binary
     if memmap:
         with open(bin_file, 'rb') as mmp:
@@ -655,7 +574,7 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
 def load_dataset(par_file, bin_file, **kwargs):
     dtype = kwargs.get('dtype', None)
     memmap = kwargs.get('memmap', False)
-    par_dict =_PF(par_file)
+    par_dict = _PF(par_file)
     # Map type to gamma
     if dtype is None:
         try:
@@ -665,7 +584,8 @@ def load_dataset(par_file, bin_file, **kwargs):
                 dt = type_mapping[par_dict['data_format']]
             except:
                 dt = type_mapping['FLOAT']
-                _warn.warn("This file does not contain datatype specification in a known format, using default FLOAT datatype")
+                _warn.warn(
+                    "This file does not contain datatype specification in a known format, using default FLOAT datatype")
     else:
         try:
             dt = dtype
@@ -791,8 +711,6 @@ def default_slc_dict():
     """
     par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_slc_par.par')
     return par
-
-
 
 
 class rawData(gammaDataset):
@@ -966,7 +884,7 @@ class rawData(gammaDataset):
         az_step = self.ang_per_tcycle * self.dec
         prf = abs(1.0 / (self.tcycle * self.dec))
         seq = self.TX_RX_SEQ
-        GPRI_TX_z = self.mapping_dict['TX_' +seq[0] + "_position"]
+        GPRI_TX_z = self.mapping_dict['TX_' + seq[0] + "_position"]
         GPRI_RX_z = self.mapping_dict['RX_' + seq[1] + seq[3] + "_position"]
         fadc = C / (2. * self.rps)
         # Antenna elevation angle
@@ -1030,6 +948,7 @@ def model_squint(freq_vec):
 def linear_squint(freq_vec, sq_parameters):
     return _np.polynomial.polynomial.polyval(freq_vec, [0, sq_parameters])
 
+
 def interpolation_core(rawdata, squint_vec, angle_vec):
     """
     Core interpolation function used by correct_squint and correct_squint_in_SLC
@@ -1052,6 +971,7 @@ def interpolation_core(rawdata, squint_vec, angle_vec):
             print(print_str)
     return rawdata_corr
 
+
 def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
     # We require a function to compute the squint angle
     squint_vec = squint_function(raw_channel.freqvec, squint_rate)
@@ -1071,7 +991,6 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     return raw_channel_interp
 
 
-
 def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9):
     """
     This function corrects the frequency-dependent antenna squint in a range compressed SLC dataset.
@@ -1089,18 +1008,17 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     pyrat.fileutils.gpri_files.gammaDataset
 
     """
-    import matplotlib.pyplot as plt
     SLC_corr = SLC * 1
-    rawdata = _np.zeros((SLC.shape[0] * 2 -1  , SLC.shape[1]),dtype=_np.int16)
+    rawdata = _np.zeros((SLC.shape[0] * 2 - 1, SLC.shape[1]), dtype=_np.int16)
     # rawdata_corr = rawdata * 1
     shift = _np.ones(SLC.shape[0])
     shift[1::2] = -1
     # Convert the data into raw samples
-    rawdata = _np.fft.irfft(SLC[:, :] * shift[:,None],axis=0,) * TSF
+    rawdata = _np.fft.irfft(SLC[:, :] * shift[:, None], axis=0, ) * TSF
     rawdata_corr = rawdata * 1
     # Now correct the squint
     freqvec = SLC.radar_frequency + _np.linspace(-SLC.chirp_bandwidth / 2, SLC.chirp_bandwidth / 2,
-                                                    rawdata.shape[0])
+                                                 rawdata.shape[0])
 
     squint_vec = squint_function(freqvec, squint_rate)
     squint_vec = squint_vec / SLC.GPRI_az_angle_step
@@ -1108,11 +1026,11 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
         freqvec.shape[0] // 2]  # In addition, we correct for the beam motion during the chirp
     # Normal angle vector
     angle_vec = _np.arange(SLC.shape[1])
-    rawdata_corr = interpolation_core(rawdata,squint_vec, angle_vec)
+    rawdata_corr = interpolation_core(rawdata, squint_vec, angle_vec)
     # Now range compress again (this function is really boring
-    SLC_corr= _np.fft.rfft(rawdata_corr,axis=0 )/ TSF *shift[:,None]
-    SLC_corr = SLC.__array_wrap__(SLC_corr)#Call array wrap to make sure properties are correctly set
-    assert  SLC_corr.shape == SLC.shape, "failed"
+    SLC_corr = _np.fft.rfft(rawdata_corr, axis=0) / TSF * shift[:, None]
+    SLC_corr = SLC.__array_wrap__(SLC_corr)  # Call array wrap to make sure properties are correctly set
+    assert SLC_corr.shape == SLC.shape, "failed"
     return SLC_corr
 
 
