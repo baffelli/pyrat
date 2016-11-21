@@ -275,8 +275,14 @@ class ParameterFile(object):
         if 'params' in self.__dict__:
             if key in self.__dict__['params']:
                 self.__dict__['params'][key]['value'] = value
-            else:
-                raise AttributeError("{key} does not exist in the specified parameterfile, use  add_parameter to add it to the file".format(key=key))
+            else:#otherwise update the dict
+                if hasattr('keys' ,value):#if user passes a dict of value and unit
+                    update_dict = {key: {'value': value['value'], 'unit': value.get('unit', None)}}
+                else:#user passes something else, ie a number
+                    update_dict = {key: {'value': value, 'unit': None}}
+                self.params.update(update_dict)
+                # else:
+                    # raise AttributeError("If the key: {key} does not exist in the parameterfile, you mus either pass a single value or a dict {{value: {value}, unit: unit}}".format(key=key, value=value))
         else:
             super(ParameterFile, self).__setattr__(key, value)
 
@@ -312,7 +318,6 @@ class ParameterFile(object):
             return self.params[key]
         except KeyError:
             return None
-
 
     def add_parameter(self,key,value, unit=None):
         if key not in self:

@@ -239,10 +239,11 @@ class gammaDataset(_np.ndarray):
             try:
                 return self._params.__getattr__(key)
             except AttributeError:
-                raise AttributeError('{tp} object has no attribute {attr}'.format(tp=type(self), attr=key))
+                try:
+                    return super(gammaDataset, self).__getattr__(key)
+                except:
+                    return None
 
-    def __getattribute__(self, item):
-        return super(gammaDataset, self).__getattribute__(item)
 
     def add_parameter(self, key, value, unit=None):
         """
@@ -454,6 +455,10 @@ class gammaDataset(_np.ndarray):
         arr_dec.azimuth_line_time = dec * self.azimuth_line_time
         arr_dec.prf = self.prf / dec
         # arr_dec.azimuth_looks *= dec
+        # if not hasattr(arr_dec, 'GPRI_decimation_factor'):
+        arr_dec._params.add_parameter('GPRI_decimation_factor', dec)
+        # else:
+        #     arr_dec.GPRI_decimation_factor = dec
         arr_dec.azimuth_lines = arr_dec.shape[1]
         return arr_dec
 
@@ -971,7 +976,7 @@ def interpolation_core(rawdata, squint_vec, angle_vec):
             print(print_str)
     return rawdata_corr
 
-
+#TODO: why is the squint negative in the raw case
 def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
     # We require a function to compute the squint angle
     squint_vec = squint_function(raw_channel.freqvec, squint_rate)
@@ -986,7 +991,7 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     squint_vec = _np.insert(squint_vec, 0, 0)
     rotation_squint = _np.insert(rotation_squint, 0, 0)
     # Interpolated raw channel
-    raw_channel_interp = interpolation_core(raw_channel, squint_vec, angle_vec)
+    raw_channel_interp = interpolation_core(raw_channel, -squint_vec, angle_vec)
     raw_channel_interp.__array_wrap__(raw_channel)
     return raw_channel_interp
 

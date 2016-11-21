@@ -156,6 +156,7 @@ class gpriRangeProcessor:
         slc_dict['GPRI_ref_east'] = [self.raw_par.grp.geographic_coordinates[1], 'degrees']
         slc_dict['GPRI_ref_alt'] = [self.raw_par.grp.geographic_coordinates[2], 'm']
         slc_dict['GPRI_geoid'] = [self.raw_par.grp.geographic_coordinates[3], 'm']
+        slc_dict['GPRI_decimation_factor'] = 1
         return slc_dict
 
 

@@ -142,6 +142,7 @@ rule polcal_parameters:
         cal_par= "pol_cal_{slcname}_{rx}.par",
     params:
         C_par = "cov_flat/{slcname}_{rx}.par",
+        slc_par = "slc_corr/{slcname}_AAA{rx}.slc.par",
         C_root = "cov_flat/{slcname}_{rx}",
     run:
         import pyrat.fileutils.parameters as par
@@ -149,7 +150,8 @@ rule polcal_parameters:
         #        #The indices are in the raw coordinates, needs to decimate
         cal_ref = config['list_of_reflectors'][config['calibration']['reflector_index']]
         ridx = cal_ref['ridx']
-        azidx = cal_ref['azidx'] // C_matrix_flat.azimuth_looks
+        azidx = cal_ref['azidx'] // config['range_compression']['decimation']
+        print(ridx, azidx)
         RCS = cal.cr_rcs(cal_ref['side'], C_matrix_flat.radar_frequency, type=cal_ref['type'])
         C_ptarg, rplot, azplot, mx_pos, ptarg_info, r_vec, az_vec = cf.ptarg(C_matrix_flat, ridx, azidx, azwin=30, rwin=5, sw=(2,10))
         av_win = [5,5]#averaging window

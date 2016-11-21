@@ -15,7 +15,21 @@ slc_regex = "(\d{8})_(\d{6})((_[A-B]{3}[l-u]))?"
 #ruleorder: range_compression > coregister_channels
 ruleorder: extract_channel > range_compression
 
-
+if 'coregistration' not in config:
+    config['coregistration'] = {
+            'rlks':1,
+            'azlks':1,
+            'rlks_init':1,
+            'azlks_init':2,
+            'rwin_init':64,
+            'azwin_init':64,
+            'rwin':64,
+            'azwin':64,
+            'noff_r':20,
+            'noff_az':20,
+            'ridx': '-',
+            'azidx': '-',
+                           }
 
 
 
@@ -117,7 +131,7 @@ rule slc_shift:
         slave_slc = 'slc_desq/{slcname1}.slc',
         master_slc = 'slc_desq/{slcname2}.slc',
         slave_slc_par = 'slc_desq/{slcname2}.slc.par',
-        master_slc_par = 'slc_desq/{slcname2}.slc.par',
+        master_slc_par = 'slc_desq/{slcname1}.slc.par',
     output:
         offs = "diff/{slcname1}_{slcname2}.offs",
         snr =  "diff/{slcname1}_{slcname2}.ccp",
@@ -125,30 +139,20 @@ rule slc_shift:
     wildcard_constraints:
         slcname1=slc_regex,
         slcname2=slc_regex
-    params:
-        rlks=1,
-        azlks=1,
-        rlks_init=1,
-        azlks_init=2,
-        rwin_init=64,
-        azwin_init=64,
-        rwin=64,
-        azwin=64,
-        noff_r=20,
-        noff_az=20,
     run:
         #Create offset parameters
-        diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {params.rlks} {params.azlks} 0"
+        diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {config[coregistration][rlks]} {config[coregistration][azlks]} 0"
         shell(diff_cmd)
         #Initial offset estimate
-        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {params.rlks_init} {params.azlks_init} - - 0 0 0.1 {params.rwin_init} {params.azwin_init} 1"
+        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {config[coregistration][rlks]} {config[coregistration][azlks]} {config[coregistration][ridx]} {config[coregistration][azidx]} 0 0 0.1 {config[coregistration][rwin]} {config[coregistration][azwin]} 1"
         shell(init_offset_cmd)
         #Compute offset field
-        offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {params.rwin} {params.azwin} - - {params.noff_r} {params.noff_az} 0.15 "
+        offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {config[coregistration][rwin]} {config[coregistration][azwin]} - - {config[coregistration][noff_r]} {config[coregistration][noff_az]} 0.3 "
         shell(offset_cmd)
         #        #Fit offset polynomial
         fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
         shell(fit_cmd)
+        input
 
 
 
@@ -172,6 +176,7 @@ rule correct_polarimetric_shift:
         coreg_off_par = gpf.par_to_dict(input.off_par)
         #Modify the azimuth shift using the multplier
         coreg_off_par.azimuth_offset_polynomial[-1] *= az_mutliplier
+        coreg_off_par.range_offset_polynomial = [0 for el in coreg_off_par.range_offset_polynomial]#We do not need to correct range shift
         gpf.dict_to_par(coreg_off_par, params.coreg_off_par)
         interp_cmd = "SLC_interp {input.slc} {input.slc_par} {input.slc_par} {params.coreg_off_par} {output.coreg_slc} {output.coreg_slc_par}"
         shell(interp_cmd)

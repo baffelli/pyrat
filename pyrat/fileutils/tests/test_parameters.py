@@ -68,9 +68,12 @@ class TestParameters(unittest.TestCase):
         print(self.params.items_with_unit())
         self.assertEqual(1,1)
 
+    def testCreateExisting(self):
+        self.params.add_parameter('range_samples', 5)
+
     def testCreateEmptyAndAdd(self):
         params = ParameterFile({})
-        params.add_parameter('image',23,'m')
+        params.add_parameter('image',23,unit='m')
         self.assertIn('image', params)
 
     def testKeyError(self):
