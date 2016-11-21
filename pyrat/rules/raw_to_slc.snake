@@ -178,8 +178,10 @@ rule correct_polarimetric_shift:
         coreg_off_par.azimuth_offset_polynomial[-1] *= az_mutliplier
         coreg_off_par.range_offset_polynomial = [0 for el in coreg_off_par.range_offset_polynomial]#We do not need to correct range shift
         gpf.dict_to_par(coreg_off_par, params.coreg_off_par)
-        interp_cmd = "SLC_interp {input.slc} {input.slc_par} {input.slc_par} {params.coreg_off_par} {output.coreg_slc} {output.coreg_slc_par}"
+        interp_cmd = "SLC_interp {input.slc} {input.slc_par} {input.slc_par} {params.coreg_off_par} {output.coreg_slc} -"
+        cp_cmd = shell("cp {input.slc_par} {output.coreg_slc_par}")
         shell(interp_cmd)
+        shell(cp_cmd)
 
 
 
@@ -202,7 +204,9 @@ if 'master_slc' in config:
             slcname1=slc_regex,
             slcname2=slc_regex
         run:
-            interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {input.shift_par} {output.coreg_slave_slc} {output.coreg_slave_slc_par}"
+            interp_cmd = "SLC_interp {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {input.shift_par} {output.coreg_slave_slc} -"
+            cp_cmd = shell("cp {input.slave_slc_par} {output.coreg_slave_slc_par}")
+            shell(cp_cmd)
             shell(interp_cmd)
 
 
@@ -217,8 +221,10 @@ rule correct_azimuth_ramp:
         slc = 'slc_coreg/{dataname}_{chan}.slc',
         slc_par = 'slc_coreg/{dataname}_{chan}.slc.par',
     output:
-        slc = 'slc_corr/{dataname}_{chan,[A-B]{3}[l,u]{1}}.slc',
+        slc = 'slc_corr/{dataname}_{chan}.slc',
         slc_par = 'slc_corr/{dataname}_{chan}.slc.par'
+    wildcard_constraints:
+        chan = "[A-B]{3}[l,u]{1}"
     params:
         integration_length = config['phase_correction']['integration_length'],
         r_ph = lambda wildcards: config['phase_correction']['{chan}_phase_center_offset'.format(chan=wildcards.chan[:-1:])],

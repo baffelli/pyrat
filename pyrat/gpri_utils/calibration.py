@@ -64,7 +64,7 @@ def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=Tru
     reflector_slice = reflector_slice[half_pwr_idx]
     # Determine parameters
     r_vec = slc.r_vec
-    az_vec = _np.deg2rad(slc.GPRI_az_angle_step[0]) * _np.arange(-len(reflector_slice) / 2,
+    az_vec = _np.deg2rad(slc.GPRI_az_angle_step) * _np.arange(-len(reflector_slice) / 2,
                                                                       len(reflector_slice) / 2)
     refl_ph = _np.angle(reflector_slice)
     if unwrap:
@@ -132,6 +132,8 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     for idx_r, r_sl in enumerate(r_vec):
         filt, dist = distance_from_phase_center(r_ant, r_ph, r_sl, theta, wrap=False)
         lam = _gpf.C / 17.2e9
+        #
+        #
         # Normal matched filter
         matched_filter = _np.exp(-1j * filt) * _np.exp(-1j * 4 * _np.pi * r_sl / lam)
         filter_output = _sig.convolve(slc[idx_r, :], matched_filter, mode='same')
@@ -412,7 +414,7 @@ def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
     # Chord length
     c = r_ant + r_sl
     mixed_term = 2 * c * r_ant * _np.cos(theta + alpha)
-    dist = r_sl - _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
+    dist = _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
     if wrap is True:
         return _np.mod(-4 * _np.pi * dist / lam, 2 * _np.pi), dist
     else:
