@@ -428,9 +428,24 @@ def rectangle_vertices(v1, v2):
     return _np.array([[x1, y1], [x1, y2], [x2, y2], [x2, y1]])
 
 
-def scale_coherence(c, threshold=0.3):
+def scale_coherence(c, threshold=0.3, slope=12):
+    """
+    Scaled the coherence magnitude by a sigmoid function
+    Parameters
+    ----------
+    c : array_like
+        The coherence data to scale
+    threshold : float
+        The threshold where the scaled value starts increasing
+    slope : float
+        The slope of the scaled coherence, higher values result in more abrupt thresholding
+
+    Returns
+    -------
+
+    """
     #    c_sc = _np.select(((_np.sin(c * _np.pi / 2)), 0.3), (c > 0.2, c<0.2))
-    return _sigma(6* c - threshold * 6)
+    return _sigma(slope* c - threshold * slope)
 
 
 # #TODO
@@ -489,16 +504,20 @@ def circular_palette(N=24, repeat=False, radius=40, lum=70):
 
 def dismph_palette(data, N=20,**kwargs):
     mli = kwargs.pop('mli',None)#
-    if mli is not None:
-        mli = 1
-    ampl, phase = [_np.linspace(_np.nanmin(fun(data)), _np.nanmax(fun(data)), N) for fun in [_np.abs, _np.angle]]
-    aa, pp, mm = _np.meshgrid(ampl, phase, mli)
-    kwargs['mli'] = (_np.zeros_like(pp) + 1)[:,:,0]
-    rgb, pal, norm = dismph(aa[:,:,0] * _np.exp(1j * pp[:,:,0]), **kwargs)
+    coherence = kwargs.pop('coherence')
+    if coherence is False:
+        ampl_orig = _np.abs(data)
+        angle_orig = _np.angle(data)
+    else:
+        ampl_orig = _np.abs(mli)
+        angle_orig = _np.angle(data)
+    ampl, phase = [_np.linspace(_np.nanmin(chan), _np.nanmax(chan), N) for chan in [ampl_orig, angle_orig]]
+    aa, pp = _np.meshgrid(ampl, phase)
+    rgb, pal, norm = dismph(aa * _np.exp(1j * pp), **kwargs)
     ext = [ ampl.min(), ampl.max(),phase.min(), phase.max(), ]
     return rgb, ext
 
-def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N=24, sf=1, repeat=False, coherence=False, black_background=True, coherence_threshold=0.3):
+def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N=24, sf=1, coherence_slope=12, repeat=False, coherence=False, black_background=True, coherence_threshold=0.3):
     pal = circular_palette(N, repeat=repeat)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     # Extract amplitude and phase
@@ -510,14 +529,12 @@ def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N
     #Extract hue
     H = hsv[:,:,0]
     if coherence:
-        S = scale_coherence(_np.abs(data))
-        S[_np.abs(data) < coherence_threshold] = 0
+        S = scale_coherence(_np.abs(data),threshold=coherence_threshold, slope=coherence_slope) * hsv[:,:,1]
         V = (exp_im(_np.abs(mli), k, sf, peak=peak))
     else:
         S = hsv[:,:,1]
         V = exp_im(_np.abs(data), k, sf, peak=peak)
     # Convert back to rgb
-    print(S)
     rgb = _mpl.colors.hsv_to_rgb(_np.dstack((H,S,V)))
     mask = _np.sum(rgb, axis=-1) == 0
     # RGBA alpha mask

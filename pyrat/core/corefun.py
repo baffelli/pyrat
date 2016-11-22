@@ -49,7 +49,7 @@ def dB(arr, power=True):
 #     T_sm = smooth(T_gc, window)
 
 
-def smooth(T, window, fun=_nd.filters.uniform_filter):
+def smooth(T, window, fun=_nd.filters.uniform_filter, discard=False):
     """
     Smoothes data using a multidmensional boxcar filter .
     
@@ -66,13 +66,15 @@ def smooth(T, window, fun=_nd.filters.uniform_filter):
     ndarray
         the smoothed array.
     """
-    T1 = _np.array(T[:])
+    T1 = _np.array(T)
     T1[_np.isnan(T1)] = 0
     T1_out_real = fun(T1.real, window)
     T1_out_imag = fun(T1.imag, window)
-    T1_out = T1_out_real + 1j * T1_out_imag
+    T1_out = T.__array_wrap__(T1_out_real + 1j * T1_out_imag)
     T1_out[_np.isnan(T)] = _np.nan
-    return T.__array_wrap__(T1_out)
+    if discard:
+        T1_out = T1_out[[slice(None,None,win_e) for win_e in window]]
+    return T1_out
 
 
 def smooth_1(T, window):

@@ -16,7 +16,7 @@ Pyrat module for interferometric processing
 
 
 
-def estimate_coherence(ifgram, mli1, mli2, win):
+def estimate_coherence(ifgram, mli1, mli2, win, discard=True):
     """
     Estimates the coherence from a complex interferogram
     and two intensity images
@@ -30,8 +30,9 @@ def estimate_coherence(ifgram, mli1, mli2, win):
     -------
 
     """
-    cc = _cf.smooth(ifgram, win) / _np.sqrt((_cf.smooth(mli1, win) * _cf.smooth(mli2, win)))
-    cc[_np.abs(cc) > 1] = 0
+    cc = _cf.smooth(ifgram, win, discard=discard) / _np.sqrt((_cf.smooth(mli1, win, discard=discard) * _cf.smooth(mli2, win, discard=discard)))
+    cc_outliers = _np.abs(cc) > 1
+    cc[cc_outliers] =  1 * _np.exp(1j* _np.angle(cc[cc_outliers]))
     return cc
 
 #
