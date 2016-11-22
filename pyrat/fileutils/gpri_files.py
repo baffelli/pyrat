@@ -375,6 +375,7 @@ class gammaDataset(_np.ndarray):
                 new_obj_1.near_range_slc = start_r
                 new_obj_1.GPRI_az_start_angle = start_angle
                 new_obj_1.GPRI_az_angle_step = self.GPRI_az_angle_step * az_osf
+                new_obj_1.GPRI_decimation_factor = self.GPRI_decimation_factor * az_osf
                 new_obj_1.range_pixel_spacing = self.range_pixel_spacing * r_osf
                 new_obj_1.azimuth_line_time = az_osf * self.azimuth_line_time
                 new_obj_1.prf = 1 / az_osf * self.prf
