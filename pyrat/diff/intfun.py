@@ -4,39 +4,59 @@ Created on Wed Sep 24 11:25:00 2014
 
 @author: baffelli
 """
-import numpy as np
+import numpy as _np
 import scipy
 import scipy.ndimage as ndim
 
-# from .. import core.corefun
+from ..core import corefun as _cf
 
 """
 Pyrat module for interferometric processing
 """
 
 
-def get_shift(image1, image2, oversampling=1, axes=(0, 1)):
-    pad_size = zip(np.zeros(image1.ndim), np.zeros(image1.ndim))
-    for ax in axes:
-        pad_size[ax] = (image1.shape[ax] * oversampling / 2, image1.shape[ax] * oversampling / 2)
-    pad_size = tuple(pad_size)
-    image1_pad = np.pad(image1, pad_size, mode='constant')
-    image2_pad = np.pad(image2, pad_size, mode='constant')
-    corr_image = norm_xcorr(image1_pad, image2_pad, axes=axes)
-    shift = np.argmax(np.abs(corr_image))
-    shift_idx = np.unravel_index(shift, corr_image.shape)
-    #    shift_idx = np.array(shift_idx) - corr_image.shape / 2
-    shift_idx = tuple(np.divide(np.subtract(shift_idx, np.divide(corr_image.shape, 2.0)), oversampling))
-    return shift_idx, corr_image
 
+def estimate_coherence(ifgram, mli1, mli2, win):
+    """
+    Estimates the coherence from a complex interferogram
+    and two intensity images
+    Parameters
+    ----------
+    ifgram
+    mli1
+    mli2
 
-def norm_xcorr(image1, image2, axes=(0, 1)):
-    image_1_hat = scipy.fftpack.fftn(image1, axes=axes)
-    image_2_hat = scipy.fftpack.fftn(image2, axes=axes)
-    phase_corr = scipy.fftpack.fftshift(
-        scipy.fftpack.ifftn(image_1_hat * image_2_hat.conj() / (np.abs(image_1_hat * image_2_hat.conj())), axes=axes),
-        axes=axes)
-    return phase_corr
+    Returns
+    -------
+
+    """
+    cc = _cf.smooth(ifgram, win) / _np.sqrt((_cf.smooth(mli1, win) * _cf.smooth(mli2, win)))
+    cc[_np.abs(cc) > 1] = 0
+    return cc
+
+#
+# def get_shift(image1, image2, oversampling=1, axes=(0, 1)):
+#     pad_size = zip(np.zeros(image1.ndim), np.zeros(image1.ndim))
+#     for ax in axes:
+#         pad_size[ax] = (image1.shape[ax] * oversampling / 2, image1.shape[ax] * oversampling / 2)
+#     pad_size = tuple(pad_size)
+#     image1_pad = np.pad(image1, pad_size, mode='constant')
+#     image2_pad = np.pad(image2, pad_size, mode='constant')
+#     corr_image = norm_xcorr(image1_pad, image2_pad, axes=axes)
+#     shift = np.argmax(np.abs(corr_image))
+#     shift_idx = np.unravel_index(shift, corr_image.shape)
+#     #    shift_idx = np.array(shift_idx) - corr_image.shape / 2
+#     shift_idx = tuple(np.divide(np.subtract(shift_idx, np.divide(corr_image.shape, 2.0)), oversampling))
+#     return shift_idx, corr_image
+#
+#
+# def norm_xcorr(image1, image2, axes=(0, 1)):
+#     image_1_hat = scipy.fftpack.fftn(image1, axes=axes)
+#     image_2_hat = scipy.fftpack.fftn(image2, axes=axes)
+#     phase_corr = scipy.fftpack.fftshift(
+#         scipy.fftpack.ifftn(image_1_hat * image_2_hat.conj() / (np.abs(image_1_hat * image_2_hat.conj())), axes=axes),
+#         axes=axes)
+#     return phase_corr
 
 
 def patch_correlation(image1, image2, oversampling=4, block_size=(10, 10)):

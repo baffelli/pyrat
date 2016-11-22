@@ -898,8 +898,8 @@ def gdal_to_dict(ds):
         proj_dict['data_format'] = {'value': 'SHORT INTEGER'}
     proj_dict['DEM_hgt_offset'] = {'value': 0}
     proj_dict['DEM_scale'] = {'value': 1.0}
-    proj_dict['width'] = {'value': ds.RasterXSize}
-    proj_dict['nlines'] = {'value': ds.RasterYSize}
+    proj_dict['width'] = {'value': ds.GetRasterBand(1).RasterXSize}
+    proj_dict['nlines'] = {'value': ds.GetRasterBand(1).RasterYSize}
     gt = ds.GetGeoTransform()
     proj_dict['corner_east'] = {'value': gt[0], 'unit':'m'}
     proj_dict['corner_north'] = {'value': gt[3], 'unit':'m'}
@@ -948,7 +948,7 @@ def geotif_to_dem(gt, par_path, bin_path):
     # Convert
     dem_dic = gdal_to_dict(DS)
     _gpf.dict_to_par(dem_dic, par_path)
-    dem = DS.ReadAsArray()
+    dem = DS.GetRasterBand(1).ReadAsArray()
     dem.astype(_gpf.type_mapping[dem_dic['data_format']]).tofile(bin_path)
 
 

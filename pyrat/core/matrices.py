@@ -269,7 +269,10 @@ class scatteringMatrix(gpri_files.gammaDataset):
         k = self.scattering_vector(bistatic=bistatic, basis=basis)
         T = corefun.outer_product(k, k)
         T = T.view(coherencyMatrix)
-        T.__dict__.update(self.__dict__)
+        # T = super(coherencyMatrix,T).__array_wrap__(T)
+        # print(T._params)
+        # print(type(T))
+        T._params = self._params.copy()
         T.__dict__['basis'] = basis
         return T
 

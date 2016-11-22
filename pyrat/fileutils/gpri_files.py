@@ -107,15 +107,12 @@ def gamma_datatype_code_from_extension(filename):
                'aps': 0}
     filename = _os.path.basename(filename)
     filename_re = "|".join(["({})".format(key) for key in mapping.keys()])
-    print(filename_re)
     for i in [0, 1, 2, 3]:
         for j in [0, 1, 2, 3]:
             mapping["c{i}{j}".format(i=i, j=j)] = 1  # covariance elements
     # Split the file name to the latest extesnsion
     extension = ''.join(filename.split('.')[1::])
-    # print(extension)
     matches = _re.search(filename_re, extension)
-    print(matches)
     return mapping[matches.group(0)]
 
 
@@ -404,6 +401,21 @@ class gammaDataset(_np.ndarray):
         return self.GPRI_az_start_angle + _np.arange(self.shape[idx]) * \
                                           self.GPRI_az_angle_step
 
+    def azidx_dec(self, azidx):
+        """
+        If the dataset has the gpri decimation attribute
+        return the location of a point in the decimated data given the undecimated position
+        Parameters
+        ----------
+        azidx
+
+        Returns
+        -------
+
+        """
+        if hasattr(self, 'GPRI_decimation_factor'):
+            return azidx // self.GPRI_decimation_factor
+
     def tofile(self, *args, **kwargs):
         arr = self.astype(type_mapping[self.image_format])
         # In this case, we want to write both parameters and binary file
@@ -557,7 +569,6 @@ def datatype_from_extension(filename):
 
 
 def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
-    print(width)
     # Get filesize
     filesize = _osp.getsize(bin_file)
     # Get itemsize
