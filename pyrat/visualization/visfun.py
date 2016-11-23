@@ -518,22 +518,6 @@ def dismph_palette(data, N=20,**kwargs):
     ext = [ ampl.min(), ampl.max(),phase.min(), phase.max(), ]
     return rgb, ext
 
-def optimize_annotations(ann_list, ax):
-    axis_to_data = ax.transAxes + ax.transData.inverted()
-    data_to_axis = axis_to_data.inverted()
-    def get_text_pos(ann):
-        return data_to_axis.transform([pos + pos1 for pos, pos1 in zip(ann.xy, ann.xyann)])
-    def get_pos(ann):
-        return  data_to_axis.transform(ann.xy)
-    for ann_1, ann_2 in _iter.combinations(ann_list, 2):
-        print(get_pos(ann_1), get_pos(ann_2))
-        vec = _np.subtract(get_text_pos(ann_1) ,get_text_pos(ann_2))
-        dist = _np.linalg.norm(vec) / _np.sqrt(2)
-        print(dist)
-        vec_norm = vec / dist
-        if dist < 0.05:
-            pos = get_pos(ann_1)
-            ann_1.set_position(axis_to_data.transform((pos[0] +dist ,pos[1]  + dist)))
 
 
 def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N=24, sf=1, coherence_slope=12, repeat=False, coherence=False, black_background=True, coherence_threshold=0.3):
