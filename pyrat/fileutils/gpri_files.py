@@ -846,6 +846,51 @@ class rawData(gammaDataset):
     def start_time(self):
         return str(self.time_start)
 
+    @property
+    def azvec(self):
+        return self.STP_antenna_start + _np.arange(self.shape[1]) * self.azspacing
+
+    @property
+    def rvec(self):
+        return self.slr
+
+    def range_spectrum_filter(self, center, width):
+        """
+        Produces a filter for the range data
+        Parameters
+        ----------
+        range_indices
+
+        Returns
+        -------
+
+        """
+        fshift = _np.ones(self.shape[0])
+        fshift[1::2] = -1
+        slc_filter = self.rvec * 0
+        filter_slice = slice(center - width//2, center + width//2)
+        slc_filter[filter_slice] = _np.hamming(width)
+        raw_filter = _np.hstack([0,_np.fft.irfft(slc_filter)]) * -fshift
+        return raw_filter
+
+
+    def extract_around_slc_position(self, slc ,center, width):
+        r_start_idx = center[0] + slc.near_range_slc / slc.range_pixel_spacing#shift by start of range (corresponds to the parameter rmin for range compression)
+        r_filt = self.range_spectrum_filter(r_start_idx, width[0])
+        #extract azimuth extent
+        az_slice = slice(self.nl_acc + center[1] - width[1]//2,self.nl_acc + center[1] + width[1]//2)
+        raw_sl = self[:, az_slice] * 1
+        #Filter
+        filter_fun = lambda x: _sig.fftconvolve(x, r_filt, mode='same')
+        for i in range(raw_sl.shape[1]):
+            raw_sl[:, i] = filter_fun(raw_sl[:,i])
+         # raw_filt = _np.apply_along_axis(filter_fun,0, raw_sl)
+        return raw_sl
+
+    @property
+    def nl_acc(self):
+        return self.TSC_acc_ramp_time // self.tcycle
+
     def compute_slc_parameters(self, kbeta=3.0, rmin=50, dec=5, zero=300,
                                **kwargs):  # compute the slc parameters for a given set of input parameters
         if 'rmax' not in kwargs:
@@ -861,10 +906,10 @@ class rawData(gammaDataset):
         self.ns_out = (self.ns_max - self.ns_min) + 1
         self.rmin = self.ns_min * self.rps
         self.dec = dec
-        self.nl_acc = int(self.TSC_acc_ramp_time / (self.tcycle * self.dec))
+        self.nl_acc_dec = self.nl_acc // self.dec
         # self.nl_tot = int(self.grp.ADC_capture_time/(self.tcycle))
         self.nl_tot_dec = int(self.nl_tot / self.dec)
-        self.nl_image = self.nl_tot_dec - 2 * self.nl_acc
+        self.nl_image = self.nl_tot_dec - 2 * self.nl_acc_dec
         self.image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
         if rmax != 0.0:  # check if greater than maximum value for the selected chirp
             if int(round(rmax / self.rps)) <= self.ns_max:
@@ -957,6 +1002,8 @@ class rawData(gammaDataset):
         slc_dict['GPRI_ref_alt'] = self.geographic_coordinates[2]
         slc_dict['GPRI_geoid'] = self.geographic_coordinates[3]
         return slc_dict
+
+
 
 
 def model_squint(freq_vec):
