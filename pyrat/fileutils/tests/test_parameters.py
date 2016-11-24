@@ -84,6 +84,10 @@ class TestParameters(unittest.TestCase):
         with self.assertRaises(AttributeError):
             self.params.paolo
 
+    def testGetAttr(self):
+        res = getattr(self.params, 'pello', None)
+        self.assertIsNone(res)
+
     def testRepr(self):
         print(str(self.params))
 

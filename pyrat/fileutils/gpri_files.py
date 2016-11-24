@@ -239,8 +239,9 @@ class gammaDataset(_np.ndarray):
                 try:
                     return super(gammaDataset, self).__getattr__(key)
                 except:
-                    return None
-
+                    raise AttributeError('{tp} object has no attribute {attr}'.format(tp=type(self), attr=key))
+        else:
+            return super(gammaDataset, self).__getattr__(key)
 
     def add_parameter(self, key, value, unit=None):
         """
@@ -274,9 +275,9 @@ class gammaDataset(_np.ndarray):
         if obj is None:
             return
         elif type(obj) is type(self):
-            # New object has params, we pass
             if hasattr(self, '__dict__'):
                 if '_params' in self.__dict__:
+                    # New object has params, we pass
                     pass
                 else:
                     if hasattr(obj, '_params'):
@@ -285,7 +286,7 @@ class gammaDataset(_np.ndarray):
                         except:
                             self.__dict__['_params'] = {}
                     else:
-                        pass
+                        self.__dict__['_params'] = {}
             else:
                 self.__dict__ = _cp.deepcopy(obj.__dict__)
 

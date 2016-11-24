@@ -266,10 +266,11 @@ class ParameterFile(object):
 
     def __getattr__(self, key):
         try:
-            return self.params[key]['value']
+            value = self.params[key]['value']
+            return value
         except KeyError:
             attr_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
-            raise AttributeError(attr_msg)
+            raise AttributeError(key)
 
     def __setattr__(self, key, value):
         if 'params' in self.__dict__:
@@ -282,6 +283,7 @@ class ParameterFile(object):
 
     def __getitem__(self, key):
         try:
+            print(key)
             return self.params[key]['value']
         except KeyError:
             key_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
@@ -307,11 +309,11 @@ class ParameterFile(object):
             return False
 
 
-    def get(self,key):
+    def get(self,key, default=None):
         try:
             return self.params[key]
         except KeyError:
-            return None
+            return default
 
     def add_parameter(self,key,value, unit=None):
         if key not in self:
