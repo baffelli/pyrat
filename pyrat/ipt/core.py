@@ -59,7 +59,6 @@ class Plist(object):
         -------
         """
         plist_arr = _np.array(self.plist)
-        print(plist_arr.shape)
         residual = _np.sum((plist_arr- _np.array(pos)[None, :]) ** 2, axis=1)
         idx = _np.argmin(residual)
         return idx

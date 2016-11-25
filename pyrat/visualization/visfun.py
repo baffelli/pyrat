@@ -132,7 +132,6 @@ def coarse_coregistration(master, slave, sl):
     res = _cv2.matchTemplate(I, T, _cv2.TM_CCOEFF_NORMED)
     min_val, max_val, min_loc, max_loc = _cv2.minMaxLoc(res)
     sh = (sl[0].start - max_loc[1], sl[1].start - max_loc[0])
-    print(sh)
     slave_coarse = shift_image(slave, (-sh[0], -sh[1]))
     return slave_coarse, res
 
@@ -149,7 +148,6 @@ def correct_shift_radar_coordinates(slave, master, axes=(0, 1), oversampling=(5,
         S = _np.abs(slave[sl + (0, 0)]).astype(_np.float32)
     # Get shift
     co_sh, corr = calibration.get_shift(M, S, oversampling=oversampling, axes=(0, 1))
-    print(co_sh)
     slave_1 = shift_image(slave, co_sh)
     return slave_1, corr
 

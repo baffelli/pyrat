@@ -145,7 +145,6 @@ def gt_mapping_from_extension(filename):
     extension = ''.join(_re.sub("(_(f)*(gc))+", "", filename).split('.')[1::])
     filename_re = "|".join(["({})".format(key) for key in mapping.keys()])
     matches = _re.search(filename_re, extension)
-    print(matches)
     return mapping[matches.group(0)]
 
 
@@ -348,6 +347,7 @@ class gammaDataset(_np.ndarray):
             except (TypeError, IndexError):
                 start_r = r_vec_sl
             try:
+                new_obj_1 = self.__array_wrap__(new_obj_1)#call array_wrap
                 # Compute the new shape
                 if new_obj_1.ndim > 1:
                     new_lines = new_obj_1.shape[1]

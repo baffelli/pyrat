@@ -1126,8 +1126,6 @@ class GeocodingTable(object):
 
     def radar_coord_to_dem_coord(self, coord):
         dist = _np.sqrt((self.lut.imag - coord[1])**2 + (self.lut.real - coord[0])**2)
-        # print(dist)
-        # input('a')
         i = _np.argmin(dist)
         dem_coord = _np.unravel_index(i, self.lut.shape)
         # dem_coord = self.geocode_data(coord[0] + coord[1] * 1j)#first compute

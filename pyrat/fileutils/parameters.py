@@ -283,7 +283,6 @@ class ParameterFile(object):
 
     def __getitem__(self, key):
         try:
-            print(key)
             return self.params[key]['value']
         except KeyError:
             key_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)

@@ -25,7 +25,6 @@ class Interferogram(gpf.gammaDataset):
 
     @property
     def temporal_baseline(self):
-        print(self.master_par.start_time)
         return self.master_par.start_time - self.slave_par.start_time
 
     def tofile(self, par_path, bin_path):

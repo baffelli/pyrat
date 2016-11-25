@@ -31,8 +31,8 @@ def estimate_coherence(ifgram, mli1, mli2, win, discard=True):
 
     """
     cc = _cf.smooth(ifgram, win, discard=discard) / _np.sqrt((_cf.smooth(mli1, win, discard=discard) * _cf.smooth(mli2, win, discard=discard)))
-    cc_outliers = _np.abs(cc) > 1
-    cc[cc_outliers] =  1 * _np.exp(1j* _np.angle(cc[cc_outliers]))
+    # cc_outliers = _np.abs(cc) > 1
+    # cc[cc_outliers] =  1 * _np.exp(1j* _np.angle(cc[cc_outliers]))
     return cc
 
 #

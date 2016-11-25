@@ -270,8 +270,6 @@ class scatteringMatrix(gpri_files.gammaDataset):
         T = corefun.outer_product(k, k)
         T = T.view(coherencyMatrix)
         # T = super(coherencyMatrix,T).__array_wrap__(T)
-        # print(T._params)
-        # print(type(T))
         T._params = self._params.copy()
         T.__dict__['basis'] = basis
         return T
@@ -353,12 +351,14 @@ class coherencyMatrix(gpri_files.gammaDataset):
         return counts
 
     def to_monostatic(self):
-        self.bistatic = False
         i, j = _np.meshgrid([0, 1, 3], [0, 1, 3])
         if self.ndim is 4:
-            return self[:, :, i, j]
+            new = self[:, :, i, j]
         else:
-            return self[i, j]
+            new = self[i, j]
+        new = self.__array_wrap__(new)
+        new.basis = 'monostatic'
+        return new
 
     def __new__(*args, **kwargs):
         cls = args[0]
@@ -505,7 +505,6 @@ class coherencyMatrix(gpri_files.gammaDataset):
                 extension = ".c{i}{j}".format(i=chan_dict[chan_1], j=chan_dict[chan_2])
                 chan_name = root_name + extension
                 _np.array(self[:, :, chan_1, chan_2]).T.astype(gpri_files.type_mapping['FCOMPLEX']).tofile(chan_name)
-        print(self._params)
         gpri_files.dict_to_par(self._params, root_name + '.par')
 
 
