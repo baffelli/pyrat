@@ -43,6 +43,12 @@ class TestSLC(unittest.TestCase):
         self.assertAlmostEqual(slc_sl.near_range_slc, self.slc.near_range_slc)
         self.assertAlmostEqual(slc_sl.near_range_slc, self.slc.near_range_slc)
 
+    def testRespectAttribute(self):
+        self.slc.pane = '3'
+        print(self.slc.__dict__)
+        slc_slc = self.slc[:,::-1]
+        self.assertEqual(self.slc.pane, slc_slc.pane)
+
     def testMask(self):
         slc_mask = np.ma.masked_array(self.slc)
         slc_mask.min()

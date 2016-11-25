@@ -240,7 +240,7 @@ class gammaDataset(_np.ndarray):
                 except:
                     raise AttributeError('{tp} object has no attribute {attr}'.format(tp=type(self), attr=key))
         else:
-            return super(gammaDataset, self).__getattr__(key)
+            return _np.ndarray.__getattr__(self, key)
 
     def add_parameter(self, key, value, unit=None):
         """
@@ -292,10 +292,12 @@ class gammaDataset(_np.ndarray):
     def __array_wrap__(self, obj):
         # new_arr = super(gammaDataset,self).__array_wrap__(obj)
         new_arr = obj.view(type(self))
-        new_arr.__dict__ = self.__dict__.copy()
+        dict_1 = self.__dict__.copy()#remove params, we copy them manually
+        dict_1.pop('_params')
+        new_arr.__dict__ = dict_1#copy dict
         if '_params' in self.__dict__:
             if '_params' not in new_arr.__dict__:
-                new_arr.__dict__['_params'] = self._params.copy()
+                new_arr.__dict__['_params'] = self._params.copy()#copy params
         return new_arr
 
     def __getslice__(self, start, stop):
@@ -316,7 +318,6 @@ class gammaDataset(_np.ndarray):
             sl = (slice(None, None),) * (self.ndim - len(sl_mat)) + sl_mat
         except (KeyError, TypeError):
             sl = item
-
         # Get the slice from the object by calling the corresponding numpy function
         new_obj_1 = _np.ndarray.__getitem__(self, sl)
         # A single number was passed, we return the corresponding azimuth line

@@ -135,7 +135,7 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
         #
         #
         # Normal matched filter
-        matched_filter = _np.exp(-1j * filt) * _np.exp(-1j * 4 * _np.pi * r_sl / lam)
+        matched_filter = _np.exp(-1j * filt) * _np.exp(1j * 4 * _np.pi * r_sl / lam)
         filter_output = _sig.convolve(slc[idx_r, :], matched_filter, mode='same')
         if discard_samples:
             filter_output = filter_output[::ws_samp]
@@ -414,7 +414,7 @@ def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
     # Chord length
     c = r_ant + r_sl
     mixed_term = 2 * c * r_ant * _np.cos(theta + alpha)
-    dist = _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
+    dist = r_sl - _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
     if wrap is True:
         return _np.mod(-4 * _np.pi * dist / lam, 2 * _np.pi), dist
     else:
