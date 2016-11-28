@@ -373,10 +373,15 @@ def transform(A, B, C):
     return out
 
 
-def complex_interpolate(image, osf):
-    abs_interp = _nd.zoom(_np.abs(image), osf)
-    ang_interp = _nd.zoom(_np.angle(image), osf)
-    image_interp = abs_interp * _np.exp(1j * ang_interp)
+def complex_interpolate(image, osf, order=3, angle=True):
+    if angle:
+        abs_interp = _nd.zoom(_np.abs(image), osf, order=order)
+        ang_interp = _nd.zoom(_np.angle(image), osf, order=order)
+        image_interp = abs_interp * _np.exp(1j * ang_interp)
+    else:
+        re_interp = _nd.zoom(_np.real(image), osf, order=order)
+        im_interp = _nd.zoom(_np.imag(image), osf, order=order)
+        image_interp = re_interp + 1j * im_interp
     image_interp = image.__array_wrap__(image_interp)
     image_interp.GPRI_az_angle_step = osf[1] * image.GPRI_az_angle_step
     image_interp.range_pixel_spacing = osf[0] * image.range_pixel_spacing
