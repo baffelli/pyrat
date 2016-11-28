@@ -131,7 +131,7 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
         #
         #
         # Normal matched filter
-        matched_filter = _np.exp(-1j * filt) * _np.exp(-1j * _np.pi * 4 * r_sl / lam)
+        matched_filter = _np.exp(-1j * filt) * _np.exp(1j * 4 * _np.pi * r_sl / lam)
         filter_output = _sig.convolve(slc[idx_r, :], matched_filter, mode='same')
         if discard_samples:
             filter_output = filter_output[::ws_samp]
