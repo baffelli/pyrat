@@ -86,6 +86,9 @@ def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=Tru
     return res.x[0], res.fun, r_sl, refl_ph, sim_ph
 
 
+def range_resolution(B):
+    return _gpf.C / (2 * B)
+
 def calibrate_from_r_and_t(S, R, T):
     T_inv = _np.linalg.inv(T)
     R_inv = _np.linalg.inv(R)
