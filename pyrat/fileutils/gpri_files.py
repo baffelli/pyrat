@@ -882,7 +882,7 @@ class rawData(gammaDataset):
         raw_sl = self[:, :] * 1
         filter_fun = lambda x: _sig.fftconvolve(x, r_filt, mode='same')
         for i in range(raw_sl.shape[1]):
-            raw_sl[:, i] = _np.hstack([0,_np.fft.irfft(_np.fft.rfft(self[:, i]) * fshift * r_filt)])
+            raw_sl[:, i] = _np.hstack([0,_np.fft.irfft(_np.fft.rfft(self[:, i]) * r_filt)])
         return raw_sl
 
     def azimuth_slice(self, center, width):
