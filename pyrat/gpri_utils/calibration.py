@@ -23,6 +23,7 @@ import scipy.optimize as _opt
 
 import matplotlib.pyplot as plt
 
+
 def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=True):
 
     #lever arm length is given by antenna phase center x position
@@ -83,7 +84,11 @@ def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=Tru
                 'lever_arm_length': [r_arm, 'm'], 'range_of_closest_approach': [r_sl, 'm']}
     sim_ph, dist = distance_from_phase_center(r_arm, res.x[0], r_sl, az_vec, wrap=False)
     sim_ph -= sim_ph[sim_ph.shape[0]/2]
-    return res.x[0], res.fun, r_sl, refl_ph, sim_ph
+    #Compute RVP
+    rvp = _np.exp(1j * 4 * dist**2 * slc.chirp_bandwidth / _gpf.C**2)
+    #Compute rcm
+    rcm = _np.max(r_vec[ridx] - dist)
+    return res.x[0], res.fun, r_sl, refl_ph, sim_ph, rvp, rcm
 
 
 def range_resolution(B):
@@ -270,37 +275,6 @@ def coregister_channels(S):
     return S1
 
 
-# def coregister_channels_FFT(S, shift_patch, oversampling=(5, 5)):
-#     """
-#     This function coregisters the GPRI channels by shifting each channel by the corresponding number of samples in azimuth. The shifting is computed
-#     using the cross-correlation on a specified patch.
-#     It assumes the standard quadpol AAA-ABB-BAA-BBB TX-RX-seq
-#     -----
-#     Parameters
-#     S : scatteringMatrix
-#     The scattering matrix to be coregistered
-#     shift_patch : tuple
-#         slice indices of the patch where to perform the coregistration
-#         works best if the patch contains a single bright object such as corner reflector
-#     oversampling : int
-#     the oversampling factor for the FFT
-#     -----
-#     Returns
-#     scatteringMatrix
-#         The image after coregistration
-#     """
-#     S_cor = S * 1
-#     co_shift, corr_co = get_shift(_np.abs(S['HH'][shift_patch]), _np.abs(S['VV'][shift_patch]), axes=(0, 1),
-#                                   oversampling=oversampling)
-#     cross_shift, cross_co = get_shift(_np.abs(S['HH'][shift_patch]), _np.abs(S['HV'][shift_patch]), axes=(0, 1),
-#                                       oversampling=oversampling)
-#     cross_shift_1, cross_co = get_shift(_np.abs(S['HH'][shift_patch]), _np.abs(S['VH'][shift_patch]), axes=(0, 1),
-#                                         oversampling=oversampling)
-#     S_cor['VV'] = _vf.shift_image(S['VV'], co_shift)
-#     S_cor['HV'] = _vf.shift_image(S['HV'], cross_shift)
-#     S_cor['VH'] = _vf.shift_image(S['VH'], cross_shift_1)
-#     return S_cor
-
 
 def remove_window(S):
     spectrum = _np.mean(_np.abs(_fftp.fftshift(_fftp.fft(S, axis=1), axes=(1,))), axis=0)
@@ -335,72 +309,6 @@ def synthetic_interferogram(S, DEM, B):
     return _np.exp(1j * ph)
 
 
-# def get_shift(image1, image2, oversampling=(10, 1), axes=(0, 1)):
-#     corr_image = norm_xcorr(image1, image2, axes=axes, oversampling=oversampling)
-#     # Find the maximum index
-#     shift = _np.argmax(_np.abs(corr_image))
-#     # Unroll it to have the 2D indices
-#     shift = _np.unravel_index(shift, corr_image.shape)
-#     # if shift is larger than half array
-#     # we have a negative shift
-#     half_shape = (_np.array(corr_image.shape) / 2).astype(_np.int)
-#     pos_shift = half_shape - _np.array(shift)
-#     neg_shift = -1 * (half_shape - _np.array(shift))
-#     shift_idx = _np.where(_np.array(shift) > (_np.array(corr_image.shape) / 2.0)
-#                           , pos_shift, neg_shift)
-#     shift_idx = shift_idx / _np.array(oversampling).astype(_np.double)
-#     return shift_idx, corr_image
-
-
-# def norm_xcorr(image1, image2, axes=(0, 1), oversampling=(2, 2), pad_factor=(0.5, 0.5)):
-#     import pyfftw.interfaces.scipy_fftpack as fftp
-#     # Remove nans
-#     image1[_np.isnan(image1)] = 0
-#     image2[_np.isnan(image2)] = 0
-#     # Pad edges to reduce edge effects
-#     edge_pad_size = zip([0] * image1.ndim, [0] * image1.ndim)
-#     for ax, pf in zip(axes, pad_factor):
-#         ps = image1.shape[ax] * (pf / 2)
-#         edge_pad_size[ax] = (ps, ps)
-#     edge_pad_size = tuple(edge_pad_size)
-#     #    image1 = _np.pad(image1, edge_pad_size, mode='constant')
-#     #    image2 = _np.pad(image2, edge_pad_size, mode='constant')
-#     # Take trnasform
-#     image_1_hat = fftp.fftn(image1, axes=axes)
-#     image_2_hat = fftp.fftn(image2, axes=axes)
-#     # Oversample
-#     pad_size = zip([0] * image1.ndim, [0] * image1.ndim)
-#     for ax, ov in zip(axes, oversampling):
-#         os = image1.shape[ax] * (ov - 1)
-#         pad_size[ax] = (os / 2, os / 2)
-#     pad_size = tuple(pad_size)
-#     ft_corr = image_1_hat * image_2_hat.conj() \
-#               / (_np.abs(image_1_hat * image_2_hat.conj()))
-#     ft_corr_pad = _np.pad(ft_corr, pad_size, mode='constant')
-#     phase_corr = fftp.fftshift(fftp.ifftn(ft_corr_pad, axes=axes) \
-#                                , axes=axes)
-#     return phase_corr
-#
-#
-# def patch_coregistration(im1, im2, n_patch, oversampling=(5, 5)):
-#     rem = _np.array(n_patch) - _np.mod(im1.shape, n_patch)
-#     pad_size = [0] * im1.ndim
-#     for ax in range(im1.ndim):
-#         ps = rem[ax]
-#         pad_size[ax] = (ps, 0)
-#     im1 = _np.pad(im1, pad_size, mode='constant')
-#     im2 = _np.pad(im2, pad_size, mode='constant')
-#     sh = _np.divide(im1.shape, n_patch)
-#     patches_1 = matrices.blockshaped(im1, sh[0], sh[1])
-#     patches_2 = matrices.blockshaped(im2, sh[0], sh[1])
-#     sh_list = []
-#     for p1, p2 in zip(patches_1, patches_2):
-#         block_idxs = _np.unravel_index(idx_block, patches_1.shape[0:2])
-#         sh, co = get_shift(p1, p2, oversampling=oversampling)
-#         #        sh_arr[block_idxs] = sh[0] + 1j *sh[1]
-#         sh_list.append(sh)
-#     return sh_list
-
 
 def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
     """
@@ -413,8 +321,9 @@ def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
     # Chord length
     c = r_ant + r_sl
     mixed_term = 2 * c * r_ant * _np.cos(theta + alpha)
-    dist = r_sl - _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
+    dist =  _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
+    rel_dist = r_sl - _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
     if wrap is True:
-        return _np.mod(-4 * _np.pi * dist / lam, 2 * _np.pi), dist
+        return _np.mod(-4 * _np.pi * rel_dist / lam, 2 * _np.pi), dist
     else:
-        return (-4 * _np.pi * dist / lam), dist
+        return (-4 * _np.pi * rel_dist / lam), dist
