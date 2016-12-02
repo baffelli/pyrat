@@ -855,7 +855,7 @@ class rawData(gammaDataset):
     def rvec(self):
         return self.slr
 
-    def range_spectrum_filter(self, center, width):
+    def range_spectrum_filter(self, center, width, k = 3):
         """
         Produces a filter for the range data
         Parameters
@@ -870,30 +870,31 @@ class rawData(gammaDataset):
         fshift[1::2] = -1
         slc_filter = _np.zeros(self.shape[0]//2 + 1) * 0
         filter_slice = slice(center - width//2, center + width//2)
-        slc_filter[filter_slice] = _np.hamming(width)
+        slc_filter[filter_slice] = _sig.kaiser(width, k)
         raw_filter = _np.hstack([0,_np.fft.irfft(slc_filter) * fshift[1:]])
         return slc_filter
 
-    def filter_range_spectrum(self,slc, center, width):
+    def filter_range_spectrum(self,slc, center, width, **kwargs):
         r_start_idx = center + slc.near_range_slc / slc.range_pixel_spacing
         fshift = _np.ones(self.shape[0]//2 + 1)
         fshift[1::2] = -1
-        r_filt = self.range_spectrum_filter(r_start_idx, width)
+        r_filt = self.range_spectrum_filter(r_start_idx, width, **kwargs)
         raw_sl = self[:, :] * 1
         filter_fun = lambda x: _sig.fftconvolve(x, r_filt, mode='same')
         for i in range(raw_sl.shape[1]):
             raw_sl[:, i] = _np.hstack([0,_np.fft.irfft(_np.fft.rfft(self[:, i]) * r_filt)])
         return raw_sl
 
-    def azimuth_slice(self, center, width):
-        az_slice = slice(self.nl_acc + center - width//2,self.nl_acc + center + width//2)
+    def azimuth_slice_from_slc_idx(self, center, width):
+        az_slice = slice(self.nl_acc + center - width//2,
+                         self.nl_acc + center + width//2)
         return az_slice
 
     def extract_around_slc_position(self, slc ,center, width):
         r_start_idx = center[0] + slc.near_range_slc / slc.range_pixel_spacing#shift by start of range (corresponds to the parameter rmin for range compression)
         r_filt = self.range_spectrum_filter(r_start_idx, width[0])
         #extract azimuth extent
-        az_slice = self.azimuth_slice(center[1], width[1])
+        az_slice = self.azimuth_slice_from_slc_idx(center[1], width[1])
         raw_sl = self[:, az_slice] * 1
         #Filter
         filter_fun = lambda x: _sig.fftconvolve(x, r_filt, mode='same')
