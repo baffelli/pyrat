@@ -517,6 +517,9 @@ def dismph_palette(data, N=20,**kwargs):
     return rgb, ext
 
 
+def fixed_aspect(extent, aspect):
+    return aspect * abs(extent[1] - extent[0])/abs(extent[3] - extent[2])
+
 
 def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N=24, sf=1, coherence_slope=12, repeat=False, coherence=False, black_background=True, coherence_threshold=0.3):
     pal = circular_palette(N, repeat=repeat)
