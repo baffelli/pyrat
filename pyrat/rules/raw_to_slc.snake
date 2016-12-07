@@ -38,7 +38,7 @@ def measure_offset(input, output, params, offset_config):
     diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {offset_config[rlks]} {offset_config[azlks]} 0"
     shell(diff_cmd)
     #Initial offset estimate
-    for rlks, azlks in zip(range(5, 1,-1), range(5,2,-1)):
+    for rlks, azlks in zip(range(5, 1,-1), range(10,2,-1)):
         #Read initial estimate
         off_par = gpf.par_to_dict(output.shift_par)
         roff = off_par['range_offset_polynomial'][0]

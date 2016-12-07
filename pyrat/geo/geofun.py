@@ -1140,6 +1140,15 @@ class GeocodingTable(object):
     def get_extent(self):
         return get_extent(self.geotransform, self.lut.shape)
 
+    def get_geocoded_extent(self, data):
+        r_vec =  [0, data.shape[0]]
+        az_vec = [0, data.shape[1]]
+        ext_vec = []
+        for r, az in zip(r_vec, az_vec):
+            ext_vec.append(self.dem_coord_to_geo_coord(self.radar_coord_to_dem_coord([r, az])))
+        ext_vec = _np.array(ext_vec)
+        return [ext_vec[1][0], ext_vec[0][0], ext_vec[0][1], ext_vec[1][1]]
+
 
     def geocode_data(self, data):
         output_shape = self.lut.shape + data.shape[2:] if data.ndim > 2 else self.lut.shape
