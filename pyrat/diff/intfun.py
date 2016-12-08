@@ -86,3 +86,21 @@ def hp_filter(ifgram, ws):
 
 def compute_baseline(slc1, slc2):
     bl = slc1.phase_center - slc2.phase_center
+
+
+def itab(n_slc, window, stride, step, n_ref):
+    tab = []
+    #list with reference numbers
+    if stride == 0:
+        reference = [n_ref]
+        window = 0
+    else:
+        reference = list(range(n_ref,n_slc, stride))
+    counter = 1
+    for master in reference:
+        for slave in range(master + step, master+ step+window, step):
+            if slave < n_slc:
+                line = [master, slave, counter]
+                counter += 1
+                tab.append(line)
+    return tab

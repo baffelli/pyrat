@@ -1,6 +1,9 @@
 import numpy as np
 import gdal as _gd
 import queue
+
+import pyrat.diff.intfun
+
 from .. ipt import core as ipt
 
 def special_inv(M):
@@ -59,7 +62,7 @@ class InterferogramStackSimulator:
         self.window = window#number of interferograms in stack
         self.stride = stride#increment of master
         self.step = step#increment of slave
-        self.itab = ipt.itab()
+        self.itab = pyrat.diff.intfun.itab()
         self.lam = lam #wavelength
         self.x = []
         self.model = model
@@ -84,12 +87,19 @@ class InterferogramStackSimulator:
 
 
 class KalmanFilter:
-    def __init__(self, nstates, noutpus, ninputs=0, F=None, B=None, H=None, R=None, Q=None):
+    def __init__(self, nstates, noutpus, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None):
 
-        self._x = np.zeros(nstates)
+
+
         self.nstates = nstates
         self.ninputs = ninputs
         self.noutputs = noutpus
+
+        #Initial state of filter
+        if x0 is not None:
+            self._x = x0
+        else:
+            self._x = np.zeros(nstates)
 
         # State transition
         if F is not None:

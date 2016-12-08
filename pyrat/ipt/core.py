@@ -6,24 +6,6 @@ from ..fileutils import parameters as par
 from ..fileutils.gpri_files import type_mapping as tm
 
 
-def itab(n_slc, window, stride, step, n_ref):
-    tab = []
-    #list with reference numbers
-    if stride == 0:
-        reference = [n_ref]
-        window = 0
-    else:
-        reference = list(range(n_ref,n_slc, stride))
-    counter = 1
-    for master in reference:
-        for slave in range(master + step, master+ step+window, step):
-            if slave < n_slc:
-                line = [master, slave, counter]
-                counter += 1
-                tab.append(line)
-    return tab
-
-
 class Plist(object):
     """
     Class to represent a point target list
