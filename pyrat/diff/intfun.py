@@ -107,7 +107,7 @@ def itab(n_slc, window, stride, step, n_ref):
 
 def itab_to_incidence_matrix(itab):
     n_slc = _np.max(_np.array(itab)[:,0:2])
-    A = _np.zeros((len(itab),n_slc))
+    A = _np.zeros((len(itab),n_slc+1))
     for idx_master, idx_slave, idx_itab, *rest in itab:
         print(idx_itab)
         A[idx_itab - 1, idx_master] = 1
