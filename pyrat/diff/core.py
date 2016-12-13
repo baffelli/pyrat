@@ -7,6 +7,7 @@ class Interferogram(gpf.gammaDataset):
     """
 
     def __new__(cls, *args, **kwargs):
+        print(args)
         ifgram, ifgram_par = gpf.load_dataset(args[0], args[1], **kwargs)
         ifgram = ifgram.view(cls)
         ifgram._params = ifgram_par.copy()

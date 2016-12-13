@@ -16,6 +16,16 @@ def noise_fun(m, sigma):
     else:
         return np.random.multivariate_normal(m, sigma)
 
+def avoid_none(var, alternative_var):
+    if var is None:
+        return alternative_var
+    else:
+        return var
+
+
+
+
+
 
 class LinearSystem:
     """
@@ -63,9 +73,9 @@ class KalmanFilter:
 
         # Initial state of filter
         if x0 is not None:
-            self._x = x0
+            self.x = np.array(x0)
         else:
-            self._x = np.zeros(nstates)
+            self.x = np.zeros(nstates)
 
         # State transition
         if F is not None:
@@ -100,12 +110,12 @@ class KalmanFilter:
 
     def output(self, H=None):
         #System output
-        H = H or self._H
+        H = avoid_none(H, self.H)
         return  np.dot(H, self.x)
 
     def innovation(self, z, H=None):
         #Residual: measurement - output
-        H = H or self._H
+        H = avoid_none(H, self.H)
         return z - self.output(H=H)
 
     def predict(self, u=0, F=None, B=None, Q=None):
@@ -122,9 +132,9 @@ class KalmanFilter:
         -------
 
         """
-        B = B or self._B
-        F = F or self._F
-        Q = Q or self._Q
+        B = avoid_none(B, self.B)
+        F = avoid_none(F, self.F)
+        Q = avoid_none(Q, self.Q)
         # Compute next state
         self.x = np.dot(F, self.x) + np.dot(B, u)
         # Compute state covariance
@@ -132,8 +142,8 @@ class KalmanFilter:
 
     def update(self, z, R=None, H=None):
 
-        R = R or self.R
-        H = H or self.H
+        R = avoid_none(R, self.R)
+        H = avoid_none(H, self.H)
 
         # Innovation
         y = self.innovation(z, H=H)
@@ -156,7 +166,7 @@ class KalmanFilter:
 
         """
         with open(file, 'wb') as fp:
-            pickle.dump(self)
+            pickle.dump(self,fp)
 
     def fromfile(cls, file):
         """
@@ -214,6 +224,23 @@ class KalmanFilter:
             self._H = value
         else:
             raise Exception("H is not of shape {}X{} or scalar".format(self.noutputs, self.nstates))
+
+    @property
+    def P(self):
+        return self._P
+
+    @P.setter
+    def P(self, value):
+        if np.isscalar(value) and self.nstates == 1:
+            self._P = value
+        elif value.shape[0] == value.shape[1] == self.nstates:
+            try:  # only accept positive definite matrices
+                np.linalg.cholesky(value)
+            except np.LinAlgError:
+                raise np.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
+            self._P = value
+        else:
+            raise np.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
 
     @property
     def Q(self):

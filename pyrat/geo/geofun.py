@@ -1100,6 +1100,12 @@ def interpolate_complex(*args, **kwargs):
        data_interp = _ndim.map_coordinates(data, *args[1:], **kwargs)
     return data_interp
 
+
+def get_reference_coord(dict):
+    reference_feature = [f for f in dict['features'] if f['id']=='reference'][0]
+    radar_coord = reference_feature['properties']['radar_coordinates']
+    return radar_coord
+
 class GeocodingTable(object):
     """
     Class to represent geocoding tables (
