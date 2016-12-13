@@ -1,10 +1,7 @@
+import pickle
+
 import numpy as np
-import gdal as _gd
-import queue
 
-import pyrat.diff.intfun
-
-from .. ipt import core as ipt
 
 def special_inv(M):
     if np.isscalar(M):
@@ -15,14 +12,16 @@ def special_inv(M):
 
 def noise_fun(m, sigma):
     if np.isscalar(sigma):
-       return m + np.random.randn(*m.shape) * np.sqrt(sigma)
+        return m + np.random.randn(*m.shape) * np.sqrt(sigma)
     else:
         return np.random.multivariate_normal(m, sigma)
+
 
 class LinearSystem:
     """
     Simple class to implement a linear system
     """
+
     def __init__(self, F=None, H=None, x0=None, B=0, Q=None, R=None):
         self.x = x0
         self.x_noisy = noise_fun(self.x, Q)
@@ -55,47 +54,14 @@ class LinearSystem:
         return self.z
 
 
-
-
-class InterferogramStackSimulator:
-    def __init__(self, model ,stride=1, step=1, window=5, lam=1.7e-2):
-        self.window = window#number of interferograms in stack
-        self.stride = stride#increment of master
-        self.step = step#increment of slave
-        self.itab = pyrat.diff.intfun.itab()
-        self.lam = lam #wavelength
-        self.x = []
-        self.model = model
-        self.x_memory = queue.Queue(maxsize=self.window)
-        self.z = np.zeros(self.nstack * self.model.x.shape[0])
-
-    def predict(self):
-        #remove oldest
-        next_state = self.model.state_transition()
-        self.x.append(next_state)
-        try:
-            self.x_memory.put_nowait(next_state)
-        except:
-            pass
-
-
-    def output(self):
-        reference = self.x_memory.get()
-        memory = list(self.x_memory.queue)
-        dx = [reference - x for x in memory ]
-        return dx
-
-
 class KalmanFilter:
     def __init__(self, nstates, noutpus, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None):
-
-
 
         self.nstates = nstates
         self.ninputs = ninputs
         self.noutputs = noutpus
 
-        #Initial state of filter
+        # Initial state of filter
         if x0 is not None:
             self._x = x0
         else:
@@ -131,8 +97,16 @@ class KalmanFilter:
         # State estimate covariance
         self._P = np.eye(nstates)
 
-    def innovation(self, z):
-        return z - np.dot(self.H, self._x)
+
+    def output(self, H=None):
+        #System output
+        H = H or self._H
+        return  np.dot(H, self.x)
+
+    def innovation(self, z, H=None):
+        #Residual: measurement - output
+        H = H or self._H
+        return z - self.output(H=H)
 
     def predict(self, u=0, F=None, B=None, Q=None):
         """
@@ -152,9 +126,9 @@ class KalmanFilter:
         F = F or self._F
         Q = Q or self._Q
         # Compute next state
-        self._x = np.dot(F, self.x) + np.dot(B, u)
+        self.x = np.dot(F, self.x) + np.dot(B, u)
         # Compute state covariance
-        self._P = F.dot(self._P).dot(F.T.conj()) + Q
+        self.P = F.dot(self.P).dot(F.T.conj()) + Q
 
     def update(self, z, R=None, H=None):
 
@@ -162,13 +136,41 @@ class KalmanFilter:
         H = H or self.H
 
         # Innovation
-        self._y = z - np.dot(H, self.x)
+        y = self.innovation(z, H=H)
         # Residual covariance
-        S = H.dot(self._P).dot(H.T.conj()) + R
+        S = H.dot(self.P).dot(H.T.conj()) + R
         # Kalman gain
-        K = self._P.dot(H.T.conj()).dot(special_inv(S))
-        self._x = self.x + np.dot(K, self._y)
-        self._P = (np.eye(self.nstates) - np.dot(K, H)).dot(self._P)
+        K = self.P.dot(H.T.conj()).dot(special_inv(S))
+        self.x = self.x + np.dot(K, y)
+        self.P = (np.eye(self.nstates) - np.dot(K, H)).dot(self.P)
+
+    def tofile(self, file):
+        """
+        Saves current kalman filter state to file
+        Parameters
+        ----------
+        file
+
+        Returns
+        -------
+
+        """
+        with open(file, 'wb') as fp:
+            pickle.dump(self)
+
+    def fromfile(cls, file):
+        """
+        Saves current kalman filter state to file
+        Parameters
+        ----------
+        file
+
+        Returns
+        -------
+
+        """
+        with open(file, 'rb') as fp:
+            return pickle.load(fp)
 
     @property
     def F(self):
@@ -230,7 +232,6 @@ class KalmanFilter:
         else:
             raise np.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
 
-
     @property
     def R(self):
         return self._R
@@ -250,7 +251,6 @@ class KalmanFilter:
         else:
             raise TypeError("R is not of shape {}X{} or scalar".format(self.noutputs, self.noutputs))
 
-
     @property
     def x(self):
         return self._x
@@ -260,8 +260,6 @@ class KalmanFilter:
         if np.isscalar(value) and self.nstates == 1 or value.shape[0] == self.nstates:
             self._x = value
 
-    @property
-    def y(self):
-        return np.dot(self.H, self.x)
-
-
+    # @property
+    # def z(self):
+    #     return np.dot(self.H, self.x)

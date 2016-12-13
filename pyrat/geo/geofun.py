@@ -1147,7 +1147,8 @@ class GeocodingTable(object):
         for r, az in zip(r_vec, az_vec):
             ext_vec.append(self.dem_coord_to_geo_coord(self.radar_coord_to_dem_coord([r, az])))
         ext_vec = _np.array(ext_vec)
-        return [ext_vec[1][0], ext_vec[0][0], ext_vec[0][1], ext_vec[1][1]]
+        print(ext_vec)
+        return [ext_vec[:,0].min(), ext_vec[:,0].max(), ext_vec[:,1].min(),  ext_vec[:,1].max()]
 
 
     def geocode_data(self, data):

@@ -467,7 +467,7 @@ class gammaNormalize(_col.Normalize):
         return ((value - self.vmin) / (self.vmax - self.vmin)) ** self.gamma
 
 
-def circular_palette(N=24, repeat=False, radius=40, lum=70):
+def circular_palette(N=24, type='circular', radius=40, lum=70):
     """
     Produces an equiluminant, circular list of colors to be used as a paletted
     for phase visualization.
@@ -486,17 +486,17 @@ def circular_palette(N=24, repeat=False, radius=40, lum=70):
     a rgb list representing the palet
 
     """
-    if not repeat:
+    if type == 'cricular':
         theta = _np.linspace(0, 2 * _np.pi, N)
-    else:
-        theta = _np.linspace(0, 2 * _np.pi, N / 2)
+    elif type == 'repeated':
+        theta = [_np.linspace(0, 2 * _np.pi, N / 2),]*2
+    elif type == 'increasing':
+        theta = _np.linspace(0,_np.pi, N)
     a = 2 * radius * _np.cos(theta)
     b = radius * _np.sin(theta)
     L = _np.ones(a.shape) * lum #Equiluminant
     LAB = _np.dstack((L, a, b))
     rgb = color.lab2rgb(LAB[::-1, :]).squeeze()
-    if repeat:
-        rgb = _np.vstack((rgb, rgb))
     rgb = _mpl.colors.ListedColormap(rgb, name='circular_phase', N=N)
     return rgb
 
@@ -521,8 +521,8 @@ def fixed_aspect(extent, aspect):
     return aspect * abs(extent[1] - extent[0])/abs(extent[3] - extent[2])
 
 
-def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N=24, sf=1, coherence_slope=12, repeat=False, coherence=False, black_background=True, coherence_threshold=0.3):
-    pal = circular_palette(N, repeat=repeat)
+def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N=24, sf=1, coherence_slope=12, type='circular', coherence=False, black_background=True, coherence_threshold=0.3):
+    pal = circular_palette(N, type=type)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     # Extract amplitude and phase
     ang = scale_array(_np.angle(data), min_val=min_val, max_val=max_val)
@@ -541,6 +541,7 @@ def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N
     # Convert back to rgb
     rgb = _mpl.colors.hsv_to_rgb(_np.dstack((H,S,V)))
     mask = _np.sum(rgb, axis=-1) == 0
+    mask += _np.isnan(data)
     # RGBA alpha mask
     if not black_background:
         alpha_chan = (1 - mask)
@@ -551,7 +552,7 @@ def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N
     return rgb, pal, norm
 
 
-def hsv_cp(H, alpha, span):
+def hsv_cp(H, alpha, span, N=12, k=0.3, sf=1):
     """
     Display H entropy and span as a composite
     Parameters
@@ -564,10 +565,24 @@ def hsv_cp(H, alpha, span):
     -------
 
     """
-    V = scale_array(_np.log10(span))
-    H1 = scale_array(alpha, top=0, bottom=240) / 360
-    S = 1 - H
-    return _mpl.colors.hsv_to_rgb(_np.dstack((H1, S, V)))
+    pal = circular_palette(N, repeat=False)
+    ang = scale_array(alpha, min_val=0, max_val=_np.pi)
+    rgb = pal(ang)
+    hsv = _mpl.colors.rgb_to_hsv(rgb[:, :, 0:3])
+    #Extract hue
+    H = hsv[:,:,0]
+    V = (exp_im(_np.abs(span), k, sf))
+    S = scale_array(H)
+    return _mpl.colors.hsv_to_rgb(_np.dstack((H, S, V)))
+
+
+def hsv_cp_pal(span, N=12, **kwargs):
+    ampl = _np.linspace(_np.nanmin(span), _np.nanmax(span), N)
+    ang = _np.linspace(0, _np.pi, N)
+    aa, pp = _np.meshgrid(ampl, ang)
+    rgb = hsv_cp(aa, pp, aa*0 + 1)
+    ext = [ ampl.min(), ampl.max(),ang.min(), ang.max(), ]
+    return rgb, ext
 
 
 def load_custom_palette():
