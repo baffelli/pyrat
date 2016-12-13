@@ -22,6 +22,13 @@ def avoid_none(var, alternative_var):
     else:
         return var
 
+def isPSD(A, tol=1e-8):
+  E = np.linalg.eigvalsh(A)
+  if np.all(E > -tol):
+      pass
+  else:
+      raise np.linalg.LinAlgError('A is not positve semidefinite')
+
 
 
 
@@ -65,7 +72,7 @@ class LinearSystem:
 
 
 class KalmanFilter:
-    def __init__(self, nstates, noutpus, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None):
+    def __init__(self, nstates, noutpus, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None, P=None):
 
         self.nstates = nstates
         self.ninputs = ninputs
@@ -105,7 +112,10 @@ class KalmanFilter:
             self.R = np.eye(self.noutputs)
 
         # State estimate covariance
-        self._P = np.eye(nstates)
+        if P is not None:
+            self.P = P
+        else:
+            self.P = np.eye(nstates)
 
 
     def output(self, H=None):
@@ -152,7 +162,10 @@ class KalmanFilter:
         # Kalman gain
         K = self.P.dot(H.T.conj()).dot(special_inv(S))
         self.x = self.x + np.dot(K, y)
-        self.P = (np.eye(self.nstates) - np.dot(K, H)).dot(self.P)
+        P_new = (np.eye(self.nstates) - np.dot(K, H)).dot(self.P)
+        l= np.linalg.eig(P_new)
+        print(l)
+        self.P = P_new
 
     def tofile(self, file):
         """
@@ -235,12 +248,12 @@ class KalmanFilter:
             self._P = value
         elif value.shape[0] == value.shape[1] == self.nstates:
             try:  # only accept positive definite matrices
-                np.linalg.cholesky(value)
-            except np.LinAlgError:
-                raise np.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
+                isPSD(value)
+            except np.linalg.LinAlgError:
+                raise np.linalg.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
             self._P = value
         else:
-            raise np.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
+            raise np.linalg.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
 
     @property
     def Q(self):
@@ -252,12 +265,12 @@ class KalmanFilter:
             self._Q = value
         elif value.shape[0] == value.shape[1] == self.nstates:
             try:  # only accept positive definite matrices
-                np.linalg.cholesky(value)
-            except np.LinAlgError:
-                raise np.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
+                isPSD(value)
+            except np.linalg.LinAlgError:
+                raise np.linalg.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
             self._Q = value
         else:
-            raise np.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
+            raise np.linalg.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
 
     @property
     def R(self):
@@ -271,9 +284,9 @@ class KalmanFilter:
             self._Q = value
         elif value.shape[0] == self.noutputs and value.shape[1] == self.noutputs and self.noutputs > 1:
             try:  # only accept positive definite matrices
-                np.linalg.cholesky(value)
-            except np.LinAlgError:
-                raise np.LinAlgError("R is not positive definite, cannot be used as a state covariance matrix")
+                isPSD(value)
+            except np.linalg.LinAlgError:
+                raise np.linalg.LinAlgError("R is not positive definite, cannot be used as a state covariance matrix")
             self._R = value
         else:
             raise TypeError("R is not of shape {}X{} or scalar".format(self.noutputs, self.noutputs))

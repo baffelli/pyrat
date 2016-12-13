@@ -8,6 +8,7 @@ import numpy as _np
 
 from ..core import corefun as _cf
 
+import csv
 
 """
 Pyrat module for interferometric processing
@@ -106,6 +107,16 @@ class Itab:
             for line in self.tab:
                 of.writelines(" ".join(map(str, line)) + " 1" + '\n')
 
+    @staticmethod
+    def fromfile(file):
+        tab = _np.genfromtxt(file,dtype=int)
+        step = tab[0,0] - tab[1,0]
+        stride = tab[0, 1] - tab[1, 1]
+        ref_slc = tab[0,0]
+        n_slc = _np.max(tab[:,0:2])
+        a = Itab(n_slc, step=step, stride=stride, n_ref=ref_slc)
+        a.tab = tab
+        return a
 
     def to_incidence_matrix(self):
         n_slc = self.n_slc
