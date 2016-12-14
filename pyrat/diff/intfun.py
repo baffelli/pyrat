@@ -6,6 +6,8 @@ Created on Wed Sep 24 11:25:00 2014
 """
 import numpy as _np
 
+import scipy as _sp
+
 from ..core import corefun as _cf
 
 import csv
@@ -43,16 +45,17 @@ def H_stack(f_fun, H_model, itab, t_vector):
     F_aug = []
     A = itab.to_incidence_matrix()
     F = _np.eye(2)
-    t_start  = t_vector[0]
-    for idx_t, t in enumerate(t_vector[1::]):
-        t_end = t_vector[idx_t]
-        dt = t_end - t_start
+    t_start = t_vector[0]
+    for t in t_vector[1::]:
+        dt = t_start - t
         F_model = f_fun(dt)
         F = _np.dot(F_model,F)
-        F_aug.append(_np.dot(H_model, F))
-        t_start = t_end
+        F_aug.append(F)
+        t_start = t
+    H_aug = _sp.linalg.block_diag(*[H_model,]*len(F_aug))
     F_aug = _np.vstack(F_aug)
-    pi = _np.dot(A, F_aug)
+    print(F_aug)
+    pi = _np.dot(A, _np.dot(H_aug,F_aug))
     return pi
 
 def estimate_coherence(ifgram, mli1, mli2, win, discard=True):

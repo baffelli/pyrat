@@ -6,7 +6,7 @@ import numpy as np
 class TestKalman(unittest.TestCase):
 
     def testVectorFilter(self):
-        npixels = 15
+        npixels = 1500
         nstates = 2
         noutputs = 2
         F = np.tile(np.eye(nstates), (npixels,1,1))
@@ -17,6 +17,6 @@ class TestKalman(unittest.TestCase):
         Q = np.tile(np.eye(nstates),(npixels,1,1))
         ka = KalmanFilter(nstates=nstates, noutpus=noutputs, F=F, H=np.eye(2), R=R, x0=x0, Q=Q)
         ka.predict()
-        self.assertEqual(Q.shape, ka.P.shape)
         ka.update(z)
+        self.assertEqual(Q.shape, ka.P.shape)
 

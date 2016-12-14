@@ -1,7 +1,12 @@
 from ..fileutils import gpri_files as gpf
+
+import scipy as _sp
+
 import datetime as _dt
 
 from . import intfun
+
+import numpy as _np
 
 class Interferogram(gpf.gammaDataset):
     """
@@ -39,8 +44,10 @@ class Stack:
     """
     Class to represent a stack of interferograms
     """
-    def __init__(self, par_list, bin_list, itab, *args, **kwargs):
+    def __init__(self, par_list, bin_list, mli_par_list, itab, *args, **kwargs):
         stack = []
+        #load mli parameters
+        mli_pars = [gpf.par_to_dict(f) for f in mli_par_list]
         for par_name, bin_name in zip(par_list,bin_list):
             ifgram = Interferogram(par_name, bin_name, **kwargs)
             stack.append(ifgram)
@@ -49,6 +56,7 @@ class Stack:
         stack = sorted(stack, key=sorting_key )
         self.stack  = stack#the stack
         self.itab = intfun.Itab.fromfile(itab)#the corresponding itab file
+        self.slc_tab = mli_pars
 
     @property
     def dt(self):
@@ -56,3 +64,40 @@ class Stack:
 
     def __getitem__(self, item):
         return self.stack.__getitem__(item)
+
+    def H_stack(self, f_fun, H_model):
+        """
+        Constructs a "H" output matrix for a
+        linear system representing a stack of interferograms
+        generated with `itab` and delta-timmes taken from
+        t_vector
+        Parameters
+        ----------
+        f_fun : function
+            Function to generate the state transition matrix as a function of the timestep
+        H_model : np.ndarray
+            Output matrix for the linear displacement model
+        itab : Itab
+            Itab, containing the pairs of slcs to compute interferograms for
+        t_vector : list
+            list of acquisition times
+
+        Returns
+        -------
+
+        """
+        F_aug = []
+        A = self.itab.to_incidence_matrix()
+        F = _np.eye(2)
+        t_vec = [t.start_time for t in self.slc_tab]
+        t_start = t_vec[0]
+        for t in t_vec[::]:
+            dt = t - t_start
+            F_model = f_fun(dt)
+            F = _np.dot(F_model, F)
+            F_aug.append(F)
+        H_aug = _sp.linalg.block_diag(*[H_model,] * len(F_aug))
+        F_aug = _np.vstack(F_aug)
+        out_aug =  _np.dot(H_aug, F_aug)
+        pi = _np.dot(A, out_aug)
+        return pi

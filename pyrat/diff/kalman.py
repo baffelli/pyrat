@@ -22,7 +22,7 @@ def avoid_none(var, alternative_var):
     else:
         return var
 
-def isPSD(A, tol=1e-8):
+def isPSD(A, tol=1e-6):
   E = np.linalg.eigvalsh(A)
   if np.all(E > -tol):
       pass
@@ -33,11 +33,9 @@ def isPSD(A, tol=1e-8):
 
 
 def matrix_vector_product(A,x):
-    return np.einsum('...ij,...i->...j',A, x)
+    return np.einsum('...ij,...j->...i',A, x)
 
 def matrix_matrix_product(A,B):
-    print(A.shape)
-    print(B.shape)
     return np.einsum('...ij,...jk->...ik',A,B)
 
 def transpose_tensor(A):
@@ -51,14 +49,6 @@ def special_eye(A):
         return np.eye(A.shape[0])
     else:
         return np.tile(np.eye(A.shape[-1]),(A.shape[0], 1,1))
-
-def is_compatible_shape(A,B):
-    try:
-        np.matmul(A,B)
-    except ValueError:
-        raise ValueError
-
-
 
 
 
@@ -149,7 +139,7 @@ class KalmanFilter:
     def output(self, H=None):
         #System output
         H = avoid_none(H, self.H)
-        return  matrix_vector_product(H, self.x)
+        return matrix_vector_product(H, self.x)
 
     def innovation(self, z, H=None):
         #Residual: measurement - output
@@ -261,12 +251,14 @@ class KalmanFilter:
 
     @H.setter
     def H(self, value):
-        print(value.shape[-1,-2])
         if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
+            print('1')
             self._H = value
         elif value.shape[-1] == self.nstates and self.noutputs == 1:
+            print('2')
             self._H = value
-        elif value.shape[-1] == self.noutputs and value.shape[-2] == self.nstates:
+        elif value.shape[-2] == self.noutputs and value.shape[-1] == self.nstates:
+            print('3')
             self._H = value
         else:
             raise Exception("H is not of shape {}X{} or scalar".format(self.noutputs, self.nstates))
