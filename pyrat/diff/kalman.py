@@ -7,7 +7,7 @@ def special_inv(M):
     if np.isscalar(M):
         return 1 / M
     else:
-        return np.linalg.pinv(M)
+        return np.linalg.inv(M)
 
 
 def noise_fun(m, sigma):
@@ -29,6 +29,34 @@ def isPSD(A, tol=1e-8):
   else:
       raise np.linalg.LinAlgError('A is not positve semidefinite')
 
+
+
+
+def matrix_vector_product(A,x):
+    return np.einsum('...ij,...i->...j',A, x)
+
+def matrix_matrix_product(A,B):
+    print(A.shape)
+    print(B.shape)
+    return np.einsum('...ij,...jk->...ik',A,B)
+
+def transpose_tensor(A):
+    if A.ndim <= 2:
+        return A.T
+    else:
+        return np.einsum('...ij->...ji',A)
+
+def special_eye(A):
+    if A.ndim == 2:
+        return np.eye(A.shape[0])
+    else:
+        return np.tile(np.eye(A.shape[-1]),(A.shape[0], 1,1))
+
+def is_compatible_shape(A,B):
+    try:
+        np.matmul(A,B)
+    except ValueError:
+        raise ValueError
 
 
 
@@ -121,7 +149,7 @@ class KalmanFilter:
     def output(self, H=None):
         #System output
         H = avoid_none(H, self.H)
-        return  np.dot(H, self.x)
+        return  matrix_vector_product(H, self.x)
 
     def innovation(self, z, H=None):
         #Residual: measurement - output
@@ -142,13 +170,18 @@ class KalmanFilter:
         -------
 
         """
-        B = avoid_none(B, self.B)
+        # B = avoid_none(B, self.B)
         F = avoid_none(F, self.F)
         Q = avoid_none(Q, self.Q)
         # Compute next state
-        self.x = np.dot(F, self.x) + np.dot(B, u)
+        if B is not None:
+            control_input = matrix_vector_product(B, u)
+        else:
+            control_input = np.zeros(self.x.shape)
+        self.x = matrix_vector_product(F, self.x) + control_input
         # Compute state covariance
-        self.P = F.dot(self.P).dot(F.T.conj()) + Q
+        self.P = matrix_matrix_product(matrix_matrix_product(self.F, self.P),transpose_tensor(F).conj()) + Q
+        # self.P = F.tensordot(self.P).tensordot(F.T.conj()) + Q
 
     def update(self, z, R=None, H=None):
 
@@ -158,13 +191,12 @@ class KalmanFilter:
         # Innovation
         y = self.innovation(z, H=H)
         # Residual covariance
-        S = H.dot(self.P).dot(H.T.conj()) + R
+        S = matrix_matrix_product(matrix_matrix_product(H, self.P), transpose_tensor(H).conj()) + R
         # Kalman gain
-        K = self.P.dot(H.T.conj()).dot(special_inv(S))
-        self.x = self.x + np.dot(K, y)
-        P_new = (np.eye(self.nstates) - np.dot(K, H)).dot(self.P)
-        l= np.linalg.eig(P_new)
-        print(l)
+        K = matrix_matrix_product(matrix_matrix_product(self.P, transpose_tensor(H).conj()), special_inv(S))
+        # K = self.P.dot(H.T.conj()).dot(special_inv(S))
+        self.x = self.x + matrix_vector_product(K, y)
+        P_new = matrix_matrix_product((special_eye(self.P) - matrix_matrix_product(K, H)), self.P)
         self.P = P_new
 
     def tofile(self, file):
@@ -203,7 +235,7 @@ class KalmanFilter:
     def F(self, value):
         if np.isscalar(value) and self.nstates == 1:
             self._F = value
-        elif value.shape[0] == value.shape[1] == self.nstates:
+        elif value.shape[-2] == value.shape[-1] == self.nstates:
             self._F = value
         else:
             raise Exception("F is not of shape {}X{} or scalar".format(self.nstates, self.nstates))
@@ -216,9 +248,9 @@ class KalmanFilter:
     def B(self, value):
         if np.isscalar(value) and self.nstates == 1:
             self._B = value
-        elif value.shape[0] == self.nstates and self.ninputs < 2:
+        elif value.shape[-1] == self.nstates and self.ninputs < 2:
             self._B = value
-        elif value.shape[0] == self.nstates and value.ndim > 1 and value.shape[1] == self.ninputs:
+        elif value.shape[-1] == self.nstates and value.ndim > 1 and value.shape[-1] == self.ninputs:
             self._B = value
         else:
             raise Exception("B is not of shape {}X{} or scalar".format(self.nstates, self.ninputs))
@@ -229,11 +261,12 @@ class KalmanFilter:
 
     @H.setter
     def H(self, value):
+        print(value.shape[-1,-2])
         if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
             self._H = value
-        elif value.shape[0] == self.nstates and self.noutputs == 1:
+        elif value.shape[-1] == self.nstates and self.noutputs == 1:
             self._H = value
-        elif value.shape[0] == self.noutputs and value.shape[1] == self.nstates:
+        elif value.shape[-1] == self.noutputs and value.shape[-2] == self.nstates:
             self._H = value
         else:
             raise Exception("H is not of shape {}X{} or scalar".format(self.noutputs, self.nstates))
@@ -246,7 +279,7 @@ class KalmanFilter:
     def P(self, value):
         if np.isscalar(value) and self.nstates == 1:
             self._P = value
-        elif value.shape[0] == value.shape[1] == self.nstates:
+        elif value.shape[-2] == value.shape[-1] == self.nstates:
             try:  # only accept positive definite matrices
                 isPSD(value)
             except np.linalg.LinAlgError:
@@ -263,7 +296,7 @@ class KalmanFilter:
     def Q(self, value):
         if np.isscalar(value) and self.nstates == 1:
             self._Q = value
-        elif value.shape[0] == value.shape[1] == self.nstates:
+        elif value.shape[-2] == value.shape[-1] == self.nstates:
             try:  # only accept positive definite matrices
                 isPSD(value)
             except np.linalg.LinAlgError:
@@ -280,9 +313,9 @@ class KalmanFilter:
     def R(self, value):
         if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
             self._Q = value
-        elif value.shape[0] == self.noutputs and self.noutputs == 1:
+        elif value.shape[-2] == self.noutputs and self.noutputs == 1:
             self._Q = value
-        elif value.shape[0] == self.noutputs and value.shape[1] == self.noutputs and self.noutputs > 1:
+        elif value.shape[-2] == self.noutputs and value.shape[-1] == self.noutputs and self.noutputs > 1:
             try:  # only accept positive definite matrices
                 isPSD(value)
             except np.linalg.LinAlgError:
@@ -297,7 +330,8 @@ class KalmanFilter:
 
     @x.setter
     def x(self, value):
-        if np.isscalar(value) and self.nstates == 1 or value.shape[0] == self.nstates:
+        if np.isscalar(value) and self.nstates == 1 or \
+                        value.shape[-1] == self.nstates:
             self._x = value
 
     # @property

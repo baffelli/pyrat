@@ -1,6 +1,8 @@
 from ..fileutils import gpri_files as gpf
 import datetime as _dt
 
+from . import intfun
+
 class Interferogram(gpf.gammaDataset):
     """
     Class to represent a complex interferogram
@@ -30,3 +32,27 @@ class Interferogram(gpf.gammaDataset):
     def tofile(self, par_path, bin_path):
         arr = self.astype(gpf.type_mapping['FCOMPLEX'])
         gpf.write_dataset(arr, self._params, par_path, bin_path)
+
+
+
+class Stack:
+    """
+    Class to represent a stack of interferograms
+    """
+    def __init__(self, par_list, bin_list, itab, *args, **kwargs):
+        stack = []
+        for par_name, bin_name in zip(par_list,bin_list):
+            ifgram = Interferogram(par_name, bin_name, **kwargs)
+            stack.append(ifgram)
+        #Sort by acquisition time
+        sorting_key = lambda x: (x.master_par.start_time, x.slave_par.start_time)
+        stack = sorted(stack, key=sorting_key )
+        self.stack  = stack#the stack
+        self.itab = intfun.Itab.fromfile(itab)#the corresponding itab file
+
+    @property
+    def dt(self):
+        return [s.temporal_baseline for s in self.stack]
+
+    def __getitem__(self, item):
+        return self.stack.__getitem__(item)
