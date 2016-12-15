@@ -7,6 +7,7 @@ Created on Thu May 15 16:32:36 2014
 import matplotlib as _mpl
 import matplotlib.colors as _col
 import matplotlib.pyplot as _plt
+import matplotlib.cm as _cm
 import numpy as _np
 import scipy.fftpack as _fftp
 import scipy.ndimage as _ndim
@@ -107,7 +108,11 @@ def scale_array(*args, **kwargs):
         maxVal = kwargs.get('max_val')
     else:
         maxVal = _np.nanmax(data)
-    scaled = (data - minVal) / _np.abs(maxVal - minVal)
+    range = _np.abs(maxVal - minVal)
+    if range > 1e-8:
+        scaled = (data - minVal) / range
+    else:
+        scaled = data / maxVal
     return scaled
 
 #TODO This function will be removed when matplotlib 2.0 will be availabel
@@ -498,6 +503,25 @@ def circular_palette(N=24, type='circular', radius=40, lum=70):
     LAB = _np.dstack((L, a, b))
     rgb = color.lab2rgb(LAB[::-1, :]).squeeze()
     rgb = _mpl.colors.ListedColormap(rgb, name='circular_phase', N=N)
+    return rgb
+
+
+def disp_value_and_variance(data, variance, pal='RdBu', vmin=None, vmax=None, var_tresh=1):
+    pal = _plt.get_cmap(pal)
+    #estimated maxi and min from data
+    min_val, max_val = [fun(data) for fun in [_np.nanmin,_np.nanmax]]
+    var_min, var_max = [fun(variance) for fun in [_np.nanmin, _np.nanmax]]
+    #short circuit operator to select estimated limits if vmin or vmax are not given
+    norm = _mpl.colors.Normalize(vmin=vmin or min_val, vmax=vmax or max_val)
+    map = _cm.ScalarMappable(cmap=pal, norm=norm)
+    #rgb
+    rgb = map.to_rgba(data)
+    hsv = _mpl.colors.rgb_to_hsv(rgb[:, :, 0:3])
+    #use the saturation from the variance to change the hsv
+    norm_sat = scale_array(variance**0.5, vmin=var_tresh*var_max**0.5)
+    print(norm_sat)
+    hsv[:,:,1] = (1 - norm_sat) * hsv[:,:,2]
+    rgb1 = _mpl.colors.hsv_to_rgb(hsv)
     return rgb
 
 
