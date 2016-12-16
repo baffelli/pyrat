@@ -204,10 +204,11 @@ def load_plist(path):
 
 
 def datetime_from_par_dict(par):
-    sod = _dt.timedelta(seconds=float(par['start_time'][0]))
-    date = _dt.datetime.strptime(par['title'][0], '%Y-%m-%d')
+    sod = _dt.timedelta(seconds=par['start_time'])
+    date = _dt.datetime.combine(par['date'], _dt.time.min)
     dto = date + sod
     return dto
+
 
 
 class gammaDataset(_np.ndarray):

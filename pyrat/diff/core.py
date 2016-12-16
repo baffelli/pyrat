@@ -31,6 +31,14 @@ class Interferogram(gpf.gammaDataset):
         return ifgram
 
     @property
+    def master_time(self):
+        return gpf.datetime_from_par_dict(self.master_par)
+
+    @property
+    def slave_time(self):
+        return gpf.datetime_from_par_dict(self.master_par)
+
+    @property
     def temporal_baseline(self):
         return self.master_par.start_time - self.slave_par.start_time
 
@@ -52,11 +60,11 @@ class Stack:
             ifgram = Interferogram(par_name, bin_name, **kwargs)
             stack.append(ifgram)
         #Sort by acquisition time
-        sorting_key = lambda x: (x.master_par.start_time, x.slave_par.start_time)
+        sorting_key = lambda x: (x.master_time, x.slave_time)
         stack = sorted(stack, key=sorting_key )
         self.stack  = stack#the stack
         self.itab = intfun.Itab.fromfile(itab)#the corresponding itab file
-        self.slc_tab = mli_pars
+        self.slc_tab = sorted(mli_pars, key=lambda x: [(x.date, x.start_time)])
 
     @property
     def dt(self):
