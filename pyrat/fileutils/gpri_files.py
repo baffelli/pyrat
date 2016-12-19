@@ -419,6 +419,8 @@ class gammaDataset(_np.ndarray):
         """
         if hasattr(self, 'GPRI_decimation_factor'):
             return azidx // self.GPRI_decimation_factor
+        else:
+            return azidx
 
     def tofile(self, *args, **kwargs):
         arr = self.astype(type_mapping[self.image_format])
