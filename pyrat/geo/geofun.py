@@ -1079,7 +1079,7 @@ def segment_geotif(gt, dem_par):
 
 
 
-def interpolate_complex(*args, **kwargs):
+def interpolate_complex(data,LUT, **kwargs):
     """
     Returns a function to interpolate
     a complex dataset if the input data is complex,
@@ -1093,11 +1093,10 @@ def interpolate_complex(*args, **kwargs):
     -------
 
     """
-    data = args[0]
-    if _np.any(_np.iscomplex(data)):
-        data_interp = _ndim.map_coordinates(data.real, *args[1:], **kwargs) + 1j *_ndim.map_coordinates(data.imag, *args[1:], **kwargs)
+    if _np.iscomplexobj(data):
+        data_interp = _ndim.map_coordinates(data.real, LUT, **kwargs) + 1j*_ndim.map_coordinates(data.imag, LUT, **kwargs)
     else:
-       data_interp = _ndim.map_coordinates(data, *args[1:], **kwargs)
+       data_interp = _ndim.map_coordinates(data, LUT, **kwargs)
     return data_interp
 
 
@@ -1159,7 +1158,7 @@ class GeocodingTable(object):
 
     def geocode_data(self, data):
         output_shape = self.lut.shape + data.shape[2:] if data.ndim > 2 else self.lut.shape
-        data_gc = _np.zeros(output_shape).view(type(data))
+        data_gc = _np.zeros(output_shape, dtype=data.dtype).view(type(data))
         interp_fun = lambda data: interpolate_complex(data, _np.vstack((self.lut.real.flatten(), self.lut.imag.flatten())), mode='constant', cval=_np.nan,
                                    order=1, prefilter=False).reshape(self.lut.shape)
         if data.ndim > 2:

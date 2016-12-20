@@ -314,7 +314,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
         return T_norm
 
     def cloude_pottier(self):
-        l, w = _np.linalg.eigh(self)
+        l, w = _np.linalg.eigh(_np.nan_to_num(self))
         l = _np.array(l)
         w = _np.array(w)
         if self.ndim is 4:
@@ -334,6 +334,7 @@ class coherencyMatrix(gpri_files.gammaDataset):
             alpha = _np.arccos(_np.abs(w[:, 0, 0:None]))
             alpha_m = _np.sum(alpha * p, axis=1)
             anisotropy = (l[1] - l[2]) / (l[1] + l[2])
+
         return H, anisotropy, alpha_m, beta_m, p, w
 
     def transform(self, T1, T2):

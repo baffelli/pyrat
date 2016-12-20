@@ -16,40 +16,53 @@ def noise_fun(m, sigma):
     else:
         return np.random.multivariate_normal(m, sigma)
 
+
 def avoid_none(var, alternative_var):
     if var is None:
         return alternative_var
     else:
         return var
 
+
 def isPSD(A, tol=1e-6):
-  E = np.linalg.eigvalsh(A)
-  if np.all(E > -tol):
-      pass
-  else:
-      raise np.linalg.LinAlgError('A is not positve semidefinite')
+    """
+    Check if the matrix is positive semidefinite
+    to a certain tolerance
+    Parameters
+    ----------
+    A
+    tol
+
+    Returns
+    -------
+    """
+    E = np.linalg.eigvalsh(A)
+    if np.all(E > -tol):
+        pass
+    else:
+        raise np.linalg.LinAlgError('A is not positve semidefinite')
 
 
+def matrix_vector_product(A, x):
+    return np.einsum('...ij,...j->...i', A, x)
 
 
-def matrix_vector_product(A,x):
-    return np.einsum('...ij,...j->...i',A, x)
+def matrix_matrix_product(A, B):
+    return np.einsum('...ij,...jk->...ik', A, B)
 
-def matrix_matrix_product(A,B):
-    return np.einsum('...ij,...jk->...ik',A,B)
 
 def transpose_tensor(A):
     if A.ndim <= 2:
         return A.T
     else:
-        return np.einsum('...ij->...ji',A)
+        return np.einsum('...ij->...ji', A)
+
 
 def special_eye(A):
     if A.ndim == 2:
         return np.eye(A.shape[0])
     else:
-        return np.tile(np.eye(A.shape[-1]),(A.shape[0], 1,1))
-
+        return np.tile(np.eye(A.shape[-1]), (A.shape[0], 1, 1))
 
 
 class LinearSystem:
@@ -135,14 +148,13 @@ class KalmanFilter:
         else:
             self.P = np.eye(nstates)
 
-
     def output(self, H=None):
-        #System output
+        # System output
         H = avoid_none(H, self.H)
         return matrix_vector_product(H, self.x)
 
     def innovation(self, z, H=None):
-        #Residual: measurement - output
+        # Residual: measurement - output
         H = avoid_none(H, self.H)
         return z - self.output(H=H)
 
@@ -170,7 +182,7 @@ class KalmanFilter:
             control_input = np.zeros(self.x.shape)
         self.x = matrix_vector_product(F, self.x) + control_input
         # Compute state covariance
-        self.P = matrix_matrix_product(matrix_matrix_product(self.F, self.P),transpose_tensor(F).conj()) + Q
+        self.P = matrix_matrix_product(matrix_matrix_product(self.F, self.P), transpose_tensor(F).conj()) + Q
         # self.P = F.tensordot(self.P).tensordot(F.T.conj()) + Q
 
     def update(self, z, R=None, H=None):
@@ -201,7 +213,7 @@ class KalmanFilter:
 
         """
         with open(file, 'wb') as fp:
-            pickle.dump(self,fp)
+            pickle.dump(self, fp)
 
     def fromfile(cls, file):
         """
@@ -326,6 +338,3 @@ class KalmanFilter:
                         value.shape[-1] == self.nstates:
             self._x = value
 
-    # @property
-    # def z(self):
-    #     return np.dot(self.H, self.x)
