@@ -44,7 +44,9 @@ def isPSD(A, tol=1e-6):
 
 
 def matrix_vector_product(A, x):
-    return np.einsum('...ij,...j->...i', A, x)
+    prod= np.einsum('...ij,...j->...i', A, x)
+    return prod
+
 
 
 def matrix_matrix_product(A, B):
@@ -65,18 +67,67 @@ def special_eye(A):
         return np.tile(np.eye(A.shape[-1]), (A.shape[0], 1, 1))
 
 
+def shape_or_default(arr, index):
+    """
+    Get shape of array or 1 if
+    the object does not support shape
+    Parameters
+    ----------
+    arr
+    index
+
+    Returns
+    -------
+        `a.shape[index]` or 1
+    """
+    try:
+        return arr.shape[index]
+    except AttributeError:
+        return 1
 
 
-def kalman_predict(x, P, F, Q, B, u):
-    control_input = matrix_vector_product(B, u)
-    x_predicted = matrix_vector_product(F, x) + control_input
+def get_observations_shape(observations):
+    if observations.ndim == 2:
+        return 1, observations.shape[0]
+    else:
+        return observations.shape[0], observations.shape[1]
+
+
+def pick_nth_step(matrix, index, ndims=2):
+    """
+    Picks the matrix/vector corresponding to the
+    n-th filter step
+    Parameters
+    ----------
+    matrix
+    index
+    ndims
+
+    Returns
+    -------
+
+    """
+    if matrix.ndim >= ndims + 1:
+        return matrix[index]
+    elif matrix.ndim == ndims:
+        return matrix
+    else:
+        raise IndexError
+
+
+
+
+
+def kalman_predict(x, P, F, Q):
+    # control_input = matrix_vector_product(B, u)
+    x_predicted = matrix_vector_product(F, x)
     P_predicted = matrix_matrix_product(matrix_matrix_product(F, P), transpose_tensor(F).conj()) + Q
     return x_predicted, P_predicted
 
 
-def kalman_update(x, P, F, Q, B, u, z, H, R):
+def kalman_update(x, P, F, z, H, R):
     # Innovation
-    y = z - matrix_vector_product(F, x)
+    y = z - matrix_vector_product(H, x)
     # Residual covariance
     S = matrix_matrix_product(matrix_matrix_product(H, P), transpose_tensor(H).conj()) + R
     # Kalman gain
@@ -84,6 +135,8 @@ def kalman_update(x, P, F, Q, B, u, z, H, R):
     x_update = x + matrix_vector_product(K, y)
     P_update = matrix_matrix_product((special_eye(P) - matrix_matrix_product(K, H)), P)
     return x_update, P_update, K
+
+
 
 
 
@@ -134,66 +187,92 @@ class KalmanFilter:
 
     Parameters
     ----------
-    F : (nmatrices, ntimesteps, nstates, nstates) or (nstates, nstates) array-like
-        State transition matrix from t to t+1. Can be a sequence of matrices of length ntimesteps if the state
-        transition matrix varies over time
-        e.g when the filter is simultaneously applied to a set of matrices
+    F : (ntimesteps, nmatrices, nstates, nstates) or (nstates, nstates) array-like
+        State transition matrix from :math:`t` to :math:`t+1`. Can be a sequence of matrices of length `ntimesteps` if the state
+        transition matrix varies over time.
     Q : (nmatrices, nstates, nstates) array-like
-        Transition covariance (model uncertainity) matrix for the system
-    H : (nmatrices, ntimesteps, noutputs, nstates) or (nmatrices, noutputs, nstates) array-like
-        Observation matrix to compute observation from state
+        Transition covariance (model uncertainity) matrix for the system.
+    H : (ntimesteps, nmatrices, noutputs, nstates) or (nmatrices, noutputs, nstates) array-like
+        Observation matrix to compute observation from state.
     R : (nmatrices, noutputs, noutputs) array-like
         Observation covariance matrix
-
-
-
+    x0 : (nmatrices, nstates) array-like optional
+        Initial state mean
+    P : (nmatrices, nstates, nstates)
+        Initial state covariance
     """
+
+
     def __init__(self, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None,
                  P=None):
 
-        self.nstates = nstates
+        #Determine state space size from last dimension of F
+        self.nstates = shape_or_default(F, -1)
         self.ninputs = ninputs
-        self.noutputs = noutpus
-        self.ntimesteps = ntimesteps
+        #Determine the number of outpit from second to last dimension of H
+        self.noutputs = shape_or_default(H, -2)
 
         # Initial state of filter
         if x0 is not None:
-            self.x = np.array(x0)
+            self.x0 = np.array(x0)
         else:
-            self.x = np.zeros(nstates)
+            self.x0 = np.zeros(self.nstates)
 
         # State transition
         if F is not None:
-            self.F = F
+            self.F = np.array(F)
         else:
             self.F = np.eye(self.nstates)
         # Control matrix
         if B is not None:
-            self.B = B
+            self.B = np.array(B)
         elif B is None:
             self.B = np.zeros((self.nstates,)) if self.ninputs == 0 or self.ninputs == 1 else np.zeros(
                 (self.nstates, self.ninputs))
         # Output
         if H is not None:
-            self.H = H
+            self.H = np.array(H)
         else:
             self.H = np.eye((self.noutputs, self.nstates))
         # System uncertainity
         if Q is not None:
-            self.Q = Q
+            self.Q = np.array(Q)
         else:
             self.Q = np.eye(self.nstates)
         # Measureement covariance
         if R is not None:
-            self.R = R
+            self.R = np.array(R)
         else:
             self.R = np.eye(self.noutputs)
 
         # State estimate covariance
         if P is not None:
-            self.P = P
+            self.P = np.array(P)
         else:
-            self.P = np.eye(nstates)
+            self.P = np.eye(self.nstates)
+
+    def filter(self, z):
+        ntimesteps, nmatrices = get_observations_shape(z)
+        x_pred = np.zeros((ntimesteps, nmatrices, self.nstates))
+        P_pred = np.zeros((ntimesteps, nmatrices, self.nstates, self.nstates))
+        K = np.zeros((ntimesteps, nmatrices, self.nstates, self.noutputs))
+        x_filt = x_pred * 0
+        P_filt = P_pred * 0
+        for t in range(ntimesteps):
+            if t == 0:
+                x_pred[0,:,:] = self.x0
+                P_pred[0,:,:] = self.P
+            else:
+                F = pick_nth_step(self.F, t)
+                H = pick_nth_step(self.H, t)
+                z_cur = pick_nth_step(z, t, ndims=1)
+                x_pred[t], P_pred[t] = kalman_predict(x_filt[t-1],P_filt[t-1], F, self.Q)#predict
+                x_filt[t], P_filt[t], K[t] = kalman_update(x_pred[t], P_pred[t], F, z_cur, H, self.R)#update
+        return x_pred, P_pred, K, x_filt, P_filt
+
+    def smooth(self, z):
+
+
 
     def output(self, H=None):
         # System output
@@ -311,13 +390,10 @@ class KalmanFilter:
     @H.setter
     def H(self, value):
         if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
-            print('1')
             self._H = value
         elif value.shape[-1] == self.nstates and self.noutputs == 1:
-            print('2')
             self._H = value
         elif value.shape[-2] == self.noutputs and value.shape[-1] == self.nstates:
-            print('3')
             self._H = value
         else:
             raise Exception("H is not of shape {}X{} or scalar".format(self.noutputs, self.nstates))
@@ -376,11 +452,11 @@ class KalmanFilter:
             raise TypeError("R is not of shape {}X{} or scalar".format(self.noutputs, self.noutputs))
 
     @property
-    def x(self):
-        return self._x
+    def x0(self):
+        return self._x0
 
-    @x.setter
-    def x(self, value):
+    @x0.setter
+    def x0(self, value):
         if np.isscalar(value) and self.nstates == 1 or \
                         value.shape[-1] == self.nstates:
-            self._x = value
+            self._x0 = value
