@@ -65,6 +65,29 @@ def special_eye(A):
         return np.tile(np.eye(A.shape[-1]), (A.shape[0], 1, 1))
 
 
+
+
+def kalman_predict(x, P, F, Q, B, u):
+    control_input = matrix_vector_product(B, u)
+    x_predicted = matrix_vector_product(F, x) + control_input
+    P_predicted = matrix_matrix_product(matrix_matrix_product(F, P), transpose_tensor(F).conj()) + Q
+    return x_predicted, P_predicted
+
+
+def kalman_update(x, P, F, Q, B, u, z, H, R):
+    # Innovation
+    y = z - matrix_vector_product(F, x)
+    # Residual covariance
+    S = matrix_matrix_product(matrix_matrix_product(H, P), transpose_tensor(H).conj()) + R
+    # Kalman gain
+    K = matrix_matrix_product(matrix_matrix_product(P, transpose_tensor(H).conj()), special_inv(S))
+    x_update = x + matrix_vector_product(K, y)
+    P_update = matrix_matrix_product((special_eye(P) - matrix_matrix_product(K, H)), P)
+    return x_update, P_update, K
+
+
+
+
 class LinearSystem:
     """
     Simple class to implement a linear system
@@ -103,11 +126,35 @@ class LinearSystem:
 
 
 class KalmanFilter:
-    def __init__(self, nstates, noutpus, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None, P=None):
+    """
+    This class implements the Kalman Filter and Smoother, supports the computation
+    of the filter simultaneously on a group of matrices, eg when using it for computer vision
+    applications, where the filter is simultaneously run on each pixel, possibly with different matrices. In the following, the matrices are supposed to be "stacked"
+    along  the first dimension.
+
+    Parameters
+    ----------
+    F : (nmatrices, ntimesteps, nstates, nstates) or (nstates, nstates) array-like
+        State transition matrix from t to t+1. Can be a sequence of matrices of length ntimesteps if the state
+        transition matrix varies over time
+        e.g when the filter is simultaneously applied to a set of matrices
+    Q : (nmatrices, nstates, nstates) array-like
+        Transition covariance (model uncertainity) matrix for the system
+    H : (nmatrices, ntimesteps, noutputs, nstates) or (nmatrices, noutputs, nstates) array-like
+        Observation matrix to compute observation from state
+    R : (nmatrices, noutputs, noutputs) array-like
+        Observation covariance matrix
+
+
+
+    """
+    def __init__(self, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None,
+                 P=None):
 
         self.nstates = nstates
         self.ninputs = ninputs
         self.noutputs = noutpus
+        self.ntimesteps = ntimesteps
 
         # Initial state of filter
         if x0 is not None:
@@ -337,4 +384,3 @@ class KalmanFilter:
         if np.isscalar(value) and self.nstates == 1 or \
                         value.shape[-1] == self.nstates:
             self._x = value
-
