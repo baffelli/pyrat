@@ -1,3 +1,5 @@
+# Module for kalman filtering in python. Freely based on pykalman
+
 import pickle
 
 import numpy as np
@@ -44,9 +46,8 @@ def isPSD(A, tol=1e-6):
 
 
 def matrix_vector_product(A, x):
-    prod= np.einsum('...ij,...j->...i', A, x)
+    prod = np.einsum('...ij,...j->...i', A, x)
     return prod
-
 
 
 def matrix_matrix_product(A, B):
@@ -115,17 +116,14 @@ def pick_nth_step(matrix, index, ndims=2):
         raise IndexError
 
 
-
-
-
-def kalman_predict(x, P, F, Q):
+def kalman_prediction_step(x, P, F, Q):
     # control_input = matrix_vector_product(B, u)
     x_predicted = matrix_vector_product(F, x)
     P_predicted = matrix_matrix_product(matrix_matrix_product(F, P), transpose_tensor(F).conj()) + Q
     return x_predicted, P_predicted
 
 
-def kalman_update(x, P, F, z, H, R):
+def kalman_update_step(x, P, F, z, H, R):
     # Innovation
     y = z - matrix_vector_product(H, x)
     # Residual covariance
@@ -137,8 +135,43 @@ def kalman_update(x, P, F, z, H, R):
     return x_update, P_update, K
 
 
+def kalman_smoothing_step(F, x_filtered, P_filtered, x_predicted, P_predicted, x_smooth, P_smooth)
+    """
+    Run kalman smoothing step to
+    obtain posterior state distribution given all observations.
 
+    Parameters
+    ----------
+    x_filtered : (nmatrices,nstates) array_like
+        Posterior state mean at time t given observations from times 0 to t
+    P_filtered : (nmatrices,nstates,nstates) array_like
+        Posterior state covariance at time t given observation from times 0 to t
+    x_predicted : (nmatrices, nstates) array_like
+        Prior state mean at time t+1 given observation from times 0 to t
+    P_predicted : (nmatrices, nstates, nstates) array-like
+        Prior state covariance at time t+1 given observation from times 0 to t
+    F : (nmatrices, nstates, nstates) array-like
+        State stransition matrix from t to t+1
+    x_smooth : (nmatrixes, nstates) array-like
+        Posterior state mean at time t+1 given all observations from  times 0 to ntimesteps
+    P_smooth : (nmatrixes, nstates, nstates) array-like
+        Posterior state covariance at time t+1 given all observations from  times 0 to ntimesteps
 
+    Returns
+    -------
+    x_smooth : (nmatrices,nstates) array_like
+        Posterior state mean at time t given all observations from times 0 to ntimesteps-1
+    P_smooth : (nmatrices,nstates,nstates) array_like
+        Posterior state covariance at time t given all observations from times 0 to ntimesteps-1
+    L : (nmatrices,nstates,nstates) array_like
+        Kalman smoothing gain at time t
+    """
+    # "Kalman-like matrix to include predicted"
+    L = matrix_matrix_product(P_filtered, transpose_tensor(F), special_inv(P_predicted))
+    x_smooth = x_filtered + matrix_matrix_product(L, (x_smooth - x_predicted))
+    P_smooth = P_filtered + matrix_matrix_product(matrix_matrix_product(L, (P_smooth - P_predicted)),
+                                                  transpose_tensor(L))
+    return x_smooth, P_smooth, L
 
 
 class LinearSystem:
@@ -202,14 +235,13 @@ class KalmanFilter:
         Initial state covariance
     """
 
-
     def __init__(self, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None,
                  P=None):
 
-        #Determine state space size from last dimension of F
+        # Determine state space size from last dimension of F
         self.nstates = shape_or_default(F, -1)
         self.ninputs = ninputs
-        #Determine the number of outpit from second to last dimension of H
+        # Determine the number of outpit from second to last dimension of H
         self.noutputs = shape_or_default(H, -2)
 
         # Initial state of filter
@@ -253,26 +285,52 @@ class KalmanFilter:
 
     def filter(self, z):
         ntimesteps, nmatrices = get_observations_shape(z)
-        x_pred = np.zeros((ntimesteps, nmatrices, self.nstates))
-        P_pred = np.zeros((ntimesteps, nmatrices, self.nstates, self.nstates))
+        x_predicted = np.zeros((ntimesteps, nmatrices, self.nstates))
+        P_predicted = np.zeros((ntimesteps, nmatrices, self.nstates, self.nstates))
         K = np.zeros((ntimesteps, nmatrices, self.nstates, self.noutputs))
-        x_filt = x_pred * 0
-        P_filt = P_pred * 0
+        x_filtered = x_predicted * 0
+        P_filtered = P_predicted * 0
         for t in range(ntimesteps):
             if t == 0:
-                x_pred[0,:,:] = self.x0
-                P_pred[0,:,:] = self.P
+                x_predicted[0, :, :] = self.x0
+                P_predicted[0, :, :] = self.P
             else:
                 F = pick_nth_step(self.F, t)
                 H = pick_nth_step(self.H, t)
                 z_cur = pick_nth_step(z, t, ndims=1)
-                x_pred[t], P_pred[t] = kalman_predict(x_filt[t-1],P_filt[t-1], F, self.Q)#predict
-                x_filt[t], P_filt[t], K[t] = kalman_update(x_pred[t], P_pred[t], F, z_cur, H, self.R)#update
-        return x_pred, P_pred, K, x_filt, P_filt
+                x_predicted[t], P_predicted[t] = kalman_prediction_step(x_filtered[t - 1], P_filtered[t - 1], F,
+                                                                        self.Q)  # predict
+                x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_predicted[t], P_predicted[t], F, z_cur, H,
+                                                                        self.R)  # update
+        return x_predicted, P_predicted, K, x_filtered, P_filtered
 
     def smooth(self, z):
+        """
+        Runs the Kalman smoother, estimates the state for each time given all observations
+        Parameters
+        ----------
+        z : (ntimesteps, nmatrices, ninputs) array-like
+            All observations from 0 to ntimesteps
 
+        Returns
+        -------
 
+        """
+        ntimesteps, nmatrices = get_observations_shape(z)
+        x_smooth = np.zeros((ntimesteps, nmatrices, self.nstates))
+        P_smooth = np.zeros((ntimesteps, nmatrices, self.nstates, self.nstates))
+        L = np.zeros((ntimesteps - 1, nmatrices, self.nstates, self.nstates))
+        # First run kalman filter
+        x_predicted, P_predicted, K, x_filtered, P_filtered = self.filter(z)
+        #set mean and covariance at the end to the  forward filtered data to start the smoother
+        x_smooth[-1] = x_filtered[-1]
+        P_smooth[-1] = P_filtered[-1]
+        #Run the smoother backwards
+        for t in reversed(range(ntimesteps - 1)):
+            F = pick_nth_step(self.F, t)
+            x_smooth[t], P_smooth[t], L[t] = kalman_smoothing_step(F, x_filtered[t], P_filtered[t], x_predicted[t + 1],
+                                                                   P_predicted[t+1], x_smooth[t+1], P_smooth[t+1])
+        return
 
     def output(self, H=None):
         # System output
