@@ -94,6 +94,20 @@ def get_observations_shape(observations):
         return observations.shape[0], observations.shape[1]
 
 
+def get_state_size(F):
+    if F.ndim > 1:
+        return F.shape[-1]
+    else:
+        return 1
+
+
+def get_output_size(H):
+    if H.ndim > 1:
+        return H.shape[-2]
+    else:
+        return 1
+
+
 def pick_nth_step(matrix, index, ndims=2):
     """
     Picks the matrix/vector corresponding to the
@@ -123,14 +137,29 @@ def kalman_prediction_step(x, P, F, Q):
     return x_predicted, P_predicted
 
 
-def kalman_update_step(x, P, F, z, H, R):
+def kalman_update_step(x_predicted, P, F, z, H, R):
+    """
+    Run Kalman update step to improve the predicted state using the current observation.
+    Parameters
+    ----------
+    x_predicted
+    P
+    F
+    z
+    H
+    R
+
+    Returns
+    -------
+
+    """
     # Innovation
-    y = z - matrix_vector_product(H, x)
+    y = z - matrix_vector_product(H, x_predicted)
     # Residual covariance
     S = matrix_matrix_product(matrix_matrix_product(H, P), transpose_tensor(H).conj()) + R
     # Kalman gain
     K = matrix_matrix_product(matrix_matrix_product(P, transpose_tensor(H).conj()), special_inv(S))
-    x_update = x + matrix_vector_product(K, y)
+    x_update = x_predicted + matrix_vector_product(K, y)
     P_update = matrix_matrix_product((special_eye(P) - matrix_matrix_product(K, H)), P)
     return x_update, P_update, K
 
@@ -181,47 +210,102 @@ def filter(F, Q, H, R, x_0, P_0, z):
     Parameters
     ----------
     F : array-like
-        State transition matrix wit shapes  `(ntimesteps, nmatrices, nstates, nstates)` or `(nmatrices, nstates, nstates)`
+        State transition matrix with shapes  `(ntimesteps, nmatrices, nstates, nstates)` or `(nmatrices, nstates, nstates)`, transition from :math:`t` to :math:`t+1` or from :math:`t_i` to :math:`t_{i + 1}` for time varying system.
     Q :  array-like
-        State transition covariance ("model uncertainity")
-    H : (ntimesteps, nmatrices, noutputs, nstates) or (nmatrices, noutputs, nstates) array-like
-        Observation matrix
-    R : (ntimesteps, nmatrices, noutputs, noutputs) or (nmatrices, noutputs, nstates) array-like
-        Measurement covariance matrix
-    x_0 : (nmatrices, nstates) array-like
-        Initial state mean
+        State transition covariance ("model uncertainity") of shape `(ntimesteps-1, nmatrices, nstates, nstates)` or `(nmatrices, nstates, nstates)`
+    H : array-like
+        Observation matrix, shapes `(ntimesteps, nmatrices, noutputs, nstates)` or `(nmatrices, noutputs, nstates)`
+    R :  array-like
+        Measurement covariance matrix, `(ntimesteps, nmatrices, noutputs, noutputs)` or `(nmatrices, noutputs, nstates)`
+    x_0 : array-like
+        Initial state mean, shape `(nmatrices, nstates)`
     P_0 : (nmatrices, nstates, nstates) array-like
-        Initial state covariance matrix
-    z   :  (ntimesteps, nmatrices , noutputs) array-like
-        Observation from 0 to ntimesteps - 1
+        Initial state covariance matrix, shape  `(nmatrices, nstates)`
+    z   :  array-like
+        Observation from 0 to ntimesteps - 1, in an array of shape `(ntimesteps, nmatrices , noutputs)`
 
     Returns
     -------
-    x_predicted
-    P_predicted
-    K
+    x_predicted : array-like
+        Prior state mean for all time steps from 0 to `ntimesteps`
+    P_predicted : array-like
+         Prior state covariance for all time steps from 0 to `ntimesteps`
+    K : array-like
+        Kalman weighting matrix for each timestep
+    x_filtered : array-like
+        Posterior state mean at each time :math:`t` given observations from 0 to to :math:`t`
+    P_filtered : array-like
+        Posterior state covariance at each time :math:`t` given observations from 0 to to :math:`t`
 
 
     """
-    ntimesteps, nmatrices = get_observations_shape(observations)
-    x_predicted = np.zeros((ntimesteps, nmatrices, self.nstates))
-    P_predicted = np.zeros((ntimesteps, nmatrices, self.nstates, self.nstates))
-    K = np.zeros((ntimesteps, nmatrices, self.nstates, self.noutputs))
+    ntimesteps, nmatrices = get_observations_shape(z)
+    nstates = get_state_size(F)
+    noutputs = get_state_size(H)
+    x_predicted = np.zeros((ntimesteps, nmatrices, nstates))
+    P_predicted = np.zeros((ntimesteps, nmatrices, nstates, nstates))
+    K = np.zeros((ntimesteps, nmatrices, nstates, noutputs))
     x_filtered = x_predicted * 0
     P_filtered = P_predicted * 0
     for t in range(ntimesteps):
         if t == 0:
-            x_predicted[0, :, :] = self.x0
-            P_predicted[0, :, :] = self.P
+            x_predicted[0, :, :] = x_0
+            P_predicted[0, :, :] = P_0
         else:
-            F = pick_nth_step(self.F, t)
-            H = pick_nth_step(self.H, t)
-            z_cur = pick_nth_step(observations, t, ndims=1)
             x_predicted[t], P_predicted[t] = kalman_prediction_step(x_filtered[t - 1], P_filtered[t - 1], F,
-                                                                    self.Q)  # predict
-            x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_predicted[t], P_predicted[t], F, z_cur, H,
-                                                                    self.R)  # update
+                                                                    Q)  # predict
+
+        F = pick_nth_step(F, t)
+        H = pick_nth_step(H, t)
+        z_cur = pick_nth_step(z, t, ndims=1)
+        x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_predicted[t], P_predicted[t], F, z_cur, H,
+                                                                R)  # update
     return x_predicted, P_predicted, K, x_filtered, P_filtered
+
+
+def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
+    """
+    Runs the Kalman smoother, estimates the state for each time given all observations
+
+    Parameters
+    ----------
+    F : array-like
+        State transition matrix with shapes  `(ntimesteps, nmatrices, nstates, nstates)` or `(nmatrices, nstates, nstates)`, transition from :math:`t` to :math:`t+1` or from :math:`t_i` to :math:`t_{i + 1}` for time varying system
+    x_predicted : array-like
+        Prior state means for all :math:`t` 0 to `ntimesteps`, given observations from 0 to the current time :math:`t`
+    P_predicted : array-like
+        Prior state covariance for all :math:`t` 0 to ntimesteps, given observations from 0 to the current time
+    x_filtered: array-like
+         Posterior state means for all :math:`t` 0 to `ntimesteps`, given observations from 0 to the current time :math:`t`
+    P_filtered : array-like
+        Posterior state covariance for all :math:`t` 0 to `ntimesteps`, given observations from 0 to the current time :math:`t`
+    z :  array-like
+        All observations from 0 to ntimesteps, of shape `(ntimesteps, nmatrices, ninputs)`
+
+    Returns
+    -------
+    x_smooth : (ntimesteps, nmatrices, nstates) array_like
+        The posterior smoothed state for each time from 0 to `ntimesteps`, computed using all observations
+    x_smooth: (ntimesteps, nmatrices, nstates, nstates)
+        The posterior smoothed state covariance for each time from 0 to `ntimesteps`, computed using all observations
+    L : (ntimesteps, nmatrices, nstates, nstates) array-like
+        The Kalman correction matrix for all steps
+    """
+    ntimesteps, nmatrices = get_observations_shape(z)
+    nstates = get_state_size(F)
+    x_smooth = np.zeros((ntimesteps, nmatrices, nstates))
+    P_smooth = np.zeros((ntimesteps, nmatrices, nstates, nstates))
+    L = np.zeros((ntimesteps - 1, nmatrices, nstates, nstates))
+    # set mean and covariance at the end to the  forward filtered data to start the smoother
+    x_smooth[-1] = x_filtered[-1]
+    P_smooth[-1] = P_filtered[-1]
+    # Run the smoother backwards
+    for t in reversed(range(ntimesteps - 1)):
+        F = pick_nth_step(F, t)
+        x_smooth[t], P_smooth[t], L[t] = kalman_smoothing_step(F, x_filtered[t], P_filtered[t], x_predicted[t + 1],
+                                                               P_predicted[t + 1], x_smooth[t + 1], P_smooth[t + 1])
+    return x_smooth, P_smooth, L
+
 
 class LinearSystem:
     """
@@ -332,48 +416,10 @@ class KalmanFilter:
         else:
             self.P = np.eye(self.nstates)
 
-
-
-    def smooth(self, z):
-        """
-        Runs the Kalman smoother, estimates the state for each time given all observations
-        Parameters
-        ----------
-        z : (ntimesteps, nmatrices, ninputs) array-like
-            All observations from 0 to ntimesteps
-
-        Returns
-        -------
-        x_smooth : (ntimesteps, nmatrices, nstates) array_like
-            The posterior smoothed state for each time from 0 to ntimesteps, computed using all observations
-        x_smooth: (ntimesteps, nmatrices, nstates, nstates)
-            The posterior smoothed state covariance for each time from 0 to ntimesteps, computed using all observations
-        L : (ntimesteps, nmatrices, nstates, nstates) array-like
-            The Kalman correction matrix for all steps
-        """
-        ntimesteps, nmatrices = get_observations_shape(z)
-        x_smooth = np.zeros((ntimesteps, nmatrices, self.nstates))
-        P_smooth = np.zeros((ntimesteps, nmatrices, self.nstates, self.nstates))
-        L = np.zeros((ntimesteps - 1, nmatrices, self.nstates, self.nstates))
-        # First run kalman filter
-        x_predicted, P_predicted, K, x_filtered, P_filtered = self.filter(z)
-        #set mean and covariance at the end to the  forward filtered data to start the smoother
-        x_smooth[-1] = x_filtered[-1]
-        P_smooth[-1] = P_filtered[-1]
-        #Run the smoother backwards
-        for t in reversed(range(ntimesteps - 1)):
-            F = pick_nth_step(self.F, t)
-            x_smooth[t], P_smooth[t], L[t] = kalman_smoothing_step(F, x_filtered[t], P_filtered[t], x_predicted[t + 1],
-                                                                   P_predicted[t+1], x_smooth[t+1], P_smooth[t+1])
-        return x_smooth, P_smooth, L
-
-
     def em_observation_covariance(self, observations, transition_matrices):
         ntimesteps, nmatrices = get_observations_shape(observations)
         for t in range(ntimesteps):
             F = pick_nth_step(transition_matrices, t)
-
-
 
     def output(self, H=None):
         # System output
