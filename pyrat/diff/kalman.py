@@ -130,38 +130,71 @@ def pick_nth_step(matrix, index, ndims=2):
         raise IndexError
 
 
-def kalman_prediction_step(x, P, F, Q):
+def kalman_prediction_step(F, x, P, Q):
+    """
+    Run kalman prediction step to estimate the prior state mean and covariance at time :math:`t+1` given the posterior mean and covariance at time :math:`t`.
+
+    Parameters
+    ----------
+    x : array-like
+        Posterior state mean at time :math:`t` given observations between 0 and :math:`t`
+    P : array-like
+        Posterior state covariance at time :math:`t` given observations between 0 and :math:`t`
+    F : array-like
+        State transition matrix between :math:`t` and :math:`t+1`
+    Q : array-like
+        State transition covariance between :math:`t` and :math:`t+1`
+
+    Returns
+    -------
+    x_predicted : array-like
+        Prior state mean at time :math:`t+1` given observations from 0 to :math:`t`
+    P_predicted : array-like
+        Prior state covariance at time :math:`t+1` given observations from 0 to :math:`t`
+
+    """
     # control_input = matrix_vector_product(B, u)
     x_predicted = matrix_vector_product(F, x)
     P_predicted = matrix_matrix_product(matrix_matrix_product(F, P), transpose_tensor(F).conj()) + Q
     return x_predicted, P_predicted
 
 
-def kalman_update_step(x_predicted, P, F, z, H, R):
+def kalman_update_step(x_predicted, P_predicted, z, H, R):
     """
     Run Kalman update step to improve the predicted state using the current observation.
+
     Parameters
     ----------
-    x_predicted
-    P
-    F
-    z
-    H
-    R
+    x_predicted : array-like
+        Prior state mean at time :math:`t` given observations from times 0 to :math:`t-1`. Must have shape `(nmatrices,nstates)`
+    P_predicted : array-like
+         Prior state covariance matrix at time :math:`t` given observations from times 0 to :math:`t-1`. Must have shape `(nmatrices,nstates, nstates)`
+    z : array-like
+        Observation at time :math:`t`, with shape `(nmatrices,noutputs)`
+    H : array-like
+        Observation matrix at time :math:`t`,  has shape `(nmatrices,noutputs, nstates)`
+    R : array-like
+        Observation covariance matrix at time :math:`t`
+
 
     Returns
     -------
-
+    x_updated : array-like
+        Posterior state mean at time :math:`t` given observations from times 0 to :math:`t`.
+    P_updated: array-like
+        Posterior state covariance at time :math:`t` given observations from times 0 to :math:`t`.
+    K : array-like
+        Kalman gain matrix at time :math:`t`
     """
     # Innovation
     y = z - matrix_vector_product(H, x_predicted)
     # Residual covariance
-    S = matrix_matrix_product(matrix_matrix_product(H, P), transpose_tensor(H).conj()) + R
+    S = matrix_matrix_product(matrix_matrix_product(H, P_predicted), transpose_tensor(H).conj()) + R
     # Kalman gain
-    K = matrix_matrix_product(matrix_matrix_product(P, transpose_tensor(H).conj()), special_inv(S))
-    x_update = x_predicted + matrix_vector_product(K, y)
-    P_update = matrix_matrix_product((special_eye(P) - matrix_matrix_product(K, H)), P)
-    return x_update, P_update, K
+    K = matrix_matrix_product(matrix_matrix_product(P_predicted, transpose_tensor(H).conj()), special_inv(S))
+    x_updated = x_predicted + matrix_vector_product(K, y)
+    P_updated = matrix_matrix_product((special_eye(P_predicted) - matrix_matrix_product(K, H)), P_predicted)
+    return x_updated, P_updated, K
 
 
 def kalman_smoothing_step(F, x_filtered, P_filtered, x_predicted, P_predicted, x_smooth, P_smooth)
@@ -252,14 +285,13 @@ def filter(F, Q, H, R, x_0, P_0, z):
             x_predicted[0, :, :] = x_0
             P_predicted[0, :, :] = P_0
         else:
-            x_predicted[t], P_predicted[t] = kalman_prediction_step(x_filtered[t - 1], P_filtered[t - 1], F,
+            x_predicted[t], P_predicted[t] = kalman_prediction_step(F, x_filtered[t - 1], P_filtered[t - 1],
                                                                     Q)  # predict
 
         F = pick_nth_step(F, t)
         H = pick_nth_step(H, t)
         z_cur = pick_nth_step(z, t, ndims=1)
-        x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_predicted[t], P_predicted[t], F, z_cur, H,
-                                                                R)  # update
+        x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_predicted[t], P_predicted[t], F, z_cur, H)  # update
     return x_predicted, P_predicted, K, x_filtered, P_filtered
 
 
