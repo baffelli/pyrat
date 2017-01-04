@@ -68,6 +68,10 @@ def special_eye(A):
         return np.tile(np.eye(A.shape[-1]), (A.shape[0], 1, 1))
 
 
+def tensor_outer(A):
+    return np.einsum('...i,...j->...ij', A, A)
+
+
 def shape_or_default(arr, index):
     """
     Get shape of array or 1 if
@@ -92,6 +96,13 @@ def get_observations_shape(observations):
         return 1, observations.shape[0]
     else:
         return observations.shape[0], observations.shape[1]
+
+
+def get_state_sequence_length(states):
+    if states.ndim <= 2:
+        return 1
+    elif states.ndim == 3:
+        return states.shape[0]
 
 
 def get_state_size(F):
@@ -325,6 +336,7 @@ def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
     """
     ntimesteps, nmatrices = get_observations_shape(z)
     nstates = get_state_size(F)
+
     x_smooth = np.zeros((ntimesteps, nmatrices, nstates))
     P_smooth = np.zeros((ntimesteps, nmatrices, nstates, nstates))
     L = np.zeros((ntimesteps - 1, nmatrices, nstates, nstates))
@@ -337,6 +349,78 @@ def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
         x_smooth[t], P_smooth[t], L[t] = kalman_smoothing_step(F, x_filtered[t], P_filtered[t], x_predicted[t + 1],
                                                                P_predicted[t + 1], x_smooth[t + 1], P_smooth[t + 1])
     return x_smooth, P_smooth, L
+
+
+def m_step_r(H, x_smooth, P_smooth, z):
+    """
+    Use the EM algorithm to estimate the observation covariance matrix given smoothed states and transition matrices.
+    This part implements the M-step for the measurement covariance matrix.
+
+    Parameters
+    -------
+    H : array-like
+        Observation matrix with shapes  `(ntimesteps, nmatrices, noutputs, nstates)` or `(nmatrices, noutputs, nstates)`, relating the state at time :math:`t` with the output.
+    x_smooth : array-like
+         Posterior smoothed state for each time from 0 to `ntimesteps`, computed using all observations
+    P_smooth : array-like
+         Posterior smoothed state for each time from 0 to `ntimesteps`, computed using all observations
+
+    Returns
+    -------
+    R_est : array-like
+        Estimate observation covariance matrix
+
+    """
+    ntimesteps, nmatrices = get_observations_shape(z)
+    noutputs = get_output_size(H)
+
+    R_est = np.zeros((nmatrices, noutputs, noutputs))
+    for t in range(ntimesteps):
+        H = pick_nth_step(H, t)
+        z_cur = pick_nth_step(z, t, ndims=1)
+        x_cur = pick_nth_step(x_smooth)
+        P_cur = pick_nth_step(P_smooth)
+        residuals = (z_cur - matrix_vector_product(H, x_cur))
+        R = tensor_outer(residuals)  # residual covariance
+        H_prime = matrix_matrix_product(H, matrix_matrix_product(P_cur), transpose_tensor(H))
+        R_est += R + H_prime
+    return R_est / ntimesteps
+
+
+def m_step_q(F, x_smooth, P_smooth, L):
+    """
+    Use the EM algorithm to estimate the observation covariance matrix given smoothed states and transition matrices.
+    This part implements the M-step for the state transition covariance matrix.
+
+    Parameters
+    ----------
+    F : array-like
+        State transition matrix with shapes  `(ntimesteps, nmatrices, nstates, nstates)` or `(nmatrices, nstates, nstates)`, transition from :math:`t` to :math:`t+1` or from :math:`t_i` to :math:`t_{i + 1}` for time varying system
+    x_smooth : array-like
+         Posterior smoothed state for each time from 0 to `ntimesteps`, computed using all observations
+    P_smooth : array-like
+         Posterior smoothed state for each time from 0 to `ntimesteps`, computed using all observations
+    L : array-like
+        Kalman Gain matrix for each time :math:`t`
+
+    """
+
+    ntimesteps, nmatrices, nstates = x_smooth.shape
+    Q_est = np.zeros((nmatrices, nstates, nstates))
+    for t in range(ntimesteps - 1):
+        L_cur = pick_nth_step(L, t, ndims=2)
+        F_cur = pick_nth_step(F, t, ndims=2)
+        P_cur = pick_nth_step(P_smooth, t, ndims=2)  # current smoothed covariance
+        P_next = pick_nth_step(P_smooth, t + 1, ndims=2)  # next smoothed covariance
+        x_s = pick_nth_step(x_smooth, t + 1, ndims=1)  # Next smoothed mean
+        x_s_p = matrix_vector_product(F_cur, x_s)  # Propagated current smoothed mean
+        residuals = (x_s - x_s_p)  # residual between propagated smoothed mean and current mean
+        P_transf = matrix_matrix_product(matrix_matrix_product(P_next, transpose_tensor(L_cur)),
+                                         transpose_tensor(F_cur))
+        P_transf_1 = matrix_matrix_product(matrix_matrix_product(F_cur, P_cur), transpose_tensor(F_cur))
+        Q_est += tensor_outer(residuals) + P_transf + transpose_tensor(P_transf) + P_transf_1
+    Q_est /= ntimesteps
+    return Q_est
 
 
 class LinearSystem:
@@ -381,27 +465,27 @@ class KalmanFilter:
     This class implements the Kalman Filter and Smoother, supports the computation
     of the filter simultaneously on a group of matrices, eg when using it for computer vision
     applications, where the filter is simultaneously run on each pixel, possibly with different matrices. In the following, the matrices are supposed to be "stacked"
-    along  the first dimension.
+    along  the second dimension.
 
     Parameters
     ----------
-    F : (ntimesteps, nmatrices, nstates, nstates) or (nstates, nstates) array-like
+    F : array-like
         State transition matrix from :math:`t` to :math:`t+1`. Can be a sequence of matrices of length `ntimesteps` if the state
-        transition matrix varies over time.
-    Q : (nmatrices, nstates, nstates) array-like
-        Transition covariance (model uncertainity) matrix for the system.
-    H : (ntimesteps, nmatrices, noutputs, nstates) or (nmatrices, noutputs, nstates) array-like
-        Observation matrix to compute observation from state.
-    R : (nmatrices, noutputs, noutputs) array-like
-        Observation covariance matrix
-    x0 : (nmatrices, nstates) array-like optional
-        Initial state mean
-    P : (nmatrices, nstates, nstates)
-        Initial state covariance
+        transition matrix varies over time. Shape must be `(ntimesteps, nmatrices, nstates, nstates)`
+    Q :  array-like
+        Transition covariance (model uncertainity) matrix for the system. Must have shape `(nmatrices, nstates, nstates)`
+    H : array-like
+        Observation matrix to compute observation from state at time :math:`t`. Must have shapes `(ntimesteps, nmatrices, noutputs, nstates)` or `(nmatrices, noutputs, nstates)` .
+    R :  array-like
+        Observation covariance matrix. Must be an array of shape `(nmatrices, noutputs, noutputs)`
+    x0 :  array-like optional
+        Initial state mean at time 0
+    P : array-like
+        Initial state covariance at time 0
     """
 
     def __init__(self, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None,
-                 P=None):
+                 P_0=None):
 
         # Determine state space size from last dimension of F
         self.nstates = shape_or_default(F, -1)
@@ -443,68 +527,109 @@ class KalmanFilter:
             self.R = np.eye(self.noutputs)
 
         # State estimate covariance
-        if P is not None:
-            self.P = np.array(P)
+        if P_0 is not None:
+            self.P_0 = np.array(P_0)
         else:
-            self.P = np.eye(self.nstates)
+            self.P_0 = np.eye(self.nstates)
 
-    def em_observation_covariance(self, observations, transition_matrices):
-        ntimesteps, nmatrices = get_observations_shape(observations)
-        for t in range(ntimesteps):
-            F = pick_nth_step(transition_matrices, t)
-
-    def output(self, H=None):
-        # System output
-        H = avoid_none(H, self.H)
-        return matrix_vector_product(H, self.x)
-
-    def innovation(self, z, H=None):
-        # Residual: measurement - output
-        H = avoid_none(H, self.H)
-        return z - self.output(H=H)
-
-    def predict(self, u=0, F=None, B=None, Q=None):
+    def filter(self, observations):
         """
-        Predict next filter state and its covariance
+        Appy the Kalman Filter to estimate
+        the state given the observations up to time :math:`t` for :math:`t` between 0 and :math:`ntimesteps-1`
+
         Parameters
         ----------
-        u
-        F
-        B
-        Q
+        observations : array-like
+         Observations between 0 and `ntimesteps - 1`. Can have either shape `(ntimesteps, noutputs)` or `(ntimesteps, nmatrices, noutputs)` if\
+         the filter is to be run on multiple matrices simultaneously.
+
+        Returns
+        -------
+        x_filtered : array-like
+            Posterior state mean for times :math:`t` between 0 and :math:`ntimesteps -1`
+        P_filtered : array-like
+            Posterior state covariance for times :math:`t` between 0 and :math:`ntimesteps -1`
+
+        """
+
+        (_, _, _, x_filtered, P_filtered) = filter(self.F, self.Q, self.H, self.R, self.x_0, self.P_0, observations)
+        return x_filtered, P_filtered
+
+    def smooth(self, observations):
+        """
+        Apply the Kalman Smoother to estimate the posterior state mean and covariance at all times :math:`t` given all observations between 0 and `ntimesteps`
+
+        Parameters
+        ----------
+        observations : array-like
+             Observations between 0 and `ntimesteps - 1`. Can have either shape `(ntimesteps, noutputs)` or `(ntimesteps, nmatrices, noutputs)` if\
+         the filter is to be run on multiple matrices simultaneously.
 
         Returns
         -------
 
         """
-        # B = avoid_none(B, self.B)
-        F = avoid_none(F, self.F)
-        Q = avoid_none(Q, self.Q)
-        # Compute next state
-        if B is not None:
-            control_input = matrix_vector_product(B, u)
-        else:
-            control_input = np.zeros(self.x.shape)
-        self.x = matrix_vector_product(F, self.x) + control_input
-        # Compute state covariance
-        self.P = matrix_matrix_product(matrix_matrix_product(self.F, self.P), transpose_tensor(F).conj()) + Q
-        # self.P = F.tensordot(self.P).tensordot(F.T.conj()) + Q
+        (x_predicted, P_predicted, K, x_filtered, P_filtered) = self.filter(observations)
+        (x_smooth, P_smooth, L) = smooth(self.F, x_predicted, P_predicted, x_filtered, P_filtered, observations)
+        return x_smooth, P_smooth
 
-    def update(self, z, R=None, H=None):
-
-        R = avoid_none(R, self.R)
-        H = avoid_none(H, self.H)
-
-        # Innovation
-        y = self.innovation(z, H=H)
-        # Residual covariance
-        S = matrix_matrix_product(matrix_matrix_product(H, self.P), transpose_tensor(H).conj()) + R
-        # Kalman gain
-        K = matrix_matrix_product(matrix_matrix_product(self.P, transpose_tensor(H).conj()), special_inv(S))
-        # K = self.P.dot(H.T.conj()).dot(special_inv(S))
-        self.x = self.x + matrix_vector_product(K, y)
-        P_new = matrix_matrix_product((special_eye(self.P) - matrix_matrix_product(K, H)), self.P)
-        self.P = P_new
+    # def em_observation_covariance(self, observations, transition_matrices):
+    #     ntimesteps, nmatrices = get_observations_shape(observations)
+    #     for t in range(ntimesteps):
+    #         F = pick_nth_step(transition_matrices, t)
+    #
+    # def output(self, H=None):
+    #     # System output
+    #     H = avoid_none(H, self.H)
+    #     return matrix_vector_product(H, self.x)
+    #
+    # def innovation(self, z, H=None):
+    #     # Residual: measurement - output
+    #     H = avoid_none(H, self.H)
+    #     return z - self.output(H=H)
+    #
+    # def predict(self, u=0, F=None, B=None, Q=None):
+    #     """
+    #     Predict next filter state and its covariance
+    #     Parameters
+    #     ----------
+    #     u
+    #     F
+    #     B
+    #     Q
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     # B = avoid_none(B, self.B)
+    #     F = avoid_none(F, self.F)
+    #     Q = avoid_none(Q, self.Q)
+    #     # Compute next state
+    #     if B is not None:
+    #         control_input = matrix_vector_product(B, u)
+    #     else:
+    #         control_input = np.zeros(self.x.shape)
+    #     self.x = matrix_vector_product(F, self.x) + control_input
+    #     # Compute state covariance
+    #     self.P = matrix_matrix_product(matrix_matrix_product(self.F, self.P), transpose_tensor(F).conj()) + Q
+    #     # self.P = F.tensordot(self.P).tensordot(F.T.conj()) + Q
+    #
+    # def update(self, z, R=None, H=None):
+    #
+    #     R = avoid_none(R, self.R)
+    #     H = avoid_none(H, self.H)
+    #
+    #     # Innovation
+    #     y = self.innovation(z, H=H)
+    #     # Residual covariance
+    #     S = matrix_matrix_product(matrix_matrix_product(H, self.P), transpose_tensor(H).conj()) + R
+    #     # Kalman gain
+    #     K = matrix_matrix_product(matrix_matrix_product(self.P, transpose_tensor(H).conj()), special_inv(S))
+    #     # K = self.P.dot(H.T.conj()).dot(special_inv(S))
+    #     self.x = self.x + matrix_vector_product(K, y)
+    #     P_new = matrix_matrix_product((special_eye(self.P) - matrix_matrix_product(K, H)), self.P)
+    #     self.P = P_new
 
     def tofile(self, file):
         """
