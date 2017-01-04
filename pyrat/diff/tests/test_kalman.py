@@ -25,7 +25,7 @@ class TestKalman(unittest.TestCase):
         z = np.tile(np.zeros(noutputs),(npixels, nsteps,1,))
         x0 = np.tile(np.zeros(nstates),(npixels,1))
         Q = np.tile(np.eye(nstates),(npixels,1,1))
-        ka = KalmanFilter(F=F, H=np.eye(2), R=R, x0=x0, Q=Q)
+        ka = KalmanFilter(F=F, H=np.eye(2), R=R, x_0=x0, Q=Q)
         ka.predict()
         ka.update(z)
         self.assertEqual(Q.shape, ka.P.shape)

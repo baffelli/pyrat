@@ -16,7 +16,10 @@ def noise_fun(m, sigma):
     if np.isscalar(sigma):
         return m + np.random.randn(*m.shape) * np.sqrt(sigma)
     else:
-        return np.random.multivariate_normal(m, sigma)
+        if sigma.ndim == 2:#Same matrix for all pixels
+            return  m + np.random.multivariate_normal(np.zeros(sigma.shape[0]), sigma)
+        elif sigma.ndim == 3:#A different matrix for each pixel
+            return np.array([m[i] + np.random.multivariate_normal(np.zeros(sigma[i].shape[0]), sigma[i]) for i in range(sigma.shape[0])])
 
 
 def avoid_none(var, alternative_var):
@@ -208,7 +211,7 @@ def kalman_update_step(x_predicted, P_predicted, z, H, R):
     return x_updated, P_updated, K
 
 
-def kalman_smoothing_step(F, x_filtered, P_filtered, x_predicted, P_predicted, x_smooth, P_smooth)
+def kalman_smoothing_step(F, x_filtered, P_filtered, x_predicted, P_predicted, x_smooth, P_smooth):
     """
     Run kalman smoothing step to
     obtain posterior state distribution given all observations.
@@ -302,7 +305,8 @@ def filter(F, Q, H, R, x_0, P_0, z):
         F = pick_nth_step(F, t)
         H = pick_nth_step(H, t)
         z_cur = pick_nth_step(z, t, ndims=1)
-        x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_predicted[t], P_predicted[t], F, z_cur, H)  # update
+        x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_predicted[t], P_predicted[t], z_cur, H,
+                                                                R)  # update
     return x_predicted, P_predicted, K, x_filtered, P_filtered
 
 
@@ -390,7 +394,8 @@ def m_step_r(H, x_smooth, P_smooth, z):
 def m_step_q(F, x_smooth, P_smooth, L):
     """
     Use the EM algorithm to estimate the observation covariance matrix given smoothed states and transition matrices.
-    This part implements the M-step for the state transition covariance matrix.
+    This part implements the M-step for the state transition covariance matrix:
+
 
     Parameters
     ----------
@@ -421,6 +426,88 @@ def m_step_q(F, x_smooth, P_smooth, L):
         Q_est += tensor_outer(residuals) + P_transf + transpose_tensor(P_transf) + P_transf_1
     Q_est /= ntimesteps
     return Q_est
+
+
+def m_step_x0(x_smooth):
+    """
+    Uses the EM algorithm to estimate the initial state mean by maximizing the the log-likelihood of the observations given the means.
+    This function implements the M-step for the mean
+    Parameters
+    ----------
+    x_smooth : array-like
+        Smoothed posterior state mean given all observations
+
+    Returns
+    -------
+
+    """
+    return x_smooth[0]
+
+
+# def m_step_P_0(x_0, x_smooth, P_smooth):
+#     """
+#     Uses the EM algorithm to estimate the initial state covariance.
+#     This function performs the M-step:
+#     .. math::
+#
+#         \Sigma_0 = \mathbb{E}[x_0, x_0^T] - mu_0 \mathbb{E}[x_0]^T
+#                    - \mathbb{E}[x_0] mu_0^T + mu_0 mu_0^T
+#     Parameters
+#     ----------
+#     x_0 : array-like
+#         The initial state mean
+#     x_smooth :
+#         Smoothed posterior state mean given all observations
+#     P_smooth
+#          Smoothed posterior state covariance given all observations
+#     Returns
+#     -------
+#
+#     """
+
+def m_step_all(x_smooth, P_smooth, L, z, F=None, H=None, Q=None, R=None, x_0=None, P_0=None):
+    """
+    Calls the EM M step to estimate the variables that are set
+    to none in the Keyword arguments
+    Parameters
+    ----------
+    F : array-like
+        State transition
+    H
+    L
+    x_smooth
+    P_smooth
+    Q
+    R
+    x0
+    P_0
+
+    Returns
+    -------
+
+    """
+
+    if Q is None:
+        Q = m_step_q(F, x_smooth, P_smooth, L)
+    if R is None:
+        R = m_step_r(H, x_smooth, P_smooth, z)
+
+    return (F, H, Q, R, x_0, P_0)
+
+
+def check_shape_compatilibty(arrays_and_indices, default):
+    candidates = []
+    for array, dim in arrays_and_indices:
+        if array is not None:
+            candidates.append(np.array(array).shape[dim])
+    if default is not None:
+        candidates.append(default)
+    if len(candidates) == 0:
+        return 1
+    elif np.array_equal(candidates, candidates):
+        return candidates[0]
+    else:
+        raise ValueError('The shape of the provided arrays are not consistent')
 
 
 class LinearSystem:
@@ -471,7 +558,7 @@ class KalmanFilter:
     ----------
     F : array-like
         State transition matrix from :math:`t` to :math:`t+1`. Can be a sequence of matrices of length `ntimesteps` if the state
-        transition matrix varies over time. Shape must be `(ntimesteps, nmatrices, nstates, nstates)`
+        transition matrix varies over time. Shape must be `(ntimesteps, nmatrices, nstates, nstates)` or `(nmatrices, nstates, nstates)`
     Q :  array-like
         Transition covariance (model uncertainity) matrix for the system. Must have shape `(nmatrices, nstates, nstates)`
     H : array-like
@@ -484,53 +571,94 @@ class KalmanFilter:
         Initial state covariance at time 0
     """
 
-    def __init__(self, ninputs=0, F=None, B=None, H=None, R=None, Q=None, x0=None,
-                 P_0=None):
+    def __init__(self, F=None, H=None, R=None, Q=None, x_0=None,
+                 P_0=None, nstates=None, noutputs=None):
+        self.F = F
+        self.R = R
+        self.H = H
+        self.Q = Q
+        self.x_0 = x_0
+        self.P_0 = P_0
+        self._ns = nstates
+        self._no = noutputs
+        self._setdefaults()
 
-        # Determine state space size from last dimension of F
-        self.nstates = shape_or_default(F, -1)
-        self.ninputs = ninputs
-        # Determine the number of outpit from second to last dimension of H
-        self.noutputs = shape_or_default(H, -2)
 
-        # Initial state of filter
-        if x0 is not None:
-            self.x0 = np.array(x0)
-        else:
-            self.x0 = np.zeros(self.nstates)
+    def _setdefaults(self):
+        if self.F is None:
+            self.F = np.atleast_3d(np.eye(self.nstates))
 
-        # State transition
-        if F is not None:
-            self.F = np.array(F)
-        else:
-            self.F = np.eye(self.nstates)
-        # Control matrix
-        if B is not None:
-            self.B = np.array(B)
-        elif B is None:
-            self.B = np.zeros((self.nstates,)) if self.ninputs == 0 or self.ninputs == 1 else np.zeros(
-                (self.nstates, self.ninputs))
-        # Output
-        if H is not None:
-            self.H = np.array(H)
-        else:
-            self.H = np.eye((self.noutputs, self.nstates))
-        # System uncertainity
-        if Q is not None:
-            self.Q = np.array(Q)
-        else:
-            self.Q = np.eye(self.nstates)
-        # Measureement covariance
-        if R is not None:
-            self.R = np.array(R)
-        else:
-            self.R = np.eye(self.noutputs)
+        if self.H is None:
+            self.H = np.atleast_3d(np.eye(self.noutputs, self.nstates))
+        if self.R is None:
+            self.R = np.atleast_3d(np.eye(self.noutputs))
+        if self.Q is None:
+            self.Q = np.atleast_3d(np.eye(self.nstates, self.nstates))
+        if self.x_0 is None:
+            self.x_0 = np.atleast_2d(np.zeros(self.nstates))
+        if self.P_0 is None:
+            self.P_0 = np.atleast_3d(np.eye(self.nstates))
 
-        # State estimate covariance
-        if P_0 is not None:
-            self.P_0 = np.array(P_0)
-        else:
-            self.P_0 = np.eye(self.nstates)
+
+
+    @property
+    def nstates(self):
+        return check_shape_compatilibty(
+            (
+                (self.F, -1),
+                (self.H, -2),
+                (self.Q, -1),
+                (self.x_0, -1),
+                (self.P_0, -1)
+            ), self._ns
+        )
+
+    @property
+    def noutputs(self):
+        return check_shape_compatilibty(
+            (
+                (self.H, -1),
+                (self.R, -1),
+            ), self._no
+        )
+
+    def sample(self, ntimesteps, x_0=None):
+        """
+        Sample a sequence of observations :math:`y` and states :math:`x` betewen 0 and `ntimesteps`
+
+        Parameters
+        ----------
+        ntimesteps : integer
+            The number of steps to sample
+        x_0 : optional
+            Initial state. If not selected, the state is generated using the filters initial state
+            mean and covariance
+
+        Returns
+        -------
+            observations : array-like
+                The observations
+            states : array-like
+                The sequence of states
+
+        """
+        # states = np.zeros(fnma)
+
+        states = []
+        outputs = []
+        if x_0 is None:
+            x_0 = noise_fun(self.x_0, self.P_0)
+        for t in range(ntimesteps):
+            if t == 0:
+                states.append(x_0)
+            else:
+                F = pick_nth_step(self.F, t-1, ndims=2)
+                Q = pick_nth_step(self.Q, t - 1, ndims=2)
+                R = pick_nth_step(self.R, t-1, ndims=2)
+                H = pick_nth_step(self.H, t - 1, ndims=2)
+                states.append(noise_fun(matrix_vector_product(F, states[t-1]), Q))
+                outputs.append(noise_fun(matrix_vector_product(H, states[t]), R ))
+        return states, outputs
 
     def filter(self, observations):
         """
@@ -571,65 +699,40 @@ class KalmanFilter:
         """
         (x_predicted, P_predicted, K, x_filtered, P_filtered) = self.filter(observations)
         (x_smooth, P_smooth, L) = smooth(self.F, x_predicted, P_predicted, x_filtered, P_filtered, observations)
-        return x_smooth, P_smooth
+        return x_smooth, P_smooth, L
 
-    # def em_observation_covariance(self, observations, transition_matrices):
-    #     ntimesteps, nmatrices = get_observations_shape(observations)
-    #     for t in range(ntimesteps):
-    #         F = pick_nth_step(transition_matrices, t)
-    #
-    # def output(self, H=None):
-    #     # System output
-    #     H = avoid_none(H, self.H)
-    #     return matrix_vector_product(H, self.x)
-    #
-    # def innovation(self, z, H=None):
-    #     # Residual: measurement - output
-    #     H = avoid_none(H, self.H)
-    #     return z - self.output(H=H)
-    #
-    # def predict(self, u=0, F=None, B=None, Q=None):
-    #     """
-    #     Predict next filter state and its covariance
-    #     Parameters
-    #     ----------
-    #     u
-    #     F
-    #     B
-    #     Q
-    #
-    #     Returns
-    #     -------
-    #
-    #     """
-    #     # B = avoid_none(B, self.B)
-    #     F = avoid_none(F, self.F)
-    #     Q = avoid_none(Q, self.Q)
-    #     # Compute next state
-    #     if B is not None:
-    #         control_input = matrix_vector_product(B, u)
-    #     else:
-    #         control_input = np.zeros(self.x.shape)
-    #     self.x = matrix_vector_product(F, self.x) + control_input
-    #     # Compute state covariance
-    #     self.P = matrix_matrix_product(matrix_matrix_product(self.F, self.P), transpose_tensor(F).conj()) + Q
-    #     # self.P = F.tensordot(self.P).tensordot(F.T.conj()) + Q
-    #
-    # def update(self, z, R=None, H=None):
-    #
-    #     R = avoid_none(R, self.R)
-    #     H = avoid_none(H, self.H)
-    #
-    #     # Innovation
-    #     y = self.innovation(z, H=H)
-    #     # Residual covariance
-    #     S = matrix_matrix_product(matrix_matrix_product(H, self.P), transpose_tensor(H).conj()) + R
-    #     # Kalman gain
-    #     K = matrix_matrix_product(matrix_matrix_product(self.P, transpose_tensor(H).conj()), special_inv(S))
-    #     # K = self.P.dot(H.T.conj()).dot(special_inv(S))
-    #     self.x = self.x + matrix_vector_product(K, y)
-    #     P_new = matrix_matrix_product((special_eye(self.P) - matrix_matrix_product(K, H)), self.P)
-    #     self.P = P_new
+    def EM(self, observations, EM_variables=['R', 'Q'], niter=10):
+        """
+        Estimate filter parameters using the EM algorithm.
+
+        Parameters
+        ----------
+        observations : array-like
+            Observations between 0 and `ntimesteps - 1`. Can have either shape `(ntimesteps, noutputs)` or `(ntimesteps, nmatrices, noutputs)` if\
+             the filter is to be run on multiple matrices simultaneously.
+        variables : iterable of strings
+            The EM algorithm is only run for the variable specified in 'variables'
+
+        Returns
+        -------
+            KalmanFilter : KalmanFilter
+                object with the parameters set in `variable` estimated using `observations`
+
+        """
+        # Determine which variables are to be estimated
+        all_vars = {'F': self.F, 'H': self.H, 'Q': self.Q, 'R': self.R,
+                    'x_0': self.x_0, 'P_0': self.P_0
+                    }
+        for variable in EM_variables:
+            if variable in all_vars:
+                all_vars[variable] = None
+        # Iterate EM
+        for i in range(niter):
+            # Smooth
+            x_smooth, P_smooth, L = self.smooth(observations)
+
+            # M-step
+            (self.F, self.H, self.Q, self.R, self.x_0, self.P_0) = m_step_all(x_smooth, P_smooth, L, **all_vars)
 
     def tofile(self, file):
         """
@@ -659,108 +762,108 @@ class KalmanFilter:
         with open(file, 'rb') as fp:
             return pickle.load(fp)
 
-    @property
-    def F(self):
-        return self._F
-
-    @F.setter
-    def F(self, value):
-        if np.isscalar(value) and self.nstates == 1:
-            self._F = value
-        elif value.shape[-2] == value.shape[-1] == self.nstates:
-            self._F = value
-        else:
-            raise Exception("F is not of shape {}X{} or scalar".format(self.nstates, self.nstates))
-
-    @property
-    def B(self):
-        return self._B
-
-    @B.setter
-    def B(self, value):
-        if np.isscalar(value) and self.nstates == 1:
-            self._B = value
-        elif value.shape[-1] == self.nstates and self.ninputs < 2:
-            self._B = value
-        elif value.shape[-1] == self.nstates and value.ndim > 1 and value.shape[-1] == self.ninputs:
-            self._B = value
-        else:
-            raise Exception("B is not of shape {}X{} or scalar".format(self.nstates, self.ninputs))
-
-    @property
-    def H(self):
-        return self._H
-
-    @H.setter
-    def H(self, value):
-        if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
-            self._H = value
-        elif value.shape[-1] == self.nstates and self.noutputs == 1:
-            self._H = value
-        elif value.shape[-2] == self.noutputs and value.shape[-1] == self.nstates:
-            self._H = value
-        else:
-            raise Exception("H is not of shape {}X{} or scalar".format(self.noutputs, self.nstates))
-
-    @property
-    def P(self):
-        return self._P
-
-    @P.setter
-    def P(self, value):
-        if np.isscalar(value) and self.nstates == 1:
-            self._P = value
-        elif value.shape[-2] == value.shape[-1] == self.nstates:
-            try:  # only accept positive definite matrices
-                isPSD(value)
-            except np.linalg.LinAlgError:
-                raise np.linalg.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
-            self._P = value
-        else:
-            raise np.linalg.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
-
-    @property
-    def Q(self):
-        return self._Q
-
-    @Q.setter
-    def Q(self, value):
-        if np.isscalar(value) and self.nstates == 1:
-            self._Q = value
-        elif value.shape[-2] == value.shape[-1] == self.nstates:
-            try:  # only accept positive definite matrices
-                isPSD(value)
-            except np.linalg.LinAlgError:
-                raise np.linalg.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
-            self._Q = value
-        else:
-            raise np.linalg.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
-
-    @property
-    def R(self):
-        return self._R
-
-    @R.setter
-    def R(self, value):
-        if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
-            self._Q = value
-        elif value.shape[-2] == self.noutputs and self.noutputs == 1:
-            self._Q = value
-        elif value.shape[-2] == self.noutputs and value.shape[-1] == self.noutputs and self.noutputs > 1:
-            try:  # only accept positive definite matrices
-                isPSD(value)
-            except np.linalg.LinAlgError:
-                raise np.linalg.LinAlgError("R is not positive definite, cannot be used as a state covariance matrix")
-            self._R = value
-        else:
-            raise TypeError("R is not of shape {}X{} or scalar".format(self.noutputs, self.noutputs))
-
-    @property
-    def x0(self):
-        return self._x0
-
-    @x0.setter
-    def x0(self, value):
-        if np.isscalar(value) and self.nstates == 1 or \
-                        value.shape[-1] == self.nstates:
-            self._x0 = value
+            # @property
+            # def F(self):
+            #     return self._F
+            #
+            # @F.setter
+            # def F(self, value):
+            #     if np.isscalar(value) and self.nstates == 1:
+            #         self._F = value
+            #     elif value.shape[-2] == value.shape[-1] == self.nstates:
+            #         self._F = value
+            #     else:
+            #         raise Exception("F is not of shape {}X{} or scalar".format(self.nstates, self.nstates))
+            #
+            # @property
+            # def B(self):
+            #     return self._B
+            #
+            # @B.setter
+            # def B(self, value):
+            #     if np.isscalar(value) and self.nstates == 1:
+            #         self._B = value
+            #     elif value.shape[-1] == self.nstates and self.ninputs < 2:
+            #         self._B = value
+            #     elif value.shape[-1] == self.nstates and value.ndim > 1 and value.shape[-1] == self.ninputs:
+            #         self._B = value
+            #     else:
+            #         raise Exception("B is not of shape {}X{} or scalar".format(self.nstates, self.ninputs))
+            #
+            # @property
+            # def H(self):
+            #     return self._H
+            #
+            # @H.setter
+            # def H(self, value):
+            #     if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
+            #         self._H = value
+            #     elif value.shape[-1] == self.nstates and self.noutputs == 1:
+            #         self._H = value
+            #     elif value.shape[-2] == self.noutputs and value.shape[-1] == self.nstates:
+            #         self._H = value
+            #     else:
+            #         raise Exception("H is not of shape {}X{} or scalar".format(self.noutputs, self.nstates))
+            #
+            # @property
+            # def P_0(self):
+            #     return self._P
+            #
+            # @P_0.setter
+            # def P_0(self, value):
+            #     if np.isscalar(value) and self.nstates == 1:
+            #         self._P = value
+            #     elif value.shape[-2] == value.shape[-1] == self.nstates:
+            #         try:  # only accept positive definite matrices
+            #             isPSD(value)
+            #         except np.linalg.LinAlgError:
+            #             raise np.linalg.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
+            #         self._P = value
+            #     else:
+            #         raise np.linalg.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
+            #
+            # @property
+            # def Q(self):
+            #     return self._Q
+            #
+            # @Q.setter
+            # def Q(self, value):
+            #     if np.isscalar(value) and self.nstates == 1:
+            #         self._Q = value
+            #     elif value.shape[-2] == value.shape[-1] == self.nstates:
+            #         try:  # only accept positive definite matrices
+            #             isPSD(value)
+            #         except np.linalg.LinAlgError:
+            #             raise np.linalg.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
+            #         self._Q = value
+            #     else:
+            #         raise np.linalg.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
+            #
+            # @property
+            # def R(self):
+            #     return self._R
+            #
+            # @R.setter
+            # def R(self, value):
+            #     if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
+            #         self._Q = value
+            #     elif value.shape[-2] == self.noutputs and self.noutputs == 1:
+            #         self._Q = value
+            #     elif value.shape[-2] == self.noutputs and value.shape[-1] == self.noutputs and self.noutputs > 1:
+            #         try:  # only accept positive definite matrices
+            #             isPSD(value)
+            #         except np.linalg.LinAlgError:
+            #             raise np.linalg.LinAlgError("R is not positive definite, cannot be used as a state covariance matrix")
+            #         self._R = value
+            #     else:
+            #         raise TypeError("R is not of shape {}X{} or scalar".format(self.noutputs, self.noutputs))
+            #
+            # @property
+            # def x_0(self):
+            #     return self._x0
+            #
+            # @x_0.setter
+            # def x_0(self, value):
+            #     if np.isscalar(value) and self.nstates == 1 or \
+            #                     value.shape[-1] == self.nstates:
+            #         self._x0 = value
