@@ -5,6 +5,10 @@ import pickle
 import numpy as np
 
 
+def plot_state_and_variance(ax,t, x,P,**kwargs):
+    ax.plot(t, x)
+    ax.fill_between(t, x-P/2, x+P/2, facecolor='gray')
+
 def special_inv(M):
     if np.isscalar(M):
         return 1 / M
@@ -359,11 +363,14 @@ def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
                                                                P_predicted[t + 1], x_smooth[t + 1], P_smooth[t + 1])
     return x_smooth, P_smooth, L
 
+#Here we have the M (maximization steps) to estimate the various system parameters,
+#As described in  "D. Barber, “Bayesian Reasoning and Machine Learning,” Mach. Learn., p. 646, 2011.
 
 def m_step_r(H, x_smooth, P_smooth, z):
     """
-    Use the EM algorithm to estimate the observation covariance matrix given smoothed states and transition matrices.
-    This part implements the M-step for the measurement covariance matrix.
+
+    M step of the EM algorithm to estimate :math:`\mathbf{R}`, the data covariance matrix.
+
 
     Parameters
     -------
@@ -377,7 +384,16 @@ def m_step_r(H, x_smooth, P_smooth, z):
     Returns
     -------
     R_est : array-like
-        Estimate observation covariance matrix
+        Estimate observation covariance matrix after the M-step
+
+    Notes
+    -----
+    This part implements the M-step for the measurement covariance matrix,called :math:`\mathbf{\Sigma_{v}}` in [1]_, eq 24.5.13  :
+
+
+    References
+    ----------
+    .. [1] D. Barber, “Bayesian Reasoning and Machine Learning,” Mach. Learn., p. 646, 2011.
 
     """
     ntimesteps, nmatrices = get_observations_shape(z)

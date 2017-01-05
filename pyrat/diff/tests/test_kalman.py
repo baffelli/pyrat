@@ -22,6 +22,8 @@ class TestKalman(unittest.TestCase):
         nsamples = 1000
         self.z, self.x_sampled = self.reference_filter.sample(nsamples,self.x_0, seed=self.seed)
 
+
+
     def testMatrixVectorProduct(self):
         """
         Test if the tensor matrix-vector multiplication
@@ -40,6 +42,7 @@ class TestKalman(unittest.TestCase):
     def testSampling(self):
         #Geenrate samples with another seed
         states, observations = self.reference_filter.sample(1000, x_0=self.x_0, seed=24)
+        t = np.arange(observations.shape[0])
         #Plot them to check
         f, (x_ax, v_ax) = plt.subplots(2, 1, sharex=True)
         x_ax.plot(states[:, 0, 0])
@@ -49,24 +52,30 @@ class TestKalman(unittest.TestCase):
         v_ax.xaxis.set_label_text('sample index')
         plt.show()
 
+    def testRealData(self):
+        Z =
+
 
     def testEMR(self):
 
 
         #Smooth
         x_s, P_s, L = self.reference_filter.smooth(self.z)
+        t = np.arange(x_s.shape[0])
 
         #Plot observations
         f, (x_ax, v_ax) = plt.subplots(2, 1, sharex=True)
         x_ax.plot(self.z[:, 0, 0])
+        ka.plot_state_and_variance(x_ax, t, x_s[:, 0, 0], P_s[:, 0, 0, 0])
         x_ax.plot(x_s[:, 0, 0])
         v_ax.plot(self.z[:, 0, 1])
-        v_ax.plot(x_s[:, 0, 1])
+        ka.plot_state_and_variance(v_ax, t, x_s[:, 0, 1], P_s[:, 0, 1, 1])
         plt.show()
         # Setup second filter with unknown matrices R and Q
-        em_filt = ka.KalmanFilter(F=self.uniform_data.F, H=self.uniform_data.H)
+        Q = np.eye(2) * 1e-4
+        em_filt = ka.KalmanFilter(F=self.uniform_data.F, H=self.uniform_data.H, Q=Q)
         # Run EM
-        em_filt.EM(self.z, ['R', 'Q'], niter=30)
+        em_filt.EM(self.z[0:50], ['R'], niter=20)
         print(em_filt.R)
 
     def testVectorFilter(self):
