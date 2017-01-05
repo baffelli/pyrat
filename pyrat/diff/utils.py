@@ -53,6 +53,7 @@ class ListOfDates():
             String to describe the parsing format, as used by datetime.datetime.strptime
 
         """
+        print(type(dates))
         self.dates = [_dt.datetime.strptime(x, date_format) for x in dates]
 
     def select_date_range(self, start_date, end_date):
