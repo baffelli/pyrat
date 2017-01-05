@@ -12,14 +12,18 @@ def special_inv(M):
         return np.linalg.inv(M)
 
 
-def noise_fun(m, sigma):
-    if np.isscalar(sigma):
-        return m + np.random.randn(*m.shape) * np.sqrt(sigma)
+def noise_fun(m, sigma, prng=None):
+    #Allows to use an external prngs
+    if prng is None:
+        fun = np.random
     else:
-        if sigma.ndim == 2:#Same matrix for all pixels
-            return  m + np.random.multivariate_normal(np.zeros(sigma.shape[0]), sigma)
-        elif sigma.ndim == 3:#A different matrix for each pixel
-            return np.array([m[i] + np.random.multivariate_normal(np.zeros(sigma[i].shape[0]), sigma[i]) for i in range(sigma.shape[0])])
+        fun = prng
+    if sigma.ndim == 1:#Scalar
+        m + fun.randn(*m.shape) * np.sqrt(sigma)
+    elif sigma.ndim == 2:#Same matrix for all pixels
+        return  m + fun.multivariate_normal(np.zeros(sigma.shape[0]), sigma)
+    elif sigma.ndim == 3:#A different matrix for each pixel
+        return np.array([m[i] + fun.multivariate_normal(np.zeros(sigma[i].shape[0]), sigma[i]) for i in range(sigma.shape[0])])
 
 
 def avoid_none(var, alternative_var):
@@ -243,8 +247,8 @@ def kalman_smoothing_step(F, x_filtered, P_filtered, x_predicted, P_predicted, x
         Kalman smoothing gain at time t, ordered as `(nmatrices,nstates,nstates)`
     """
     # "Kalman-like matrix to include predicted"
-    L = matrix_matrix_product(P_filtered, transpose_tensor(F), special_inv(P_predicted))
-    x_smooth = x_filtered + matrix_matrix_product(L, (x_smooth - x_predicted))
+    L = matrix_matrix_product(matrix_matrix_product(P_filtered, transpose_tensor(F)), special_inv(P_predicted))
+    x_smooth = x_filtered + matrix_vector_product(L, (x_smooth - x_predicted))
     P_smooth = P_filtered + matrix_matrix_product(matrix_matrix_product(L, (P_smooth - P_predicted)),
                                                   transpose_tensor(L))
     return x_smooth, P_smooth, L
@@ -347,6 +351,7 @@ def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
     # set mean and covariance at the end to the  forward filtered data to start the smoother
     x_smooth[-1] = x_filtered[-1]
     P_smooth[-1] = P_filtered[-1]
+
     # Run the smoother backwards
     for t in reversed(range(ntimesteps - 1)):
         F = pick_nth_step(F, t)
@@ -382,12 +387,12 @@ def m_step_r(H, x_smooth, P_smooth, z):
     for t in range(ntimesteps):
         H = pick_nth_step(H, t)
         z_cur = pick_nth_step(z, t, ndims=1)
-        x_cur = pick_nth_step(x_smooth)
-        P_cur = pick_nth_step(P_smooth)
+        x_cur = pick_nth_step(x_smooth, t, ndims=1)
+        P_cur = pick_nth_step(P_smooth, t)
         residuals = (z_cur - matrix_vector_product(H, x_cur))
         R = tensor_outer(residuals)  # residual covariance
-        H_prime = matrix_matrix_product(H, matrix_matrix_product(P_cur), transpose_tensor(H))
-        R_est += R + H_prime
+        H_prime = matrix_matrix_product(H, matrix_matrix_product(P_cur, transpose_tensor(H)))
+        R_est += (R + H_prime)
     return R_est / ntimesteps
 
 
@@ -572,7 +577,7 @@ class KalmanFilter:
     """
 
     def __init__(self, F=None, H=None, R=None, Q=None, x_0=None,
-                 P_0=None, nstates=None, noutputs=None):
+                 P_0=None, nstates=None, noutputs=None, ):
         self.F = F
         self.R = R
         self.H = H
@@ -586,18 +591,17 @@ class KalmanFilter:
 
     def _setdefaults(self):
         if self.F is None:
-            self.F = np.atleast_3d(np.eye(self.nstates))
-
+            self.F = np.array(np.eye(self.nstates), ndmin=3)
         if self.H is None:
-            self.H = np.atleast_3d(np.eye(self.noutputs, self.nstates))
+            self.H = np.array(np.eye(self.noutputs, self.nstates), ndmin=3)
         if self.R is None:
-            self.R = np.atleast_3d(np.eye(self.noutputs))
+            self.R = np.array(np.eye(self.noutputs), ndmin=3)
         if self.Q is None:
-            self.Q = np.atleast_3d(np.eye(self.nstates, self.nstates))
+            self.Q = np.array(np.eye(self.nstates, self.nstates), ndmin=3)
         if self.x_0 is None:
-            self.x_0 = np.atleast_2d(np.zeros(self.nstates))
+            self.x_0 = np.array(np.zeros(self.nstates), ndmin=3)
         if self.P_0 is None:
-            self.P_0 = np.atleast_3d(np.eye(self.nstates))
+            self.P_0 = np.array(np.eye(self.nstates), ndmin=3)
 
 
 
@@ -622,7 +626,7 @@ class KalmanFilter:
             ), self._no
         )
 
-    def sample(self, ntimesteps, x_0=None):
+    def sample(self, ntimesteps, x_0=None, seed=None):
         """
         Sample a sequence of observations :math:`y` and states :math:`x` betewen 0 and `ntimesteps`
 
@@ -644,21 +648,25 @@ class KalmanFilter:
         """
         # states = np.zeros(fnma)
 
+        #set random state
+        if seed is not None:
+            prng = np.random.RandomState(seed)
+
         states = []
         outputs = []
         if x_0 is None:
             x_0 = noise_fun(self.x_0, self.P_0)
         for t in range(ntimesteps):
             if t == 0:
-                states.append(x_0)
+                states.append(np.array(x_0,ndmin=2))#ndmin to ensure that the initial state has the form 'nmat x nstates'
             else:
-                F = pick_nth_step(self.F, t-1, ndims=2)
+                F = pick_nth_step(self.F, t - 1, ndims=2)
                 Q = pick_nth_step(self.Q, t - 1, ndims=2)
-                R = pick_nth_step(self.R, t-1, ndims=2)
+                R = pick_nth_step(self.R, t - 1, ndims=2)
                 H = pick_nth_step(self.H, t - 1, ndims=2)
-                states.append(noise_fun(matrix_vector_product(F, states[t-1]), Q))
-                outputs.append(noise_fun(matrix_vector_product(H, states[t]), R ))
-        return states, outputs
+                states.append(noise_fun(matrix_vector_product(F, states[t-1]), Q,  prng=prng))
+                outputs.append(noise_fun(matrix_vector_product(H, states[t]), R,  prng=prng))
+        return np.array(states), np.array(outputs)
 
     def filter(self, observations):
         """
@@ -697,7 +705,7 @@ class KalmanFilter:
         -------
 
         """
-        (x_predicted, P_predicted, K, x_filtered, P_filtered) = self.filter(observations)
+        (x_predicted, P_predicted, K, x_filtered, P_filtered) = filter(self.F, self.Q, self.H, self.R, self.x_0, self.P_0, observations)
         (x_smooth, P_smooth, L) = smooth(self.F, x_predicted, P_predicted, x_filtered, P_filtered, observations)
         return x_smooth, P_smooth, L
 
@@ -732,7 +740,7 @@ class KalmanFilter:
             x_smooth, P_smooth, L = self.smooth(observations)
 
             # M-step
-            (self.F, self.H, self.Q, self.R, self.x_0, self.P_0) = m_step_all(x_smooth, P_smooth, L, **all_vars)
+            (self.F, self.H, self.Q, self.R, self.x_0, self.P_0) = m_step_all(x_smooth, P_smooth, L, observations, **all_vars)
 
     def tofile(self, file):
         """
