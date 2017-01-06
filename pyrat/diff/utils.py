@@ -40,7 +40,7 @@ class ListOfDates():
             String to describe the parsing format, as used by datetime.datetime.strptime
 
         """
-        self.dates = [_dt.datetime.strptime(x, date_format) for x in dates]
+        self.dates = sorted([_dt.datetime.strptime(x, date_format) for x in dates])
         self.format = date_format
 
     def select_date_range(self, start_date, end_date):
@@ -173,15 +173,17 @@ class StackHelper:
         """
         #Get all dates between the specified dates
         dates = self.all_dates.select_date_range(wildcards[start_str], wildcards[stop_str])
-        print(dates)
         n_slc = len(dates)
         itab = Itab(n_slc, **kwargs)
         wc = dict(wildcards)
+        strings = []
         for master, slave, *rest in itab:
-            wc[start_str] = dates[master]
-            wc[stop_str] = dates[slave]
+            wc[start_str] = dates[master - 1]
+            wc[stop_str] = dates[slave - 1]
             strings.append(pattern.format(**wc))
+        print(strings)
         return strings
+
     def nearest_n(self, wilcards, pattern, index='i', start_str='start_dt'):
         """
         Return a list of strings formatted according to the pattern `pattern` with all entries`{start_str}`
@@ -245,11 +247,10 @@ class Itab:
 
     def __init__(self, n_slc, stride=1, window=None, step=1, n_ref=0, **kwargs):
         self.tab = []
-        # self.n_slc = n_slc
         # The increment of the master slc
         self.stride = stride
         # The maximum number of steps between each master and slave
-        self.window = window or 0
+        self.window = 1 or window
         # The increment of the slave slc for every iteration
         self.step = step
         # the reference slc number
@@ -271,7 +272,7 @@ class Itab:
                 self.tab.append(line)
 
     def __iter__(self):
-        return self.tab
+        return self
 
     def __next__(self):
         try:
