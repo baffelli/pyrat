@@ -1,3 +1,5 @@
+import pyrat.diff.utils
+
 from ..fileutils import gpri_files as gpf
 
 import scipy as _sp
@@ -63,7 +65,7 @@ class Stack:
         sorting_key = lambda x: (x.master_time, x.slave_time)
         stack = sorted(stack, key=sorting_key )
         self.stack  = stack#the stack
-        self.itab = intfun.Itab.fromfile(itab)#the corresponding itab file
+        self.itab = pyrat.diff.utils.Itab.fromfile(itab)#the corresponding itab file
         self.slc_tab = sorted(mli_pars, key=lambda x: [(x.date, x.start_time)])
 
     @property
