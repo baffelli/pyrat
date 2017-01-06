@@ -181,31 +181,29 @@ class StackHelper:
             wc[start_str] = dates[master - 1]
             wc[stop_str] = dates[slave - 1]
             strings.append(pattern.format(**wc))
-        print(strings)
         return strings
 
-    def nearest_n(self, wilcards, pattern, index='i', start_str='start_dt'):
-        """
-        Return a list of strings formatted according to the pattern `pattern` with all entries`{start_str}`
-        substituted with the `index` dates before `wildcards[`start_dt`]`.
 
-        Parameters
-        ----------
-        wildcards : :obj:`snakemake.wilcards`
-            Dictionary of snakemake wildcards
-        pattern : :obj:`str`
-            The pattern to format, in the `format` format `{}{}`. It must contain
-            `{start_str}` somewhere
-
-        Returns
-        -------
-        :obj:`list` of :obj:`str`
-
-        """
-        start_dt_list = self.all_dates.select_n_dates(wildcards[start_str], 1)
+    def next_stack_dates(self, wildcards, pattern, start_str='start_dt', stop_str='stop_dt' ,index='i',**kwargs):
+        itab = Itab(kwargs.pop('nstack'), **kwargs)
+        #select next starting slc
+        start_dt_list = self.all_dates.select_n_dates( wildcards[start_str], int(wildcards[index]))
+        start_dt = start_dt_list[-1]
+        #maxmium window length gives the last slc
+        last_slc_index = _np.max(_np.array(itab.tab)[:, 0:2]) + 1
+        #find the last slc
+        stop_dt =  self.all_dates.select_n_dates(start_dt, last_slc_index)[-1]
+        #now select range
+        valid_dates = self.all_dates.select_date_range(start_dt, stop_dt)
         wc = dict(wildcards)
-        wc[start_str] = start_dt_list[0]
-        return pattern.format(**wc)
+        strings = []
+        for master, slave, *rest in itab:
+            wc[start_str] = valid_dates[master - 1]
+            wc[stop_str] = valid_dates[slave - 1]
+            strings.append(pattern.format(**wc))
+        return strings
+
+
 
 
         #
@@ -246,6 +244,7 @@ class Itab:
     """
 
     def __init__(self, n_slc, stride=1, window=None, step=1, n_ref=0, **kwargs):
+        self.n_slc = n_slc
         self.tab = []
         # The increment of the master slc
         self.stride = stride
@@ -256,7 +255,7 @@ class Itab:
         # the reference slc number
         self.n_ref = 0
         # itab line counter
-        self.counter = 1
+        self.counter = 0
         self.it_counter = 0
         # Logic to select the list of reference slcs
         if stride == 0:  # if the master is not changing
@@ -300,8 +299,8 @@ class Itab:
 
     def to_incidence_matrix(self):
         n_slc = self.n_slc
-        A = _np.zeros((len(self.tab), n_slc + 1))
-        for idx_master, idx_slave, idx_itab, *rest in self.tab:
-            A[idx_itab - 1, idx_master] = 1
-            A[idx_itab - 1, idx_slave] = -1
+        A = _np.zeros((len(self.tab), n_slc))
+        for idx_master, idx_slave, idx_itab, *rest in self:
+            A[idx_itab - 1, idx_master -1] = 1
+            A[idx_itab - 1, idx_slave - 1] = -1
         return A

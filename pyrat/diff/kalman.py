@@ -104,8 +104,8 @@ def shape_or_default(arr, index):
 
 def get_observations_shape(observations):
     if observations.ndim == 2:
-        return 1, observations.shape[0]
-    else:
+        return observations.shape[0], 1
+    elif observations.ndim == 3:
         return observations.shape[0], observations.shape[1]
 
 
@@ -210,6 +210,7 @@ def kalman_update_step(x_predicted, P_predicted, z, H, R):
     """
     # Innovation
     y = z - matrix_vector_product(H, x_predicted)
+
     # Residual covariance
     S = matrix_matrix_product(matrix_matrix_product(H, P_predicted), transpose_tensor(H).conj()) + R
     # Kalman gain
@@ -303,17 +304,22 @@ def filter(F, Q, H, R, x_0, P_0, z):
     x_filtered = x_predicted * 0
     P_filtered = P_predicted * 0
     for t in range(ntimesteps):
-        if t == 0:
-            x_predicted[0, :, :] = x_0
-            P_predicted[0, :, :] = P_0
-        else:
-            x_predicted[t], P_predicted[t] = kalman_prediction_step(F, x_filtered[t - 1], P_filtered[t - 1],
-                                                                    Q)  # predict
 
         F = pick_nth_step(F, t)
         H = pick_nth_step(H, t)
         z_cur = pick_nth_step(z, t, ndims=1)
-        x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_predicted[t], P_predicted[t], z_cur, H,
+        if t == 0:
+            x_predicted[0, :, :] = x_0
+            P_predicted[0, :, :] = P_0
+        else:
+            pass
+        P_filt = pick_nth_step(P_filtered, t - 1, ndims=2)
+        x_filt = pick_nth_step(x_filtered, t - 1, ndims=1)
+        x_predicted[t], P_predicted[t] = kalman_prediction_step(F, x_filt, P_filt,
+                                                                Q)  # predict
+        P_pred = pick_nth_step(P_predicted, t, ndims=2)
+        x_pred = pick_nth_step(x_predicted, t, ndims=1)
+        x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_pred, P_pred, z_cur, H,
                                                                 R)  # update
     return x_predicted, P_predicted, K, x_filtered, P_filtered
 
@@ -585,7 +591,7 @@ class KalmanFilter:
     H : array-like
         Observation matrix to compute observation from state at time :math:`t`. Must have shapes `(ntimesteps, nmatrices, noutputs, nstates)` or `(nmatrices, noutputs, nstates)` .
     R :  array-like
-        Observation covariance matrix. Must be an array of shape `(nmatrices, noutputs, noutputs)`
+        Observation covariance matrix. Must be an array of shape `(ntimesteps, nmatrices, noutputs, noutputs)` or  `(nmatrices, noutputs, noutputs)`
     x0 :  array-like optional
         Initial state mean at time 0
     P : array-like
@@ -641,6 +647,7 @@ class KalmanFilter:
                 (self.R, -1),
             ), self._no
         )
+
 
     def sample(self, ntimesteps, x_0=None, seed=None):
         """
@@ -786,108 +793,3 @@ class KalmanFilter:
         with open(file, 'rb') as fp:
             return pickle.load(fp)
 
-            # @property
-            # def F(self):
-            #     return self._F
-            #
-            # @F.setter
-            # def F(self, value):
-            #     if np.isscalar(value) and self.nstates == 1:
-            #         self._F = value
-            #     elif value.shape[-2] == value.shape[-1] == self.nstates:
-            #         self._F = value
-            #     else:
-            #         raise Exception("F is not of shape {}X{} or scalar".format(self.nstates, self.nstates))
-            #
-            # @property
-            # def B(self):
-            #     return self._B
-            #
-            # @B.setter
-            # def B(self, value):
-            #     if np.isscalar(value) and self.nstates == 1:
-            #         self._B = value
-            #     elif value.shape[-1] == self.nstates and self.ninputs < 2:
-            #         self._B = value
-            #     elif value.shape[-1] == self.nstates and value.ndim > 1 and value.shape[-1] == self.ninputs:
-            #         self._B = value
-            #     else:
-            #         raise Exception("B is not of shape {}X{} or scalar".format(self.nstates, self.ninputs))
-            #
-            # @property
-            # def H(self):
-            #     return self._H
-            #
-            # @H.setter
-            # def H(self, value):
-            #     if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
-            #         self._H = value
-            #     elif value.shape[-1] == self.nstates and self.noutputs == 1:
-            #         self._H = value
-            #     elif value.shape[-2] == self.noutputs and value.shape[-1] == self.nstates:
-            #         self._H = value
-            #     else:
-            #         raise Exception("H is not of shape {}X{} or scalar".format(self.noutputs, self.nstates))
-            #
-            # @property
-            # def P_0(self):
-            #     return self._P
-            #
-            # @P_0.setter
-            # def P_0(self, value):
-            #     if np.isscalar(value) and self.nstates == 1:
-            #         self._P = value
-            #     elif value.shape[-2] == value.shape[-1] == self.nstates:
-            #         try:  # only accept positive definite matrices
-            #             isPSD(value)
-            #         except np.linalg.LinAlgError:
-            #             raise np.linalg.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
-            #         self._P = value
-            #     else:
-            #         raise np.linalg.LinAlgError("P is not positive definite, cannot be used as a prior covariance matrix")
-            #
-            # @property
-            # def Q(self):
-            #     return self._Q
-            #
-            # @Q.setter
-            # def Q(self, value):
-            #     if np.isscalar(value) and self.nstates == 1:
-            #         self._Q = value
-            #     elif value.shape[-2] == value.shape[-1] == self.nstates:
-            #         try:  # only accept positive definite matrices
-            #             isPSD(value)
-            #         except np.linalg.LinAlgError:
-            #             raise np.linalg.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
-            #         self._Q = value
-            #     else:
-            #         raise np.linalg.LinAlgError("Q is not positive definite, cannot be used as a state covariance matrix")
-            #
-            # @property
-            # def R(self):
-            #     return self._R
-            #
-            # @R.setter
-            # def R(self, value):
-            #     if np.isscalar(value) and self.nstates == 1 and self.noutputs == 1:
-            #         self._Q = value
-            #     elif value.shape[-2] == self.noutputs and self.noutputs == 1:
-            #         self._Q = value
-            #     elif value.shape[-2] == self.noutputs and value.shape[-1] == self.noutputs and self.noutputs > 1:
-            #         try:  # only accept positive definite matrices
-            #             isPSD(value)
-            #         except np.linalg.LinAlgError:
-            #             raise np.linalg.LinAlgError("R is not positive definite, cannot be used as a state covariance matrix")
-            #         self._R = value
-            #     else:
-            #         raise TypeError("R is not of shape {}X{} or scalar".format(self.noutputs, self.noutputs))
-            #
-            # @property
-            # def x_0(self):
-            #     return self._x0
-            #
-            # @x_0.setter
-            # def x_0(self, value):
-            #     if np.isscalar(value) and self.nstates == 1 or \
-            #                     value.shape[-1] == self.nstates:
-            #         self._x0 = value

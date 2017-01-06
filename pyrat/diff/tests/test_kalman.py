@@ -20,7 +20,7 @@ class TestKalman(unittest.TestCase):
                                          Q=self.uniform_data.Q, x_0=self.x_0, P_0=self.uniform_data.P_0)
         #generate samples using seed
         nsamples = 1000
-        self.z, self.x_sampled = self.reference_filter.sample(nsamples,self.x_0, seed=self.seed)
+        self.x_sampled, self.z = self.reference_filter.sample(nsamples,self.x_0, seed=self.seed)
 
 
 
@@ -52,9 +52,20 @@ class TestKalman(unittest.TestCase):
         v_ax.xaxis.set_label_text('sample index')
         plt.show()
 
-    # def testRealData(self):
-    #     # Z =
-
+    def testRealData(self):
+        #load inputs
+        z = np.load('./data/Z.npy')
+        # load  transition matrices
+        F = np.array(np.load('./data/F.npy'), ndmin=4).swapaxes(0,1)
+        # load output matrices
+        H = np.array(np.load('./data/H.npy'),ndmin=4).swapaxes(0,1)
+        filter = ka.KalmanFilter(H=H, F=F)
+        print(filter.F.shape)
+        print(filter.H.shape)
+        print(filter.noutputs)
+        print(filter.nstates)
+        print(z.shape)
+        x_sm = filter.filter(z[:,:])
 
     def testEMR(self):
 
