@@ -125,8 +125,8 @@ class StackHelper:
         wc[start_str] = start_dt_list[0]
         return pattern.format(**wc)
 
-
-    def all_patterns_between_dates(self, wildcards, pattern, start_str='start_dt', stop_str='stop_dt', date_placeholder='datetime'):
+    def all_patterns_between_dates(self, wildcards, pattern, start_str='start_dt', stop_str='stop_dt',
+                                   date_placeholder='datetime'):
         """
         Returns a list of strings formatted using the `pattern` pattern, with all entries `{date_placeholder}` subsituted
         with a valid date included between `wildcards[start_str]` and `wildcards[stop_str]`
@@ -171,7 +171,7 @@ class StackHelper:
         -------
 
         """
-        #Get all dates between the specified dates
+        # Get all dates between the specified dates
         dates = self.all_dates.select_date_range(wildcards[start_str], wildcards[stop_str])
         n_slc = len(dates)
         itab = Itab(n_slc, **kwargs)
@@ -183,17 +183,16 @@ class StackHelper:
             strings.append(pattern.format(**wc))
         return strings
 
-
-    def next_stack_dates(self, wildcards, pattern, start_str='start_dt', stop_str='stop_dt' ,index='i',**kwargs):
+    def next_stack_dates(self, wildcards, pattern, start_str='start_dt', stop_str='stop_dt', index='i', **kwargs):
         itab = Itab(kwargs.pop('nstack'), **kwargs)
-        #select next starting slc
-        start_dt_list = self.all_dates.select_n_dates( wildcards[start_str], int(wildcards[index]))
+        # select next starting slc
+        start_dt_list = self.all_dates.select_n_dates(wildcards[start_str], int(wildcards[index]))
         start_dt = start_dt_list[-1]
-        #maxmium window length gives the last slc
+        # maxmium window length gives the last slc
         last_slc_index = _np.max(_np.array(itab.tab)[:, 0:2]) + 1
-        #find the last slc
-        stop_dt =  self.all_dates.select_n_dates(start_dt, last_slc_index)[-1]
-        #now select range
+        # find the last slc
+        stop_dt = self.all_dates.select_n_dates(start_dt, last_slc_index)[-1]
+        # now select range
         valid_dates = self.all_dates.select_date_range(start_dt, stop_dt)
         wc = dict(wildcards)
         strings = []
@@ -244,6 +243,7 @@ class Itab:
     """
 
     def __init__(self, n_slc, stride=1, window=None, step=1, n_ref=0, **kwargs):
+        #number of slcs
         self.n_slc = n_slc
         self.tab = []
         # The increment of the master slc
@@ -253,7 +253,7 @@ class Itab:
         # The increment of the slave slc for every iteration
         self.step = step
         # the reference slc number
-        self.n_ref = 0
+        self.n_ref = n_ref
         # itab line counter
         self.counter = 0
         self.it_counter = 0
@@ -262,7 +262,7 @@ class Itab:
             self.reference = (x for x in n_ref)
             self.window = 0
         else:
-            self.reference = iter(range(n_ref, n_slc, stride))
+            self.reference = iter(range(0, n_slc, stride))
         # Counter of slaves
         for master in self.reference:
             for slave in range(master + self.step, master + self.step + self.window, self.step):
@@ -284,6 +284,8 @@ class Itab:
     def tofile(self, file):
         with open(file, 'w+') as of:
             for line in self:
+                line[0] += 1  # Add one
+                line[1] += 1  # Add one because itab files are one-based indexed and python is zero based
                 of.writelines(" ".join(map(str, line)) + " 1" + '\n')
 
     @staticmethod
@@ -291,9 +293,10 @@ class Itab:
         tab = _np.genfromtxt(file, dtype=int)
         step = tab[0, 0] - tab[1, 0]
         stride = tab[0, 1] - tab[1, 1]
-        ref_slc = tab[0, 0]
-        n_slc = _np.max(tab[:, 0:2])
+        ref_slc = tab[0, 0] -1
+        n_slc = _np.max(tab[:, 0:2]) -1
         a = Itab(n_slc, step=step, stride=stride, n_ref=ref_slc)
+        tab[:,0:2] =- 1#subtract one because the file is saved with one based indices
         a.tab = tab
         return a
 
@@ -301,6 +304,6 @@ class Itab:
         n_slc = self.n_slc
         A = _np.zeros((len(self.tab), n_slc))
         for idx_master, idx_slave, idx_itab, *rest in self:
-            A[idx_itab - 1, idx_master -1] = 1
+            A[idx_itab - 1, idx_master - 1] = 1
             A[idx_itab - 1, idx_slave - 1] = -1
         return A

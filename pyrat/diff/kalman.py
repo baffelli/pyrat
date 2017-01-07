@@ -210,7 +210,6 @@ def kalman_update_step(x_predicted, P_predicted, z, H, R):
     """
     # Innovation
     y = z - matrix_vector_product(H, x_predicted)
-
     # Residual covariance
     S = matrix_matrix_product(matrix_matrix_product(H, P_predicted), transpose_tensor(H).conj()) + R
     # Kalman gain
@@ -296,32 +295,32 @@ def filter(F, Q, H, R, x_0, P_0, z):
 
     """
     ntimesteps, nmatrices = get_observations_shape(z)
-    nstates = get_state_size(F)
-    noutputs = get_state_size(H)
-    x_predicted = np.zeros((ntimesteps, nmatrices, nstates))
-    P_predicted = np.zeros((ntimesteps, nmatrices, nstates, nstates))
-    K = np.zeros((ntimesteps, nmatrices, nstates, noutputs))
-    x_filtered = x_predicted * 0
-    P_filtered = P_predicted * 0
+    # nstates =   check_shape_compatilibty((F, -1), (H, -2),1)
+    # nstates = get_state_size(F)
+    # noutputs = get_state_size(H)
+    x_predicted = [None,]*ntimesteps
+    P_predicted = [None,]*ntimesteps
+    K = [None,]*ntimesteps
+    x_filtered = [None,]*ntimesteps
+    P_filtered = [None,]*ntimesteps
     for t in range(ntimesteps):
 
-        F = pick_nth_step(F, t)
-        H = pick_nth_step(H, t)
+        F_cur = pick_nth_step(F, t)
+        H_cur = pick_nth_step(H, t)
         z_cur = pick_nth_step(z, t, ndims=1)
         if t == 0:
-            x_predicted[0, :, :] = x_0
-            P_predicted[0, :, :] = P_0
+            x_predicted[0] = x_0
+            P_predicted[0] = P_0
         else:
-            pass
-        P_filt = pick_nth_step(P_filtered, t - 1, ndims=2)
-        x_filt = pick_nth_step(x_filtered, t - 1, ndims=1)
-        x_predicted[t], P_predicted[t] = kalman_prediction_step(F, x_filt, P_filt,
-                                                                Q)  # predict
-        P_pred = pick_nth_step(P_predicted, t, ndims=2)
-        x_pred = pick_nth_step(x_predicted, t, ndims=1)
-        x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_pred, P_pred, z_cur, H,
-                                                                R)  # update
-    return x_predicted, P_predicted, K, x_filtered, P_filtered
+            P_filt = P_filtered[t-1]
+            x_filt = x_filtered[t - 1]
+            x_predicted[t], P_predicted[t] = kalman_prediction_step(F_cur, x_filt, P_filt,
+                                                                    Q)  # predict
+            P_pred = P_predicted[t]
+            x_pred = x_predicted[t]
+            x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_pred, P_pred, z_cur, H_cur,
+                                                                    R)  # update
+    return np.array(x_predicted), np.array(P_predicted), np.array(K, x_filtered), np.array(P_filtered)
 
 
 def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
@@ -355,9 +354,9 @@ def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
     ntimesteps, nmatrices = get_observations_shape(z)
     nstates = get_state_size(F)
 
-    x_smooth = np.zeros((ntimesteps, nmatrices, nstates))
-    P_smooth = np.zeros((ntimesteps, nmatrices, nstates, nstates))
-    L = np.zeros((ntimesteps - 1, nmatrices, nstates, nstates))
+    x_smooth = [None] * ntimesteps
+    P_smooth = [None] * ntimesteps
+    L = [None] * ntimesteps
     # set mean and covariance at the end to the  forward filtered data to start the smoother
     x_smooth[-1] = x_filtered[-1]
     P_smooth[-1] = P_filtered[-1]
@@ -367,7 +366,7 @@ def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
         F = pick_nth_step(F, t)
         x_smooth[t], P_smooth[t], L[t] = kalman_smoothing_step(F, x_filtered[t], P_filtered[t], x_predicted[t + 1],
                                                                P_predicted[t + 1], x_smooth[t + 1], P_smooth[t + 1])
-    return x_smooth, P_smooth, L
+    return np.array(x_smooth), np.array(P_smooth), np.array(L)
 
 #Here we have the M (maximization steps) to estimate the various system parameters,
 #As described in  "D. Barber, “Bayesian Reasoning and Machine Learning,” Mach. Learn., p. 646, 2011.
@@ -643,7 +642,7 @@ class KalmanFilter:
     def noutputs(self):
         return check_shape_compatilibty(
             (
-                (self.H, -1),
+                (self.H, -2),
                 (self.R, -1),
             ), self._no
         )

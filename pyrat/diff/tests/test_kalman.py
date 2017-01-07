@@ -52,6 +52,9 @@ class TestKalman(unittest.TestCase):
         v_ax.xaxis.set_label_text('sample index')
         plt.show()
 
+    def testSmooth(self):
+
+
     def testRealData(self):
         #load inputs
         z = np.load('./data/Z.npy')
