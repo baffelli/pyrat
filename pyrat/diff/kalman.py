@@ -5,29 +5,37 @@ import pickle
 import numpy as np
 
 
-def plot_state_and_variance(ax,t, x,P,**kwargs):
+def plot_state_and_variance(ax, t, x, P, **kwargs):
     ax.plot(t, x)
-    ax.fill_between(t, x-P/2, x+P/2, facecolor='gray')
+    ax.fill_between(t, x - P / 2, x + P / 2, facecolor='gray')
+
 
 def special_inv(M):
     if np.isscalar(M):
         return 1 / M
     else:
-        return np.linalg.inv(M)
+        if M.ndim == 2:
+            return np.linalg.inv(M)
+        else:
+            M_inv = np.zeros_like(M)
+            for i in  np.ndindex(M.shape[:1]):
+                M_inv[i] = np.linalg.pinv(M[i])
+            return M_inv
 
 
 def noise_fun(m, sigma, prng=None):
-    #Allows to use an external prngs
+    # Allows to use an external prngs
     if prng is None:
         fun = np.random
     else:
         fun = prng
-    if sigma.ndim == 1:#Scalar
+    if sigma.ndim == 1:  # Scalar
         m + fun.randn(*m.shape) * np.sqrt(sigma)
-    elif sigma.ndim == 2:#Same matrix for all pixels
-        return  m + fun.multivariate_normal(np.zeros(sigma.shape[0]), sigma)
-    elif sigma.ndim == 3:#A different matrix for each pixel
-        return np.array([m[i] + fun.multivariate_normal(np.zeros(sigma[i].shape[0]), sigma[i]) for i in range(sigma.shape[0])])
+    elif sigma.ndim == 2:  # Same matrix for all pixels
+        return m + fun.multivariate_normal(np.zeros(sigma.shape[0]), sigma)
+    elif sigma.ndim == 3:  # A different matrix for each pixel
+        return np.array(
+            [m[i] + fun.multivariate_normal(np.zeros(sigma[i].shape[0]), sigma[i]) for i in range(sigma.shape[0])])
 
 
 def avoid_none(var, alternative_var):
@@ -79,8 +87,8 @@ def special_eye(A):
         return np.tile(np.eye(A.shape[-1]), (A.shape[0], 1, 1))
 
 
-def tensor_outer(A):
-    return np.einsum('...i,...j->...ij', A, A)
+def tensor_outer(A,B):
+    return np.einsum('...i,...j->...ij', A, B)
 
 
 def shape_or_default(arr, index):
@@ -130,6 +138,27 @@ def get_output_size(H):
         return 1
 
 
+def set_minimum_dimensions(A, A_default, ndmin=3):
+    """
+    Returns a version of A with the minimum number of dimensions
+    specified by "ndmin". I `A` is `None`, return the defult given
+    by `A_default`
+    Parameters
+    ----------
+    A
+    A_default
+    ndmin
+
+    Returns
+    -------
+
+    """
+    if A is None:
+        return np.array(A_default, ndmin=ndmin)
+    else:
+        return np.array(A, ndmin=ndmin)
+
+
 def pick_nth_step(matrix, index, ndims=2):
     """
     Picks the matrix/vector corresponding to the
@@ -145,7 +174,10 @@ def pick_nth_step(matrix, index, ndims=2):
 
     """
     if matrix.ndim >= ndims + 1:
-        return matrix[index]
+        try:
+            return matrix[index]
+        except IndexError:
+            return matrix
     elif matrix.ndim == ndims:
         return matrix
     else:
@@ -298,11 +330,11 @@ def filter(F, Q, H, R, x_0, P_0, z):
     # nstates =   check_shape_compatilibty((F, -1), (H, -2),1)
     # nstates = get_state_size(F)
     # noutputs = get_state_size(H)
-    x_predicted = [None,]*ntimesteps
-    P_predicted = [None,]*ntimesteps
-    K = [None,]*ntimesteps
-    x_filtered = [None,]*ntimesteps
-    P_filtered = [None,]*ntimesteps
+    x_predicted = [None, ] * ntimesteps
+    P_predicted = [None, ] * ntimesteps
+    K = [None, ] * ntimesteps
+    x_filtered = [None, ] * ntimesteps
+    P_filtered = [None, ] * ntimesteps
     for t in range(ntimesteps):
 
         F_cur = pick_nth_step(F, t)
@@ -312,15 +344,16 @@ def filter(F, Q, H, R, x_0, P_0, z):
             x_predicted[0] = x_0
             P_predicted[0] = P_0
         else:
-            P_filt = P_filtered[t-1]
+            P_filt = P_filtered[t - 1]
             x_filt = x_filtered[t - 1]
             x_predicted[t], P_predicted[t] = kalman_prediction_step(F_cur, x_filt, P_filt,
                                                                     Q)  # predict
-            P_pred = P_predicted[t]
-            x_pred = x_predicted[t]
-            x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_pred, P_pred, z_cur, H_cur,
-                                                                    R)  # update
-    return np.array(x_predicted), np.array(P_predicted), np.array(K, x_filtered), np.array(P_filtered)
+        P_pred = P_predicted[t]
+        x_pred = x_predicted[t]
+        x_filtered[t], P_filtered[t], K[t] = kalman_update_step(x_pred, P_pred, z_cur, H_cur,
+                                                                R)  # update
+
+    return np.array(x_predicted), np.array(P_predicted), np.array(K), np.array(x_filtered), np.array(P_filtered)
 
 
 def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
@@ -352,8 +385,6 @@ def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
         The Kalman correction matrix for all steps
     """
     ntimesteps, nmatrices = get_observations_shape(z)
-    nstates = get_state_size(F)
-
     x_smooth = [None] * ntimesteps
     P_smooth = [None] * ntimesteps
     L = [None] * ntimesteps
@@ -363,15 +394,37 @@ def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
 
     # Run the smoother backwards
     for t in reversed(range(ntimesteps - 1)):
-        F = pick_nth_step(F, t)
-        x_smooth[t], P_smooth[t], L[t] = kalman_smoothing_step(F, x_filtered[t], P_filtered[t], x_predicted[t + 1],
+        F_cur = pick_nth_step(F, t)
+        x_smooth[t], P_smooth[t], L[t] = kalman_smoothing_step(F_cur, x_filtered[t], P_filtered[t], x_predicted[t + 1],
                                                                P_predicted[t + 1], x_smooth[t + 1], P_smooth[t + 1])
     return np.array(x_smooth), np.array(P_smooth), np.array(L)
 
-#Here we have the M (maximization steps) to estimate the various system parameters,
-#As described in  "D. Barber, “Bayesian Reasoning and Machine Learning,” Mach. Learn., p. 646, 2011.
 
-def m_step_r(H, x_smooth, P_smooth, z):
+# Here we have the M (maximization steps) to estimate the various system parameters,
+# As described in  "D. Barber, “Bayesian Reasoning and Machine Learning,” Mach. Learn., p. 646, 2011.
+
+
+def m_step_F(x_smooth,):
+    ntimesteps, nmatrices, nstates = x_smooth.shape
+    F_est = np.zeros((nmatrices, nstates,nstates))
+    #Compute self-covariance
+    cov_current= np.zeros((nmatrices, nstates,nstates))
+    cov_delayed = np.zeros((nmatrices, nstates, nstates))
+    for t in range(1, ntimesteps - 1):
+        cov_current += tensor_outer(x_smooth[t], x_smooth[t])
+    print(cov_current)
+    cov_current_inv = special_inv(cov_current)
+    for t in range(1, ntimesteps - 1):
+        cov_delayed += tensor_outer(x_smooth[t], x_smooth[t+1])
+    F_est = matrix_matrix_product(cov_delayed, cov_current_inv)
+    return F_est
+
+
+def m_step_H(x_smooth, z):
+    pass
+
+
+def m_step_R(H, x_smooth, P_smooth, z):
     """
 
     M step of the EM algorithm to estimate :math:`\mathbf{R}`, the data covariance matrix.
@@ -402,22 +455,23 @@ def m_step_r(H, x_smooth, P_smooth, z):
 
     """
     ntimesteps, nmatrices = get_observations_shape(z)
-    noutputs = get_output_size(H)
+    noutputs = check_shape_compatilibty(((z, -1), (H, -2)), 1)
+
 
     R_est = np.zeros((nmatrices, noutputs, noutputs))
     for t in range(ntimesteps):
-        H = pick_nth_step(H, t)
+        H_cur = pick_nth_step(H, t)
         z_cur = pick_nth_step(z, t, ndims=1)
         x_cur = pick_nth_step(x_smooth, t, ndims=1)
         P_cur = pick_nth_step(P_smooth, t)
-        residuals = (z_cur - matrix_vector_product(H, x_cur))
-        R = tensor_outer(residuals)  # residual covariance
-        H_prime = matrix_matrix_product(H, matrix_matrix_product(P_cur, transpose_tensor(H)))
+        residuals = (z_cur - matrix_vector_product(H_cur, x_cur))
+        R = tensor_outer(residuals, residuals)  # residual covariance
+        H_prime = matrix_matrix_product(H, matrix_matrix_product(P_cur, transpose_tensor(H_cur)))
         R_est += (R + H_prime)
     return R_est / ntimesteps
 
 
-def m_step_q(F, x_smooth, P_smooth, L):
+def m_step_Q(F, x_smooth, P_smooth, L):
     """
     Use the EM algorithm to estimate the observation covariance matrix given smoothed states and transition matrices.
     This part implements the M-step for the state transition covariance matrix:
@@ -449,7 +503,7 @@ def m_step_q(F, x_smooth, P_smooth, L):
         P_transf = matrix_matrix_product(matrix_matrix_product(P_next, transpose_tensor(L_cur)),
                                          transpose_tensor(F_cur))
         P_transf_1 = matrix_matrix_product(matrix_matrix_product(F_cur, P_cur), transpose_tensor(F_cur))
-        Q_est += tensor_outer(residuals) + P_transf + transpose_tensor(P_transf) + P_transf_1
+        Q_est += tensor_outer(residuals, residuals) + P_transf + transpose_tensor(P_transf) + P_transf_1
     Q_est /= ntimesteps
     return Q_est
 
@@ -514,9 +568,11 @@ def m_step_all(x_smooth, P_smooth, L, z, F=None, H=None, Q=None, R=None, x_0=Non
     """
 
     if Q is None:
-        Q = m_step_q(F, x_smooth, P_smooth, L)
+        Q = m_step_Q(F, x_smooth, P_smooth, L)
     if R is None:
-        R = m_step_r(H, x_smooth, P_smooth, z)
+        R = m_step_R(H, x_smooth, P_smooth, z)
+    if F is None:
+        F= m_step_F(x_smooth)
 
     return (F, H, Q, R, x_0, P_0)
 
@@ -599,53 +655,27 @@ class KalmanFilter:
 
     def __init__(self, F=None, H=None, R=None, Q=None, x_0=None,
                  P_0=None, nstates=None, noutputs=None, ):
-        self.F = F
-        self.R = R
-        self.H = H
-        self.Q = Q
-        self.x_0 = x_0
-        self.P_0 = P_0
-        self._ns = nstates
-        self._no = noutputs
-        self._setdefaults()
-
-
-    def _setdefaults(self):
-        if self.F is None:
-            self.F = np.array(np.eye(self.nstates), ndmin=3)
-        if self.H is None:
-            self.H = np.array(np.eye(self.noutputs, self.nstates), ndmin=3)
-        if self.R is None:
-            self.R = np.array(np.eye(self.noutputs), ndmin=3)
-        if self.Q is None:
-            self.Q = np.array(np.eye(self.nstates, self.nstates), ndmin=3)
-        if self.x_0 is None:
-            self.x_0 = np.array(np.zeros(self.nstates), ndmin=3)
-        if self.P_0 is None:
-            self.P_0 = np.array(np.eye(self.nstates), ndmin=3)
-
-
-
-    @property
-    def nstates(self):
-        return check_shape_compatilibty(
+        # Determine the number of states
+        self.nstates = check_shape_compatilibty(
             (
-                (self.F, -1),
-                (self.H, -2),
-                (self.Q, -1),
-                (self.x_0, -1),
-                (self.P_0, -1)
-            ), self._ns
-        )
-
-    @property
-    def noutputs(self):
-        return check_shape_compatilibty(
+                (F, -1),
+                (H, -2),
+                (Q, -1),
+                (x_0, -1),
+                (P_0, -1)
+            ), nstates)
+        self.noutputs = check_shape_compatilibty(
             (
-                (self.H, -2),
-                (self.R, -1),
-            ), self._no
+                (H, -2),
+                (R, -1),
+            ), noutputs
         )
+        self.F = set_minimum_dimensions(F, np.eye(self.nstates))
+        self.H = set_minimum_dimensions(H, np.eye(self.noutputs, self.nstates))
+        self.R = set_minimum_dimensions(R, np.eye(self.noutputs, self.noutputs))
+        self.Q = set_minimum_dimensions(Q, np.eye(self.nstates, self.nstates))
+        self.x_0 = set_minimum_dimensions(x_0, np.zeros(self.nstates), ndmin=2)
+        self.P_0 = set_minimum_dimensions(P_0, np.eye(self.nstates,self.nstates))
 
 
     def sample(self, ntimesteps, x_0=None, seed=None):
@@ -670,7 +700,7 @@ class KalmanFilter:
         """
         # states = np.zeros(fnma)
 
-        #set random state
+        # set random state
         if seed is not None:
             prng = np.random.RandomState(seed)
 
@@ -680,14 +710,15 @@ class KalmanFilter:
             x_0 = noise_fun(self.x_0, self.P_0)
         for t in range(ntimesteps):
             if t == 0:
-                states.append(np.array(x_0,ndmin=2))#ndmin to ensure that the initial state has the form 'nmat x nstates'
+                states.append(
+                    np.array(x_0, ndmin=2))  # ndmin to ensure that the initial state has the form 'nmat x nstates'
             else:
                 F = pick_nth_step(self.F, t - 1, ndims=2)
                 Q = pick_nth_step(self.Q, t - 1, ndims=2)
                 R = pick_nth_step(self.R, t - 1, ndims=2)
                 H = pick_nth_step(self.H, t - 1, ndims=2)
-                states.append(noise_fun(matrix_vector_product(F, states[t-1]), Q,  prng=prng))
-                outputs.append(noise_fun(matrix_vector_product(H, states[t]), R,  prng=prng))
+                states.append(noise_fun(matrix_vector_product(F, states[t - 1]), Q, prng=prng))
+                outputs.append(noise_fun(matrix_vector_product(H, states[t]), R, prng=prng))
         return np.array(states), np.array(outputs)
 
     def filter(self, observations):
@@ -727,7 +758,8 @@ class KalmanFilter:
         -------
 
         """
-        (x_predicted, P_predicted, K, x_filtered, P_filtered) = filter(self.F, self.Q, self.H, self.R, self.x_0, self.P_0, observations)
+        (x_predicted, P_predicted, K, x_filtered, P_filtered) = filter(self.F, self.Q, self.H, self.R, self.x_0,
+                                                                       self.P_0, observations)
         (x_smooth, P_smooth, L) = smooth(self.F, x_predicted, P_predicted, x_filtered, P_filtered, observations)
         return x_smooth, P_smooth, L
 
@@ -762,7 +794,8 @@ class KalmanFilter:
             x_smooth, P_smooth, L = self.smooth(observations)
 
             # M-step
-            (self.F, self.H, self.Q, self.R, self.x_0, self.P_0) = m_step_all(x_smooth, P_smooth, L, observations, **all_vars)
+            (self.F, self.H, self.Q, self.R, self.x_0, self.P_0) = m_step_all(x_smooth, P_smooth, L, observations,
+                                                                              **all_vars)
 
     def tofile(self, file):
         """
@@ -791,4 +824,3 @@ class KalmanFilter:
         """
         with open(file, 'rb') as fp:
             return pickle.load(fp)
-

@@ -52,7 +52,26 @@ class TestKalman(unittest.TestCase):
         v_ax.xaxis.set_label_text('sample index')
         plt.show()
 
+    def testFilter(self):
+        x_sm, P_sm = self.reference_filter.filter(self.z)
+        f, (x_ax, v_ax) = plt.subplots(2, 1, sharex=True)
+        x_ax.plot(x_sm[:, 0, 0])
+        x_ax.plot(self.x_sampled[:, 0, 0])
+        v_ax.plot(x_sm[:, 0, 1])
+        v_ax.plot(self.x_sampled[:, 0, 1])
+        v_ax.xaxis.set_label_text('sample index')
+        plt.show()
+
     def testSmooth(self):
+        x_sm, P_sm, L = self.reference_filter.smooth(self.z)
+        print(x_sm.shape)
+        f, (x_ax, v_ax) = plt.subplots(2, 1, sharex=True)
+        x_ax.plot(x_sm[:, 0, 0])
+        x_ax.plot(self.x_sampled[:, 0, 0])
+        v_ax.plot(x_sm[:, 0, 1])
+        v_ax.plot(self.x_sampled[:, 0, 1])
+        v_ax.xaxis.set_label_text('sample index')
+        plt.show()
 
 
     def testRealData(self):
@@ -62,13 +81,12 @@ class TestKalman(unittest.TestCase):
         F = np.array(np.load('./data/F.npy'), ndmin=4).swapaxes(0,1)
         # load output matrices
         H = np.array(np.load('./data/H.npy'),ndmin=4).swapaxes(0,1)
-        filter = ka.KalmanFilter(H=H, F=F)
-        print(filter.F.shape)
-        print(filter.H.shape)
-        print(filter.noutputs)
-        print(filter.nstates)
-        print(z.shape)
-        x_sm = filter.filter(z[:,:])
+        x_0=np.zeros((F.shape[1], F.shape[2]))
+        P_0=np.tile(np.eye(F.shape[2]),(F.shape[1],1,1))
+        filter = ka.KalmanFilter(H=H, F=F, x_0=x_0, P_0=P_0)
+        x_filt, P_filt, L  = filter.smooth(z)
+        plt.plot(x_filt[:,220,1])
+        plt.show()
 
     def testEMR(self):
 
@@ -78,13 +96,13 @@ class TestKalman(unittest.TestCase):
         t = np.arange(x_s.shape[0])
 
         #Plot observations
-        f, (x_ax, v_ax) = plt.subplots(2, 1, sharex=True)
-        x_ax.plot(self.z[:, 0, 0])
-        ka.plot_state_and_variance(x_ax, t, x_s[:, 0, 0], P_s[:, 0, 0, 0])
-        x_ax.plot(x_s[:, 0, 0])
-        v_ax.plot(self.z[:, 0, 1])
-        ka.plot_state_and_variance(v_ax, t, x_s[:, 0, 1], P_s[:, 0, 1, 1])
-        plt.show()
+        # f, (x_ax, v_ax) = plt.subplots(2, 1, sharex=True)
+        # x_ax.plot(self.z[:, 0, 0])
+        # ka.plot_state_and_variance(x_ax, t, x_s[:, 0, 0], P_s[:, 0, 0, 0])
+        # x_ax.plot(x_s[:, 0, 0])
+        # v_ax.plot(self.z[:, 0, 1])
+        # ka.plot_state_and_variance(v_ax, t, x_s[:, 0, 1], P_s[:, 0, 1, 1])
+        # plt.show()
         # Setup second filter with unknown matrices R and Q
         Q = np.eye(2) * 1e-4
         em_filt = ka.KalmanFilter(F=self.uniform_data.F, H=self.uniform_data.H, Q=Q)
@@ -92,18 +110,27 @@ class TestKalman(unittest.TestCase):
         em_filt.EM(self.z[0:50], ['R'], niter=20)
         print(em_filt.R)
 
-    def testVectorFilter(self):
-        npixels = 1500
-        nsteps = 10
-        nstates = 2
-        noutputs = 2
-        F = np.tile(np.eye(nstates), (npixels, nsteps, 1, 1))
-        H = np.tile(np.eye(noutputs), (npixels, nsteps, 1, 1))
-        R = np.tile(np.eye(noutputs), (npixels, 1, 1))
-        z = np.tile(np.zeros(noutputs), (npixels, nsteps, 1,))
-        x0 = np.tile(np.zeros(nstates), (npixels, 1))
-        Q = np.tile(np.eye(nstates), (npixels, 1, 1))
-        ka = KalmanFilter(F=F, H=np.eye(2), R=R, x_0=x0, Q=Q)
-        ka.predict()
-        ka.update(z)
-        self.assertEqual(Q.shape, ka.P.shape)
+
+    def testEMF(self):
+
+
+        #Smooth
+        x_s, P_s, L = self.reference_filter.smooth(self.z)
+        t = np.arange(x_s.shape[0])
+
+        #Plot observations
+        # f, (x_ax, v_ax) = plt.subplots(2, 1, sharex=True)
+        # x_ax.plot(self.z[:, 0, 0])
+        # ka.plot_state_and_variance(x_ax, t, x_s[:, 0, 0], P_s[:, 0, 0, 0])
+        # x_ax.plot(x_s[:, 0, 0])
+        # v_ax.plot(self.z[:, 0, 1])
+        # ka.plot_state_and_variance(v_ax, t, x_s[:, 0, 1], P_s[:, 0, 1, 1])
+        # plt.show()
+        # Setup second filter with unknown matrices R and Q
+        Q = np.eye(2) * 1e-4
+        em_filt = ka.KalmanFilter(F=None, H=self.uniform_data.H, Q=self.uniform_data.Q, R=self.uniform_data.R)
+        # Run EM
+        em_filt.EM(self.z[0:50], ['F'], niter=20)
+        print(em_filt.F)
+
+
