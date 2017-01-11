@@ -8,6 +8,8 @@ from .. import kalman as ka
 from ..kalman import KalmanFilter
 
 
+
+
 class TestKalman(unittest.TestCase):
 
     def setUp(self):
@@ -77,15 +79,23 @@ class TestKalman(unittest.TestCase):
     def testRealData(self):
         #load inputs
         z = np.load('./data/Z.npy')
+        print(z.shape)
         # load  transition matrices
         F = np.array(np.load('./data/F.npy'), ndmin=4).swapaxes(0,1)
         # load output matrices
         H = np.array(np.load('./data/H.npy'),ndmin=4).swapaxes(0,1)
         x_0=np.zeros((F.shape[1], F.shape[2]))
         P_0=np.tile(np.eye(F.shape[2]),(F.shape[1],1,1))
-        filter = ka.KalmanFilter(H=H, F=F, x_0=x_0, P_0=P_0)
+        R = np.eye(z.shape[-1]) * 100
+        Q = np.eye(2) * 1e-4
+        filter = ka.KalmanFilter(H=H, F=F, x_0=x_0, P_0=P_0, Q=Q, R =R)
+        # filter.EM(z, ['R'], niter=4)
         x_filt, P_filt, L  = filter.smooth(z)
-        plt.plot(x_filt[:,220,1])
+        x_filt = x_filt.reshape((z.shape[0], 2221, 154,2))
+        z_im = z.reshape((z.shape[0], 2221, 154, z.shape[-1]))
+        f, (filt_ax, z_ax) = plt.subplots(2, 1, sharex=True, sharey=True)
+        filt_ax.imshow(x_filt[-1,:,:,1])
+        z_ax.imshow(z_im[5, :, :,0])
         plt.show()
 
     def testEMR(self):
@@ -107,7 +117,7 @@ class TestKalman(unittest.TestCase):
         Q = np.eye(2) * 1e-4
         em_filt = ka.KalmanFilter(F=self.uniform_data.F, H=self.uniform_data.H, Q=Q)
         # Run EM
-        em_filt.EM(self.z[0:50], ['R'], niter=20)
+        em_filt.EM(self.z[0:50], ['R'], niter=3)
         print(em_filt.R)
 
 
@@ -127,10 +137,13 @@ class TestKalman(unittest.TestCase):
         # ka.plot_state_and_variance(v_ax, t, x_s[:, 0, 1], P_s[:, 0, 1, 1])
         # plt.show()
         # Setup second filter with unknown matrices R and Q
-        Q = np.eye(2) * 1e-4
-        em_filt = ka.KalmanFilter(F=None, H=self.uniform_data.H, Q=self.uniform_data.Q, R=self.uniform_data.R)
+        em_filt = ka.KalmanFilter(F=self.uniform_data.F, H=self.uniform_data.H, Q=self.uniform_data.Q, R=self.uniform_data.R, P_0=self.uniform_data.P_0)
         # Run EM
-        em_filt.EM(self.z[0:50], ['F'], niter=20)
+        em_filt.EM(self.z[0:200], ['Q'], niter=30)
         print(em_filt.F)
+        print(self.reference_filter.F)
+        print(em_filt.Q)
+        print(self.reference_filter.Q)
+
 
 

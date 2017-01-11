@@ -173,15 +173,22 @@ def pick_nth_step(matrix, index, ndims=2):
     -------
 
     """
-    if matrix.ndim >= ndims + 1:
+    if matrix.ndim >= ndims:
         try:
             return matrix[index]
         except IndexError:
             return matrix
-    elif matrix.ndim == ndims:
-        return matrix
     else:
-        raise IndexError
+        return matrix
+    # if matrix.ndim >= ndims + 1:
+    #     try:
+    #         return matrix[index]
+    #     except IndexError:
+    #         return matrix
+    # elif matrix.ndim == ndims:
+    #     return matrix
+    # else:
+    #     raise IndexError
 
 
 def kalman_prediction_step(F, x, P, Q):
@@ -310,6 +317,7 @@ def filter(F, Q, H, R, x_0, P_0, z):
         Initial state covariance matrix, shape  `(nmatrices, nstates)`
     z   :  array-like
         Observation from 0 to ntimesteps - 1, in an array of shape `(ntimesteps, nmatrices , noutputs)`
+        any `np.nan` element will be treated as a missing observation
 
     Returns
     -------
@@ -374,6 +382,7 @@ def smooth(F, x_predicted, P_predicted, x_filtered, P_filtered, z):
         Posterior state covariance for all :math:`t` 0 to `ntimesteps`, given observations from 0 to the current time :math:`t`
     z :  array-like
         All observations from 0 to ntimesteps, of shape `(ntimesteps, nmatrices, ninputs)`
+        If any element is `numpt.nan`, it will be treated as a missing observation
 
     Returns
     -------
@@ -410,13 +419,16 @@ def m_step_F(x_smooth,):
     #Compute self-covariance
     cov_current= np.zeros((nmatrices, nstates,nstates))
     cov_delayed = np.zeros((nmatrices, nstates, nstates))
-    for t in range(1, ntimesteps - 1):
-        cov_current += tensor_outer(x_smooth[t], x_smooth[t])
-    print(cov_current)
-    cov_current_inv = special_inv(cov_current)
-    for t in range(1, ntimesteps - 1):
+    step_counter = 1
+    for t in range(1, ntimesteps-1):
         cov_delayed += tensor_outer(x_smooth[t], x_smooth[t+1])
-    F_est = matrix_matrix_product(cov_delayed, cov_current_inv)
+        step_counter +=1
+    cov_delayed /= step_counter
+    step_counter = 1
+    for t in range(0, ntimesteps):
+        cov_current += tensor_outer(x_smooth[t], x_smooth[t])
+        step_counter += 1
+    F_est = matrix_matrix_product(cov_delayed, special_inv(cov_current/step_counter) )
     return F_est
 
 
@@ -464,10 +476,15 @@ def m_step_R(H, x_smooth, P_smooth, z):
         z_cur = pick_nth_step(z, t, ndims=1)
         x_cur = pick_nth_step(x_smooth, t, ndims=1)
         P_cur = pick_nth_step(P_smooth, t)
-        residuals = (z_cur - matrix_vector_product(H_cur, x_cur))
-        R = tensor_outer(residuals, residuals)  # residual covariance
-        H_prime = matrix_matrix_product(H, matrix_matrix_product(P_cur, transpose_tensor(H_cur)))
-        R_est += (R + H_prime)
+        term_1 = tensor_outer(z_cur, z_cur)
+        term_2 = matrix_matrix_product(tensor_outer(z_cur, x_cur), transpose_tensor(H_cur))
+        term_3 = matrix_matrix_product(H_cur, tensor_outer(x_cur, z_cur))
+        term_4 = matrix_matrix_product(matrix_matrix_product(H_cur, tensor_outer(x_cur, x_cur)), transpose_tensor(H_cur))
+        # residuals = (z_cur - matrix_vector_product(H_cur, x_cur))
+        # R = tensor_outer(residuals, residuals)  # residual covariance
+        # H_prime = matrix_matrix_product(H, matrix_matrix_product(P_cur, transpose_tensor(H_cur)))
+        # R_est += (R + H_prime)
+        R_est +=  term_1 + term_2 + term_3 + term_4
     return R_est / ntimesteps
 
 

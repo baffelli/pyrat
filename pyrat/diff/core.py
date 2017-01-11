@@ -1,14 +1,13 @@
+import itertools as _iter
+import pickle
+
+import numpy as _np
 import pyrat.diff.utils
+import scipy as _sp
+import scipy.misc as _misc
 
 from ..fileutils import gpri_files as gpf
 
-import scipy as _sp
-
-import datetime as _dt
-
-from . import intfun
-
-import numpy as _np
 
 class Interferogram(gpf.gammaDataset):
     """
@@ -19,7 +18,7 @@ class Interferogram(gpf.gammaDataset):
         ifgram, ifgram_par = gpf.load_dataset(args[0], args[1], **kwargs)
         ifgram = ifgram.view(cls)
         ifgram._params = ifgram_par.copy()
-        #Add properties of master and slave to the dict by adding them and appending
+        # Add properties of master and slave to the dict by adding them and appending
         if "master_par" in kwargs:
             master_par_path = kwargs.pop('master_par')
             slave_par_path = kwargs.pop('slave_par')
@@ -49,24 +48,53 @@ class Interferogram(gpf.gammaDataset):
         gpf.write_dataset(arr, self._params, par_path, bin_path)
 
 
-
 class Stack:
     """
     Class to represent a stack of interferograms
     """
-    def __init__(self, par_list, bin_list, mli_par_list, itab, *args, **kwargs):
+
+    def __init__(self, par_list, bin_list, mli_par_list, itab, cc=None, mask=None, *args, **kwargs):
         stack = []
-        #load mli parameters
+        if cc is not None:
+            cc_stack = []
+        # load mli parameters
         mli_pars = [gpf.par_to_dict(f) for f in mli_par_list]
-        for par_name, bin_name in zip(par_list,bin_list):
+        for idx, par_name, bin_name, mli_name, cc_name, mask_name in enumerate(
+                _iter.zip_longest(par_list, bin_list, mli_par_list, cc, mask)):
             ifgram = Interferogram(par_name, bin_name, **kwargs)
             stack.append(ifgram)
-        #Sort by acquisition time
+            if cc is not None:
+                cc_stack.append(gpf.load_binary(cc[idx]), ifgram.shape[0])
+            if mask is not None:
+                _misc.imread(input.unw_mask, mode='L')
+
+        # Sort by acquisition time
         sorting_key = lambda x: (x.master_time, x.slave_time)
-        stack = sorted(stack, key=sorting_key )
-        self.stack  = stack#the stack
-        self.itab = pyrat.diff.utils.Itab.fromfile(itab)#the corresponding itab file
+        stack = sorted(stack, key=sorting_key)
+        self.stack = stack  # the stack
+        self.itab = pyrat.diff.utils.Itab.fromfile(itab)  # the corresponding itab file
         self.slc_tab = sorted(mli_pars, key=lambda x: [(x.date, x.start_time)])
+        if cc is not None:
+            self.cc = cc_stack
+
+    @classmethod
+    def fromfile(cls, file):
+        return pickle.load(file)
+
+    def tofile(self, file):
+        pickle.dump(file, protocol=0)
+
+    def flatten(self):
+        """
+        Flattens the stack: all the pixels will
+        be stored in a single 1d array. The shape
+        will be `(npixels, nstack)`
+
+        Returns
+        -------
+        :obj:`np.ndarray`
+
+        """
 
     @property
     def dt(self):
@@ -74,6 +102,14 @@ class Stack:
 
     def __getitem__(self, item):
         return self.stack.__getitem__(item)
+
+    def R_stack(self):
+        """
+        Constructs the interferogram covariance matrix
+        Returns
+        -------
+
+        """
 
     def H_stack(self, f_fun, H_model):
         """
@@ -106,8 +142,8 @@ class Stack:
             F_model = f_fun(dt)
             F = _np.dot(F_model, F)
             F_aug.append(F)
-        H_aug = _sp.linalg.block_diag(*[H_model,] * len(F_aug))
+        H_aug = _sp.linalg.block_diag(*[H_model, ] * len(F_aug))
         F_aug = _np.vstack(F_aug)
-        out_aug =  _np.dot(H_aug, F_aug)
+        out_aug = _np.dot(H_aug, F_aug)
         pi = _np.dot(A, out_aug)
         return pi
