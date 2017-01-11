@@ -8,6 +8,7 @@ import scipy.misc as _misc
 
 from ..fileutils import gpri_files as gpf
 
+import numpy.ma as _ma
 
 class Interferogram(gpf.gammaDataset):
     """
@@ -55,18 +56,18 @@ class Stack:
 
     def __init__(self, par_list, bin_list, mli_par_list, itab, cc=None, mask=None, *args, **kwargs):
         stack = []
-        if cc is not None:
-            cc_stack = []
+        cc_stack = []
+        mask_stack = []
         # load mli parameters
         mli_pars = [gpf.par_to_dict(f) for f in mli_par_list]
-        for idx, par_name, bin_name, mli_name, cc_name, mask_name in enumerate(
-                _iter.zip_longest(par_list, bin_list, mli_par_list, cc, mask)):
+        for idx, par_name, bin_name, cc_name, mask_name in enumerate(
+                _iter.zip_longest(par_list, bin_list, cc, mask)):
             ifgram = Interferogram(par_name, bin_name, **kwargs)
             stack.append(ifgram)
             if cc is not None:
-                cc_stack.append(gpf.load_binary(cc[idx]), ifgram.shape[0])
+                cc_stack.append(gpf.load_binary(cc_name), ifgram.shape[0])
             if mask is not None:
-                _misc.imread(input.unw_mask, mode='L')
+                mask_stack.append(_misc.imread(input.unw_mask, mode='L'))
 
         # Sort by acquisition time
         sorting_key = lambda x: (x.master_time, x.slave_time)
@@ -76,6 +77,8 @@ class Stack:
         self.slc_tab = sorted(mli_pars, key=lambda x: [(x.date, x.start_time)])
         if cc is not None:
             self.cc = cc_stack
+        if mask is not None:
+            self.mask = mask
 
     @classmethod
     def fromfile(cls, file):
@@ -101,7 +104,19 @@ class Stack:
         return [s.temporal_baseline for s in self.stack]
 
     def __getitem__(self, item):
-        return self.stack.__getitem__(item)
+        """
+        Get layer in stack and return it as a masked array, where
+        the not unwrapped pixels are masked
+        Parameters
+        ----------
+        item
+
+        Returns
+        -------
+
+        """
+        current_mask = self.mask.__getitem__(item)
+        return _ma.masked_array(data=self.stack.__getitem__(item), mask=current_mask)
 
     def R_stack(self):
         """
