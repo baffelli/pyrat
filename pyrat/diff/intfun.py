@@ -13,14 +13,6 @@ from ..core import corefun as _cf
 Pyrat module for interferometric processing
 """
 
-def F_model(dt, order=1):
-    #F matrix for variable dt\
-    #first line
-    # first_line = [dt**order/(order) for order in order]
-    #
-    # F_m = _np.eye(order)
-    F_m = _np.array([[1, dt], [0, 1]])
-    return F_m
 
 def H_stack(f_fun, H_model, itab, t_vector):
     """

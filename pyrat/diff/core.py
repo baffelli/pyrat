@@ -4,11 +4,14 @@ import pickle
 import numpy as _np
 import pyrat.diff.utils
 import scipy as _sp
-import scipy.misc as _misc
-
+from PIL import Image as _im
 from ..fileutils import gpri_files as gpf
 
 import numpy.ma as _ma
+
+import scipy.linalg as _la
+
+
 
 class Interferogram(gpf.gammaDataset):
     """
@@ -54,20 +57,20 @@ class Stack:
     Class to represent a stack of interferograms
     """
 
-    def __init__(self, par_list, bin_list, mli_par_list, itab, cc=None, mask=None, *args, **kwargs):
+    def __init__(self, par_list, bin_list, mli_par_list, itab, cc=[], mask=[], *args, **kwargs):
         stack = []
         cc_stack = []
         mask_stack = []
         # load mli parameters
         mli_pars = [gpf.par_to_dict(f) for f in mli_par_list]
-        for idx, par_name, bin_name, cc_name, mask_name in enumerate(
+        for idx, (par_name, bin_name, cc_name, mask_name) in enumerate(
                 _iter.zip_longest(par_list, bin_list, cc, mask)):
             ifgram = Interferogram(par_name, bin_name, **kwargs)
             stack.append(ifgram)
-            if cc is not None:
-                cc_stack.append(gpf.load_binary(cc_name), ifgram.shape[0])
-            if mask is not None:
-                mask_stack.append(_misc.imread(input.unw_mask, mode='L'))
+            if cc_name is not None:
+                cc_stack.append(gpf.load_binary(cc_name,ifgram.shape[0]), )
+            if mask_name is not None:
+                mask_stack.append(_np.array(_im.open(mask_name)))
 
         # Sort by acquisition time
         sorting_key = lambda x: (x.master_time, x.slave_time)
@@ -82,10 +85,12 @@ class Stack:
 
     @classmethod
     def fromfile(cls, file):
-        return pickle.load(file)
+        with open(file,'rb') as in_file:
+            return pickle.load(in_file)
 
     def tofile(self, file):
-        pickle.dump(file, protocol=0)
+        with open(file,'wb+') as of:
+            pickle.dump(self,of, protocol=0)
 
     def flatten(self):
         """
@@ -118,47 +123,47 @@ class Stack:
         current_mask = self.mask.__getitem__(item)
         return _ma.masked_array(data=self.stack.__getitem__(item), mask=current_mask)
 
-    def R_stack(self):
-        """
-        Constructs the interferogram covariance matrix
-        Returns
-        -------
-
-        """
-
-    def H_stack(self, f_fun, H_model):
-        """
-        Constructs a "H" output matrix for a
-        linear system representing a stack of interferograms
-        generated with `itab` and delta-timmes taken from
-        t_vector
-        Parameters
-        ----------
-        f_fun : function
-            Function to generate the state transition matrix as a function of the timestep
-        H_model : np.ndarray
-            Output matrix for the linear displacement model
-        itab : Itab
-            Itab, containing the pairs of slcs to compute interferograms for
-        t_vector : list
-            list of acquisition times
-
-        Returns
-        -------
-
-        """
-        F_aug = []
-        A = self.itab.to_incidence_matrix()
-        F = _np.eye(2)
-        t_vec = [t.start_time for t in self.slc_tab]
-        t_start = t_vec[0]
-        for t in t_vec[::]:
-            dt = t - t_start
-            F_model = f_fun(dt)
-            F = _np.dot(F_model, F)
-            F_aug.append(F)
-        H_aug = _sp.linalg.block_diag(*[H_model, ] * len(F_aug))
-        F_aug = _np.vstack(F_aug)
-        out_aug = _np.dot(H_aug, F_aug)
-        pi = _np.dot(A, out_aug)
-        return pi
+    # def R_stack(self):
+    #     """
+    #     Constructs the interferogram covariance matrix
+    #     Returns
+    #     -------
+    #
+    #     """
+    #
+    # def H_stack(self, f_fun, H_model):
+    #     """
+    #     Constructs a "H" output matrix for a
+    #     linear system representing a stack of interferograms
+    #     generated with `itab` and delta-timmes taken from
+    #     t_vector
+    #     Parameters
+    #     ----------
+    #     f_fun : function
+    #         Function to generate the state transition matrix as a function of the timestep
+    #     H_model : np.ndarray
+    #         Output matrix for the linear displacement model
+    #     itab : Itab
+    #         Itab, containing the pairs of slcs to compute interferograms for
+    #     t_vector : list
+    #         list of acquisition times
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     F_aug = []
+    #     A = self.itab.to_incidence_matrix()
+    #     F = _np.eye(2)
+    #     t_vec = [t.start_time for t in self.slc_tab]
+    #     t_start = t_vec[0]
+    #     for t in t_vec[::]:
+    #         dt = t - t_start
+    #         F_model = f_fun(dt)
+    #         F = _np.dot(F_model, F)
+    #         F_aug.append(F)
+    #     H_aug = _sp.linalg.block_diag(*[H_model, ] * len(F_aug))
+    #     F_aug = _np.vstack(F_aug)
+    #     out_aug = _np.dot(H_aug, F_aug)
+    #     pi = _np.dot(A, out_aug)
+    #     return pi
