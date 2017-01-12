@@ -8,8 +8,9 @@ select a certain range of dates, compute all interferograms etc
 import csv as _csv
 import datetime as _dt
 import operator as _op
-
 import numpy as _np
+
+import snakemake.utils as _sn
 
 
 def try_format(dt, fmt):
@@ -87,20 +88,37 @@ class ListOfDates():
 
 class StackHelper:
     """
-    Helper class to represent series of slcs
+    Helper class to represent series of slcs,
+    can use a Snakemake remoteprovider
     """
+    # @classmethod
+    # def dynamic_list(cls, pattern):
+    #     """
+    #     Create a dynamic list from a certain path
+    #     :param path:
+    #     :return:
+    #     """
+    #     cls.pattern = pattern
 
-    def __init__(self, list_of_slcs, nstack=1, window=None, n_ref=0, stride=1, step=1, **kwargs):
+
+    def __init__(self, list_of_dates, nstack=1, window=None, n_ref=0, stride=1, step=1, **kwargs):
         # Load list of slcs
         try:
-            with open(list_of_slcs, 'r') as f:  # the object contains a list of valid slcs
+            with open(list_of_dates, 'r') as f:  # the object contains a list of valid slcs
                 reader = _csv.reader(f)
                 self.all_dates = ListOfDates(list(reader)[0], **kwargs)
         except (FileNotFoundError, TypeError):
             try:
-                self.all_dates = ListOfDates(list_of_slcs, **kwargs)
+                self.all_dates = ListOfDates(list_of_dates, **kwargs)
             except:
-                raise TypeError("{l} is not a file path or a list of strings".format(list_of_slcs))
+                raise TypeError("{l} is not a file path or a list of strings".format(list_of_dates))
+
+    # @property
+    # def dynamic_dates(self):
+    #     if hasattr(self, 'pattern'):
+    #         _sn.glob_wildcards()
+
+
 
     def nearest_valid(self, wildcards, pattern, start_str='start_dt'):
         """
