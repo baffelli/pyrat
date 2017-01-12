@@ -454,21 +454,27 @@ class gammaDataset(_np.ndarray):
     def decimate(self, dec, mode='sum'):
         if mode == 'sum':
             arr_dec = _np.zeros((self.shape[0], int(self.shape[1] // dec)), dtype=gammaDataset)
+            arr_dec_1 = arr_dec * 0
             for idx_az in range(arr_dec.shape[1]):
                 # Decimated pulse
                 dec_pulse = _np.zeros_like(self[:, 0])
-                for idx_dec in range(dec):
-                    current_idx = idx_az * dec + idx_dec
-                    if current_idx % 1000 == 0:
-                        print('decimating line: ' + str(current_idx))
-                    dec_pulse += self[:, current_idx]
-                arr_dec[:, idx_az] = dec_pulse
+                current_idx = slice(idx_az * dec, idx_az*dec+dec)
+                az_data = self[:, current_idx]
+                arr_dec[:, idx_az] = _np.mean(az_data, axis=1)
+                # for idx_dec in range(dec):
+                #     current_idx = idx_az * dec + idx_dec
+                #     if current_idx % 1000 == 0:
+                #         print('decimating line: ' + str(current_idx))
+                #     dec_pulse += self[:, current_idx]
+                # arr_dec[:, idx_az] = dec_pulse
+            # print(arr_dec.shape)
+            # print(arr_dec_1.shape)
         # elif mode == 'vectorized':
         #     arr_dec = _np.mean(_np.reshape(self, arr_dec.shape + (,dec)),axis=-1)
         else:
             arr_dec = self[:, ::dec]
         arr_dec = self.__array_wrap__(arr_dec)
-        arr_dec /= dec
+        # arr_dec /= dec
         arr_dec.GPRI_az_angle_step = dec * self.GPRI_az_angle_step
         arr_dec.azimuth_line_time = dec * self.azimuth_line_time
         arr_dec.prf = self.prf / dec
