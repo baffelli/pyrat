@@ -10,7 +10,8 @@ import datetime as _dt
 import operator as _op
 import numpy as _np
 
-import snakemake.utils as _sn
+
+import itertools as _iter
 
 
 def try_format(dt, fmt):
@@ -260,14 +261,17 @@ class Itab:
     interferograms
     """
 
-    def __init__(self, n_slc, stride=1, window=None, step=1, n_ref=0, **kwargs):
+    def __init__(self, n_slc, stride=1, step=1, n_ref=0, **kwargs):
         #number of slcs
         self.n_slc = n_slc
         self.tab = []
+        stack_tab = []
         # The increment of the master slc
         self.stride = stride
         # The maximum number of steps between each master and slave
-        self.window = 1 or window
+        self.max_distance = kwargs.get('max_distance', n_slc)
+        #The size of each stack
+        self.stack_size = kwargs.get('stack_size', n_slc)
         # The increment of the slave slc for every iteration
         self.step = step
         # the reference slc number
@@ -277,20 +281,38 @@ class Itab:
         self.it_counter = 0
         # Logic to select the list of reference slcs
         if stride == 0:  # if the master is not changing
-            self.reference = (x for x in n_ref)
-            self.window = 0
+            self.master = (x for x in n_ref)
+            # self.window = 0
         else:
-            self.reference = iter(range(0, n_slc, stride))
-        # Counter of slaves
-        for master in self.reference:
-            for slave in range(master + self.step, master + self.step + self.window, self.step):
-                self.counter += 1
-                line = [master, slave, self.counter]
-                self.tab.append(line)
+            self.master = iter(range(0, self.stack_size , stride))
+
+        self.slave = range(self.step, self.step + self.max_distance, self.step)
+        for master, slave in _iter.product(self.master, self.slave):
+                line = [master, slave+master]
+                stack_tab.append(line)
+        list_of_slcs = list(range(n_slc))
+        line_counter = 0
+        for stack_counter, idx_stack in enumerate(range(0, self.n_slc // self.stack_size, 1)):
+            for master, slave in stack_tab:
+                master_idx = master + idx_stack * self.stack_size
+                slave_idx = slave + idx_stack*self.stack_size
+                if master_idx < self.n_slc and slave_idx < self.n_slc:
+                    line = [list_of_slcs[master_idx], list_of_slcs[slave_idx], line_counter, 1, stack_counter]
+                    self.tab.append(line)
+                    # # print(self.tab)
+                    line_counter += 1
 
     def __iter__(self):
         return self
 
+    def __str__(self):
+        a = ""
+        for line in self:
+            line[0] += 1  # Add one
+            line[1] += 1  # Add one because itab files are one-based indexed and python is zero based
+            a = a + (" ".join(map(str, line)) + '\n')
+        print(a)
+        return a
     def __next__(self):
         try:
             el = self.tab[self.it_counter]
@@ -301,10 +323,11 @@ class Itab:
 
     def tofile(self, file):
         with open(file, 'w+') as of:
-            for line in self:
-                line[0] += 1  # Add one
-                line[1] += 1  # Add one because itab files are one-based indexed and python is zero based
-                of.writelines(" ".join(map(str, line)) + " 1" + '\n')
+            of.write(print(self))
+            # for line in self:
+            #     line[0] += 1  # Add one
+            #     line[1] += 1  # Add one because itab files are one-based indexed and python is zero based
+            #     of.writelines(" ".join(map(str, line)) + " 1" + '\n')
 
     @staticmethod
     def fromfile(file):
