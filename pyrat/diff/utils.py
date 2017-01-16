@@ -15,6 +15,9 @@ import pickle
 import itertools as _iter
 
 
+import itertools as _iter
+
+
 def try_format(dt, fmt):
     try:
         dt.hour
@@ -292,7 +295,10 @@ class Itab:
             a = a + (" ".join(map(str, line)) + '\n')
         print(a)
         return a
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/master
     def __next__(self):
         try:
             el = self.tab[self.it_counter]
@@ -308,6 +314,7 @@ class Itab:
             #     line[0] += 1  # Add one
             #     line[1] += 1  # Add one because itab files are one-based indexed and python is zero based
             #     of.writelines(" ".join(map(str, line)) + " 1" + '\n')
+<<<<<<< HEAD
 
 
     @staticmethod
@@ -318,6 +325,8 @@ class Itab:
     def unpickle(self, file):
         with open(file, 'wb+') as of:
             pickle.dump(self, of, protocol=0)
+=======
+>>>>>>> origin/master
 
     @staticmethod
     def fromfile(file):
