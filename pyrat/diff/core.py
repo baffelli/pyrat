@@ -57,7 +57,7 @@ class Stack:
     Class to represent a stack of interferograms
     """
 
-    def __init__(self, par_list, bin_list, mli_par_list, itab, cc=[], mask=[], *args, **kwargs):
+    def __init__(self, par_list, bin_list, mli_par_list, cc=[], mask=[], itab=None, *args, **kwargs):
         stack = []
         cc_stack = []
         mask_stack = []
@@ -76,12 +76,14 @@ class Stack:
         sorting_key = lambda x: (x.master_time, x.slave_time)
         stack = sorted(stack, key=sorting_key)
         self.stack = stack  # the stack
-        self.itab = pyrat.diff.utils.Itab.fromfile(itab)  # the corresponding itab file
+        # self.itab = pyrat.diff.utils.Itab.fromfile(itab)  # the corresponding itab file
         self.slc_tab = sorted(mli_pars, key=lambda x: [(x.date, x.start_time)])
         if cc is not None:
             self.cc = cc_stack
         if mask is not None:
-            self.mask = mask
+            self.mask = mask_stack
+
+
 
     @classmethod
     def fromfile(cls, file):
