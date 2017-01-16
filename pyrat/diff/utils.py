@@ -10,6 +10,8 @@ import datetime as _dt
 import operator as _op
 import numpy as _np
 
+import snakemake.utils as _sn
+
 
 import itertools as _iter
 
