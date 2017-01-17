@@ -41,7 +41,7 @@ class Interferogram(gpf.gammaDataset):
 
     @property
     def slave_time(self):
-        return gpf.datetime_from_par_dict(self.master_par)
+        return gpf.datetime_from_par_dict(self.slave_par)
 
     @property
     def temporal_baseline(self):
