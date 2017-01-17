@@ -10,6 +10,7 @@ import datetime as _dt
 import operator as _op
 import numpy as _np
 
+import pickle
 
 import itertools as _iter
 
@@ -171,7 +172,7 @@ class StackHelper:
             strings.append(pattern.format(**wc))
         return strings
 
-    def itab_entries_between_dates(self, wildcards, pattern, start_str='start_dt', stop_str='stop_dt', **kwargs):
+    def itab_entries_between_dates(self, wildcards, pattern, start_str='start_dt', stop_str='stop_dt', itab_path=None,  **kwargs):
         """
         Returns all combinations of valid dates between the dates `start_str`
         and `end_str` computed using `Itab` with the itab parameters given in `**kwargs`. The dates are searched in the list of dates using the dates contained in `wildcards`
@@ -193,7 +194,13 @@ class StackHelper:
         # Get all dates between the specified dates
         dates = self.all_dates.select_date_range(wildcards[start_str], wildcards[stop_str])
         n_slc = len(dates)
-        itab = Itab(n_slc, **kwargs)
+        try:
+            itab = Itab.fromfile(itab_path)
+        except:
+            try:
+                itab = Itab(n_slc, **kwargs)
+            except:
+                raise AttributeError('Cannot create itab')
         wc = dict(wildcards)
         strings = []
         for master, slave, *rest in itab:
@@ -224,35 +231,7 @@ class StackHelper:
 
 
 
-        #
-        # def next_stack_dates(self, wildcards):
-        #     # select next starting slc
-        #     start_dt_list = select_n_dates(self.all_dates, wildcards.start_dt, int(wildcards.i))
-        #     start_dt = start_dt_list[-1]
-        #     # maxmium window length gives the last slc
-        #     last_slc_index = np.max(np.array(self.itab)[:, 0:2]) + 1
-        #     # find the last slc
-        #     stop_dt = select_n_dates(self.all_dates, start_dt, last_slc_index)[-1]
-        #     # now select range
-        #     valid_dates = select_date_range(self.all_dates, start_dt, stop_dt)
-        #     #        print("Kalman Filter start date: {start_dt}".format(start_dt= wildcards.start_dt))
-        #     #        print("Filter iteration index: {i}".format(i= wildcards.i))
-        #     #        print("Last slc of stack: {stop_dt}".format(stop_dt=stop_dt))
-        #     #        print("Slc in stack: {}".format(valid_dates))
-        #     return valid_dates
-        #
-        # def next_stack_single(self, wildcards, pattern):
-        #     valid_slcs = self.next_stack_dates(wildcards)
-        #     return [pattern.format(datetime=s, chan=wildcards.chan) for s in valid_slcs]
-        #
-        # def next_stack_combinations(self, wildcards, pattern):
-        #     valid_slcs = self.next_stack_dates(wildcards)
-        #     # Compute ifgrams in itab
-        #     ifgrams = []
-        #     for master, slave, *rest in self.itab:
-        #         ifgram = pattern.format(master=valid_slcs[master - 1], slave=valid_slcs[slave - 1], chan=wildcards.chan)
-        #         ifgrams.append(ifgram)
-        #     return ifgrams
+
 
 
 class Itab:
@@ -313,6 +292,7 @@ class Itab:
             a = a + (" ".join(map(str, line)) + '\n')
         print(a)
         return a
+
     def __next__(self):
         try:
             el = self.tab[self.it_counter]
@@ -329,6 +309,16 @@ class Itab:
             #     line[1] += 1  # Add one because itab files are one-based indexed and python is zero based
             #     of.writelines(" ".join(map(str, line)) + " 1" + '\n')
 
+
+    @staticmethod
+    def pickle(file):
+        with open(file, 'rb') as in_file:
+            return pickle.load(in_file)
+
+    def unpickle(self, file):
+        with open(file, 'wb+') as of:
+            pickle.dump(self, of, protocol=0)
+
     @staticmethod
     def fromfile(file):
         tab = _np.genfromtxt(file, dtype=int)
@@ -336,7 +326,8 @@ class Itab:
         stride = tab[0, 1] - tab[1, 1]
         ref_slc = tab[0, 0] -1
         n_slc = _np.max(tab[:, 0:2]) -1
-        a = Itab(n_slc, step=step, stride=stride, n_ref=ref_slc)
+        n_stacks = _np.max(tab[:,-1]) + 1
+        a = Itab(n_slc, step=step, stride=stride, n_ref=ref_slc, stack_size=n_stacks)
         tab[:,0:2] =- 1#subtract one because the file is saved with one based indices
         a.tab = tab
         return a
