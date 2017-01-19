@@ -293,7 +293,6 @@ class Itab:
             line[0] += 1  # Add one
             line[1] += 1  # Add one because itab files are one-based indexed and python is zero based
             a = a + (" ".join(map(str, line)) + '\n')
-        print(a)
         return a
 
     def __next__(self):

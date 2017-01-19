@@ -9,7 +9,7 @@ import re
 import json
 import gdal
 
-
+ruleorder: convert_dem > rename_dem
 
 ###############################################################################
 ##	Convert tif dem to gamma format
@@ -32,7 +32,7 @@ rule rename_dem:
         dem = config['geocoding']['DEM'],
         dem_par = config['geocoding']['DEM'] + '.par'
     script:
-        './wrappers/geocoding/convert_dem.py'
+        './wrappers/geocoding/rename_dem.py'
 
 ###############################################################################
 ##	Rename MLI (to give it the same name as the DEM_SEG)
@@ -156,12 +156,8 @@ rule to_geotiff:
         dem_seg_par = 'geo/' + config['geocoding']['table_name'] + '.dem_seg.par',
     output:
         gt = "{filename}.{ext}.tif"
-    run:
-        dt_code = gpf.gt_mapping_from_extension(input.file)
-        print(dt_code)
-        gt_cmd = "data2geotiff {{input.dem_seg_par}} {{input.file}} {dt_code}  {{output.gt}}".format(dt_code=dt_code)
-        shell(gt_cmd)
-#
+    script:
+        './wrappers/geocoding/to_geotiff.py'
 
 
 

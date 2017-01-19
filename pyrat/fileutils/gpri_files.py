@@ -624,10 +624,10 @@ def load_dataset(par_file, bin_file, **kwargs):
     return d_image, par_dict
 
 
-def write_dataset(dataset, par_dict, par_file, bin_file):
+def write_dataset(dataset, par_dict, par_file, bin_file, dtype=type_mapping['FCOMPLEX']):
     # Write the  binary file
     try:
-        _np.array(dataset).T.tofile(bin_file, "")
+        _np.array(dataset).astype(dtype).T.tofile(bin_file, "")
     except AttributeError:
         raise TypeError("The dataset is not a numpy ndarray")
     # Write the parameter file

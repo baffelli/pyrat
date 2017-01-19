@@ -4,12 +4,10 @@ import pyrat.fileutils.gpri_files as gpf
 
 import pyrat.geo.geofun as geo
 
-def shadow_map(input, output, threads, config, params, wildcards):
-    u, inc_par = gpf.load_dataset(input.reference_mli_par, input.u)
-    inc, inc_par = gpf.load_dataset(input.reference_mli_par, input.inc)
-    sh_map = geo.shadow_map(u, inc)
-    sh_map.T.astype(gpf.type_mapping['UCHAR']).tofile(output.sh_map)
+def to_geotiff(input, output, threads, config, params, wildcards):
+    dt_code = gpf.gt_mapping_from_extension(input.file)
+    gt_cmd = "data2geotiff {{input.dem_seg_par}} {{input.file}} {dt_code}  {{output.gt}}".format(dt_code=dt_code)
+    shell(gt_cmd)
 
-
-shadow_map(snakemake.input, snakemake.output, snakemake.threads, snakemake.config, snakemake.params,
+to_geotiff(snakemake.input, snakemake.output, snakemake.threads, snakemake.config, snakemake.params,
                  snakemake.wildcards)

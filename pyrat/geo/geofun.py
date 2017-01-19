@@ -1096,9 +1096,9 @@ def interpolate_complex(data,LUT, **kwargs):
     return data_interp
 
 
-def get_reference_coord(dict):
-    reference_feature = [f for f in dict['features'] if f['id']=='reference'][0]
-    radar_coord = reference_feature['properties']['radar_coordinates']
+def get_reference_coord(dict, reference_name):
+    reference_feature = [f for f in dict['features'] if f['id']==reference_name]
+    radar_coord = reference_feature[0]['properties']['radar_coordinates']
     return radar_coord
 
 class GeocodingTable(object):
@@ -1115,7 +1115,7 @@ class GeocodingTable(object):
         return self.lut.__getitem__(item)
 
     def geo_coord_to_dem_coord(self, coord):
-        gt = get_geotransform(self)
+        gt = self.geotransform
         x = (coord[0] - gt[0]) / gt[1]
         y = (coord[1] - gt[3]) / gt[5]
         return [x,y]

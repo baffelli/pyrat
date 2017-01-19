@@ -13,7 +13,7 @@ def geocoding_table(input, output, threads, config, params, wildcards):
              "{params.lat_ovr} {params.lon_ovr} {output.sim_sar} " \
              "{output.lv_theta} {output.lv_phi} {output.u} {output.v} " \
              "{output.inc} {output.psi} {output.pix} {output.ls_map} " \
-             "{params.frame} > {log}".format(params=params, output=output, input=input)
+             "{params.frame}".format(params=params, output=output, input=input)
     shell(gc_cmd)
     # Geocode forwards
     dem_width = gpf.par_to_dict(output.dem_seg_par).width
@@ -45,7 +45,7 @@ def geocoding_table(input, output, threads, config, params, wildcards):
                                                                   params=params, output=output)
         shell(fine_cmd)
         # Finally, we copy the improved LUT
-        shell("cp {params.lut_fine} {output.lut}").format(output=output, params=params)
+        shell("cp {params.lut_fine} {output.lut}".format(output=output, params=params))
         # And now we transform the remaining parameters
         for dt in [output.lv_theta, output.lv_phi, output.u, output.v, output.psi]:
             cmd_interp = "interp_real {dt} {params.diff_par} temp - - 1".format(dt=dt, params=params)
