@@ -101,7 +101,7 @@ rule geocode_back:
     log:
         "logs/gc.log"
     script:
-        './wrappers/geocoding/geocode_back.py'
+        './wrappers/geocoding/geocoding_back.py'
 
 ##############################################################################
 ##	This is the forward transformation (DEM -> radar coordinates)
@@ -129,8 +129,11 @@ rule sh_map:
         psi = 'geo/{dataname}.psi_fgc'
     output:
         sh_map = 'geo/{dataname}.sh_map'
-    script:
-        './wrappers/geocoding/shadow_map.py'
+    run:
+        u, inc_par = gpf.load_dataset(input.reference_mli_par, input.u)
+        inc, inc_par = gpf.load_dataset(input.reference_mli_par, input.inc)
+        sh_map = geo.shadow_map(u, inc)
+        sh_map.T.astype(gpf.type_mapping['UCHAR']).tofile(output.sh_map)
 
 
 

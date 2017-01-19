@@ -32,27 +32,27 @@ if 'coregistration' not in config:
                            }
 
 
-#Rule to determine coregistration parameters
-def measure_offset(input, output, params, offset_config):
-    #Create offset parameters
-    diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {offset_config[rlks]} {offset_config[azlks]} 0"
-    shell(diff_cmd)
-    #Initial offset estimate
-    for rlks, azlks in zip(range(5, 1,-1), range(10,2,-1)):
-        #Read initial estimate
-        off_par = gpf.par_to_dict(output.shift_par)
-        roff = off_par['range_offset_polynomial'][0]
-        azoff = off_par['azimuth_offset_polynomial'][0]
-        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {rlks} {azlks} {offset_config[ridx]} {offset_config[azidx]} {roff} {azoff} 0.1 {offset_config[rwin]} {offset_config[azwin]} 1"
-
-        shell(init_offset_cmd)
-    #Compute offset field
-    offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {offset_config[rwin]} {offset_config[azwin]} - - {offset_config[noff_r]} {offset_config[noff_az]} 0.3 "
-    #Repeat
-    shell(offset_cmd)
-    #        #Fit offset polynomial
-    fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
-    shell(fit_cmd)
+##Rule to determine coregistration parameters
+#def measure_offset(input, output, params, offset_config):
+#    #Create offset parameters
+#    diff_cmd = "create_offset {input.master_slc_par} {input.slave_slc_par} {output.shift_par} 1 {offset_config[rlks]} {offset_config[azlks]} 0"
+#    shell(diff_cmd)
+#    #Initial offset estimate
+#    for rlks, azlks in zip(range(5, 1,-1), range(10,2,-1)):
+#        #Read initial estimate
+#        off_par = gpf.par_to_dict(output.shift_par)
+#        roff = off_par['range_offset_polynomial'][0]
+#        azoff = off_par['azimuth_offset_polynomial'][0]
+#        init_offset_cmd = "init_offset {input.master_slc}  {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {rlks} {azlks} {offset_config[ridx]} {offset_config[azidx]} {roff} {azoff} 0.1 {offset_config[rwin]} {offset_config[azwin]} 1"
+#
+#        shell(init_offset_cmd)
+#    #Compute offset field
+#    offset_cmd =  "offset_pwr {input.master_slc} {input.slave_slc} {input.master_slc_par} {input.slave_slc_par} {output.shift_par} {output.offs} {output.snr} {offset_config[rwin]} {offset_config[azwin]} - - {offset_config[noff_r]} {offset_config[noff_az]} 0.3 "
+#    #Repeat
+#    shell(offset_cmd)
+#    #        #Fit offset polynomial
+#    fit_cmd = "offset_fit {output.offs} {output.snr} {output.shift_par} - - 0.3 1 0"
+#    shell(fit_cmd)
 
 
 
@@ -102,33 +102,37 @@ rule extract_channel:
     output:
         chan = "raw_chan/{dataname}_{chan}.raw",
         chan_par = "raw_chan/{dataname}_{chan}.raw_par"
-    run:
-        raw = gpf.rawData(input.raw_par, input.raw, channel_mapping=config['channel_mapping'])
-        raw_chan = raw.extract_channel(wildcards.chan[0:3], wildcards.chan[-1])
-        raw_chan.tofile(output.chan_par, output.chan)
+    script:
+        './wrappers/extract_channel.py'
 
 
 
+#
+###############################################################################
+### Correct squint
+#rule correct_squint:
+#		input:
+#			raw = "raw_chan/{dataname}_{chan,[A-B]{3}}{rx}.raw",
+#			raw_par = "raw_chan/{dataname}_{chan,[A-B]{3}}{rx}.raw_par",
+#		output:
+#			corr =  "raw_desq/{dataname}_{chan,[A-B]{3}}{rx}.raw",
+#			corr_par = "raw_desq/{dataname}_{chan,[A-B]{3}}{rx}.raw_par"
+#		script:
+#            './wrappers/extract_channel.py'
 
 ##############################################################################
 ## Correct squint
 rule correct_squint:
-		input:
-			raw = "raw_chan/{dataname}_{chan,[A-B]{3}}{rx}.raw",
-			raw_par = "raw_chan/{dataname}_{chan,[A-B]{3}}{rx}.raw_par",
-		output:
-			corr =  "raw_desq/{dataname}_{chan,[A-B]{3}}{rx}.raw",
-			corr_par = "raw_desq/{dataname}_{chan,[A-B]{3}}{rx}.raw_par"
-		params:
-			squint_rate = lambda wildcards: config["desquint"]["{chan}_squint_rate".format(chan=wildcards.chan)],
-		run:
-			raw = gpf.rawData(input.raw_par, input.raw)
-			raw_desq = gpf.correct_squint(raw, squint_rate=params.squint_rate)
-			raw_desq.tofile(output.corr_par, output.corr)
-
-
-
-
+    input:
+        raw = rules.extract_channel.output.chan,
+        raw_par = rules.extract_channel.output.chan_par,
+    output:
+        corr =  "raw_desq/{dataname}_{chan,[A-B]{3}}{rx}.raw",
+        corr_par = "raw_desq/{dataname}_{chan,[A-B]{3}}{rx}.raw_par"
+    params:
+        squint_rate = lambda wildcards: config["desquint"]["{chan}_squint_rate".format(chan=wildcards.chan)]
+    script:
+        './wrappers/correct_squint.py'
 
 
 ##############################################################################
@@ -140,13 +144,13 @@ rule range_compression:
     output:
         slc = "slc_{type, (desq)|(chan)}/{rawname}.slc",
         slc_par = "slc_{type, (desq)|(chan)}/{rawname}.slc.par"
-    run:
-        raw = gpf.rawData(input.raw_par, input.raw)
-        slc = gpf.range_compression(raw, rmin=config['range_compression']['rmin'], rmax=config['range_compression']['rmax'],
-        kbeta=config['range_compression']['k'], dec=1, zero=config['range_compression']['z'], f_c=None, bw=66e6, rvp_corr=False, scale=True)
-        slc.tofile(output.slc_par, output.slc)
-
-
+    params:
+        rmin = config['range_compression']['rmin'],
+        rmax = config['range_compression']['rmax'],
+        k = config['range_compression']['k'],
+        z = config['range_compression']['z']
+    script:
+         './wrappers/range_compression.py'
 
 
 ###############################################################################
@@ -164,8 +168,10 @@ rule polarimetric_slc_shift:
 #    wildcard_constraints:
 #        slcname1=slc_regex,
 #        slcname2=slc_regex
-    run:
-        measure_offset(input, output, params, config['polarimetric_coregistration'])
+    params:
+        **config['polarimetric_coregistration']
+    script:
+        './wrappers/measure_offset.py'
 
 
 ###############################################################################
@@ -183,8 +189,10 @@ rule slc_shift:
     wildcard_constraints:
         slcname1=slc_regex,
         slcname2=slc_regex
-    run:
-        measure_offset(input, output, params, config['coregistration'])
+    params:
+        **config['coregistration']
+    script:
+        './wrappers/measure_offset.py'
 
 
 
@@ -201,19 +209,21 @@ rule correct_polarimetric_shift:
         coreg_slc_par = 'slc_coreg/{slcname}_{chan}{rx, (l|u)}.slc.par',
     params:
         coreg_off_par = 'diff/{slcname}_AAA{rx}_BBB{rx}.off_par.temp'#temporary offset parameter for resampling
-    run:
-        #Compute the amount of shift (0 for AAA, the full for BBB and 1/2 for the remaining)
-        off_multiplier = {'AAA':0.0, 'BBB':1.0, 'BAA':0.5, 'ABB':0.5}
-        az_mutliplier = off_multiplier[wildcards.chan]
-        coreg_off_par = gpf.par_to_dict(input.off_par)
-        #Modify the azimuth shift using the multplier
-        coreg_off_par.azimuth_offset_polynomial[-1] *= az_mutliplier
-        coreg_off_par.range_offset_polynomial = [0 for el in coreg_off_par.range_offset_polynomial]#We do not need to correct range shift so we set it to zero
-        gpf.dict_to_par(coreg_off_par, params.coreg_off_par)
-        interp_cmd = "SLC_interp {input.slc} {input.slc_par} {input.slc_par} {params.coreg_off_par} {output.coreg_slc} -"
-        cp_cmd = "cp {input.slc_par} {output.coreg_slc_par}"
-        shell(interp_cmd)
-        shell(cp_cmd)
+    script:
+        './wrappers/correct_polarimetric_shift.py'
+#    run:
+#        #Compute the amount of shift (0 for AAA, the full for BBB and 1/2 for the remaining)
+#        off_multiplier = {'AAA':0.0, 'BBB':1.0, 'BAA':0.5, 'ABB':0.5}
+#        az_mutliplier = off_multiplier[wildcards.chan]
+#        coreg_off_par = gpf.par_to_dict(input.off_par)
+#        #Modify the azimuth shift using the multplier
+#        coreg_off_par.azimuth_offset_polynomial[-1] *= az_mutliplier
+#        coreg_off_par.range_offset_polynomial = [0 for el in coreg_off_par.range_offset_polynomial]#We do not need to correct range shift so we set it to zero
+#        gpf.dict_to_par(coreg_off_par, params.coreg_off_par)
+#        interp_cmd = "SLC_interp {input.slc} {input.slc_par} {input.slc_par} {params.coreg_off_par} {output.coreg_slc} -"
+#        cp_cmd = "cp {input.slc_par} {output.coreg_slc_par}"
+#        shell(interp_cmd)
+#        shell(cp_cmd)
 
 
 
@@ -262,10 +272,13 @@ rule correct_azimuth_ramp:
     params:
         integration_length = config['phase_correction']['integration_length'],
         r_ph = lambda wildcards: config['phase_correction']['{chan}_phase_center_offset'.format(chan=wildcards.chan[:-1:])],
-    run:
-        slc_input = gpf.gammaDataset(input.slc_par, input.slc)
-        slc_corr = cal.azimuth_correction(slc_input, params.r_ph, ws=params.integration_length)
-        slc_corr.tofile(output.slc_par, output.slc)
+    script:
+        './wrappers/azimuth_correction.py'
+
+#    run:
+#        slc_input = gpf.gammaDataset(input.slc_par, input.slc)
+#        slc_corr = cal.azimuth_correction(slc_input, params.r_ph, ws=params.integration_length)
+#        slc_corr.tofile(output.slc_par, output.slc)
 
 ##############################################################################
 ## Make a mli image
@@ -277,8 +290,11 @@ rule multi_look:
     output:
         mli = '{file}.mli{ext}',
         mli_par = '{file}.mli{ext}.par'
-    run:
-        shell("multi_look {input.slc} {input.slc}.par {output.mli} {output.mli_par} 1 1")
+    params:
+        rlks=1,
+        azlks=1
+    script:
+        './wrappers/multi_look.py'
 
 
 ##############################################################################
@@ -293,13 +309,8 @@ rule decimate:
     params:
         dec = config["range_compression"]['dec'],
         dec_mode= lambda wildcards: 'other' if wildcards.proc == 'corr' else 'sum',
-    run:
-        from scipy.ndimage import zoom
-        slc_input = gpf.gammaDataset(input.slc_par, input.slc)
-        print(slc_input._params)
-        slc_dec = slc_input.decimate(params.dec, mode=params.dec_mode)
-        slc_dec.tofile(output.slc_par, output.slc)
-
+    script:
+        './wrappers/decimate.py'
 
 
 

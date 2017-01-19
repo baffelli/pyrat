@@ -714,7 +714,6 @@ def geocode_image(image, pixel_size, *args):
 
 
 def shadow_map(slope_angle, inc_angle):
-    import matplotlib.pyplot as plt
     opp_slope_angle = slope_angle  - _np.pi/2
     look_angle = _np.pi * 2 - inc_angle
     sh_map = 0 * inc_angle.astype(_np.int8)
@@ -722,9 +721,6 @@ def shadow_map(slope_angle, inc_angle):
     sh_map[slope_angle < inc_angle] += 7
     sh_map[opp_slope_angle > look_angle] += 8
     sh_map[opp_slope_angle > -inc_angle] += 16
-
-    plt.imshow(sh_map)
-    plt.show()
     return sh_map.astype(_np.int8)
 
 
@@ -898,8 +894,8 @@ def gdal_to_dict(ds):
         proj_dict['data_format'] = {'value': 'SHORT INTEGER'}
     proj_dict['DEM_hgt_offset'] = {'value': 0}
     proj_dict['DEM_scale'] = {'value': 1.0}
-    proj_dict['width'] = {'value': ds.GetRasterBand(1).RasterXSize}
-    proj_dict['nlines'] = {'value': ds.GetRasterBand(1).RasterYSize}
+    proj_dict['width'] = {'value': ds.RasterXSize}
+    proj_dict['nlines'] = {'value': ds.RasterYSize}
     gt = ds.GetGeoTransform()
     proj_dict['corner_east'] = {'value': gt[0], 'unit':'m'}
     proj_dict['corner_north'] = {'value': gt[3], 'unit':'m'}
