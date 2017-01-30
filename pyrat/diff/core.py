@@ -68,7 +68,7 @@ class Stack:
             ifgram = Interferogram(par_name, bin_name, **kwargs)
             stack.append(ifgram)
             if cc_name is not None:
-                cc_stack.append(gpf.load_binary(cc_name,ifgram.shape[0]), )
+                cc_stack.append(gpf.load_binary(cc_name,ifgram.shape[0], dtype=gpf.type_mapping['FLOAT']), )
             if mask_name is not None:
                 mask_stack.append(_np.array(_im.open(mask_name)))
 
@@ -84,6 +84,9 @@ class Stack:
             self.mask = mask_stack
 
 
+    @classmethod
+    def from_slcs(cls, slc_list, slc_par_list):
+        pass
 
     @classmethod
     def fromfile(cls, file):

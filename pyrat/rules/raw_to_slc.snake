@@ -58,7 +58,7 @@ if 'coregistration' not in config:
 
 
 
-if config['project_name']:
+if 'project_name' in config:
     ##############################################################################
     # This rule links the raw data to the local working directory for a nicer folder structure
     rule link_data_to_working_directory:
@@ -154,24 +154,25 @@ rule range_compression:
 
 
 ###############################################################################
-### Find the shift between two SLCs channels
-rule polarimetric_slc_shift:
-    input:
-        slave_slc = 'slc_desq/{slcname}_BBB{rx}.slc',
-        master_slc = 'slc_desq/{slcname}_AAA{rx}.slc',
-        slave_slc_par = 'slc_desq/{slcname}_BBB{rx}.slc.par',
-        master_slc_par = 'slc_desq/{slcname}_AAA{rx}.slc.par',
-    output:
-        offs = "diff/{slcname}_AAA{rx}_BBB{rx}.offs",
-        snr =  "diff/{slcname}_AAA{rx}_BBB{rx}.ccp",
-        shift_par = "diff/{slcname}_AAA{rx}_BBB{rx}.off_par"
-#    wildcard_constraints:
-#        slcname1=slc_regex,
-#        slcname2=slc_regex
-    params:
-        **config['polarimetric_coregistration']
-    script:
-        './wrappers/measure_offset.py'
+if 'polarimetric_coregistration' in config:
+    ### Find the shift between two SLCs channels
+    rule polarimetric_slc_shift:
+        input:
+            slave_slc = 'slc_desq/{slcname}_BBB{rx}.slc',
+            master_slc = 'slc_desq/{slcname}_AAA{rx}.slc',
+            slave_slc_par = 'slc_desq/{slcname}_BBB{rx}.slc.par',
+            master_slc_par = 'slc_desq/{slcname}_AAA{rx}.slc.par',
+        output:
+            offs = "diff/{slcname}_AAA{rx}_BBB{rx}.offs",
+            snr =  "diff/{slcname}_AAA{rx}_BBB{rx}.ccp",
+            shift_par = "diff/{slcname}_AAA{rx}_BBB{rx}.off_par"
+    #    wildcard_constraints:
+    #        slcname1=slc_regex,
+    #        slcname2=slc_regex
+        params:
+            **config['polarimetric_coregistration']
+        script:
+            './wrappers/measure_offset.py'
 
 
 ###############################################################################

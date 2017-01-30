@@ -4,7 +4,6 @@ Created on Thu May 15 14:20:32 2014
 
 @author: baffelli
 """
-import copy as _cp
 
 import numpy as _np
 
@@ -538,90 +537,3 @@ def unblockshaped(arr, h, w):
 
 
 # TODO fix block processing
-class block_array:
-    def __init__(*args):
-
-        obj = args[0]
-        # The array to be split
-        A = args[1]
-        # Size of desired blocks
-        block_size = args[2]
-        # Size of the processing window
-        window_size = args[3]
-        # 2D shape of array
-        shape_2d = A.shape[0:2]
-        # Create object
-        obj.bs = block_size
-        obj.A = A
-        # iterate over block sizes to compute indices for each dim
-        obj.rsa = []
-        obj.rea = []
-        obj.wsa = []
-        obj.wea = []
-        # Current index for the iterator
-        obj.current = 0
-        obj.nblocks = []
-        for bs, wins, ars in zip(block_size, window_size, shape_2d):
-            # Compute number of block
-            N_block = _np.ceil((ars - wins + 1) / (bs - wins + 1))
-            block_idx = _np.arange(N_block)
-            rs = block_idx * (bs - wins + 1)
-            re = rs + bs - 1
-            re[-1] = ars - 1
-            ws = _np.zeros(N_block) + (wins - 1) / 2
-            we = _np.zeros(N_block) + bs - (wins + 1) / 2
-            ws[0] = 0
-            re[-1] = ars - 1
-            we[-1] = ars - 1 - rs[-1]
-            obj.rsa.append(rs)
-            obj.rea.append(re)
-            obj.wsa.append(ws)
-            obj.wea.append(we)
-            obj.nblocks.append(N_block)
-        obj.maxiter = _np.prod(obj.nblocks)
-
-    def __getitem__(self, sl):
-        if len(sl) is 1:
-            return self.take_block(sl)
-
-    def __setitem__(self, sl, item):
-        self.put_block(sl, item)
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        if self.current >= self.maxiter:
-            self.current = 0
-            raise StopIteration
-        else:
-            c = self.take_block(self.current)
-            self.current += 1
-            return c
-
-    def put_current(self, item):
-        self.put_block(self.current, item)
-
-    def center_index(self, idx):
-        try:
-            return _np.unravel_index(idx, self.nblocks)
-        except:
-            return 0, 0
-
-    def take_block(self, idx):
-        if idx < _np.prod(self.nblocks):
-            i, j = _np.unravel_index(idx, self.nblocks)
-            block = self.A[self.rsa[0][i]:self.rsa[0][i] + self.rea[0][i],
-                    self.rsa[1][j]:self.rsa[1][j] + self.rea[1][j]]
-        return block
-
-    def put_block(self, idx, block):
-
-        if idx < _np.prod(self.nblocks):
-            i, j = _np.unravel_index(idx, self.nblocks)
-            clipped_block = block[self.wsa[0][i]:self.wsa[0][i] + self.wea[0][i],
-                            self.wsa[1][j]:self.wea[1][j] + self.wsa[1][j]]
-            start_i = self.rsa[0][i] + self.wsa[0][i]
-            start_j = self.rsa[1][j] + self.wsa[1][j]
-            self.A[start_i:start_i + clipped_block.shape[0],
-            start_j:start_j + clipped_block.shape[1]] = clipped_block
