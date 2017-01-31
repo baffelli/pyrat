@@ -491,7 +491,7 @@ def circular_palette(N=24, type='circular', radius=40, lum=70):
     a rgb list representing the palet
 
     """
-    if type == 'cricular':
+    if type == 'circular':
         theta = _np.linspace(0, 2 * _np.pi, N)
     elif type == 'repeated':
         theta = [_np.linspace(0, 2 * _np.pi, N / 2),]*2

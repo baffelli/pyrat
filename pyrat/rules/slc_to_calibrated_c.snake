@@ -12,6 +12,7 @@ import json
 import numpy as np
 
 
+include: './raw_to_slc.snake'
 include: './geocoding.snake'
 #this workflow takes case of the processing up to the corrected slc stage
 
