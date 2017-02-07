@@ -5,7 +5,7 @@ def range_compression(input, output, threads, config, params, wildcards):
     raw = gpf.rawData(input.raw_par, input.raw)
     slc = gpf.range_compression(raw, rmin=params.rmin, rmax=params.rmax,
                                 kbeta=params.k, dec=1, zero=params.z,
-                                f_c=None, rvp_corr=False, scale=True)
+                                rvp_corr=False, scale=True)
     slc.tofile(output.slc_par, output.slc)
 
     

@@ -8,6 +8,7 @@ import pyrat.core.matrices as mat
 from snakemake.remote.SFTP import RemoteProvider
 
 #this matches a slc name in the form YYYYMMDD_HHMMSS or YYYYMMDD_HHMMSS_TXRXRX{upper or lower}
+dt_regex = "(\d{8})_(\d{6})"
 slc_regex = "(\d{8})_(\d{6})((_[A-B]{3}[l-u]))?"
 
 
@@ -124,11 +125,13 @@ rule extract_channel:
 ## Correct squint
 rule correct_squint:
     input:
-        raw = rules.extract_channel.output.chan,
-        raw_par = rules.extract_channel.output.chan_par,
+        raw = "raw_chan/{dataname}_{chan}{rx}.raw",
+        raw_par = "raw_chan/{dataname}_{chan}{rx}.raw_par",
     output:
         corr =  "raw_desq/{dataname}_{chan,[A-B]{3}}{rx}.raw",
         corr_par = "raw_desq/{dataname}_{chan,[A-B]{3}}{rx}.raw_par"
+    wildcard_constraints:
+        dataname = dt_regex,
     params:
         squint_rate = lambda wildcards: config["desquint"]["{chan}_squint_rate".format(chan=wildcards.chan)]
     script:

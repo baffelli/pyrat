@@ -789,7 +789,7 @@ class rawData(gammaDataset):
         self = args[0]
         # In this case, we want to write both parameters and binary file
         if len(args) is 3:
-            write_dataset(self, self._params, args[1], args[2])
+            write_dataset(self, self._params, args[1], args[2], dtype=type_mapping['SHORT INTEGER'])
 
     def extract_channel(self, pat, ant):
         if self.npats > 1:
@@ -911,6 +911,12 @@ class rawData(gammaDataset):
             raw_sl[:, i] = filter_fun(raw_sl[:,i])
          # raw_filt = _np.apply_along_axis(filter_fun,0, raw_sl)
         return raw_sl
+
+
+    def decimate(self, dec, mode='sum'):
+        dec_raw = super(rawData, self).decimate(dec, mode=mode)
+        return dec_raw
+        # dec_raw.STP_rotation_speed = de
 
     @property
     def nl_acc(self):
@@ -1123,17 +1129,12 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     assert SLC_corr.shape == SLC.shape, "failed"
     return SLC_corr
 
-
-def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f_c=None, bw=66e6, rvp_corr=False,
+def range_compression_loop(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, rvp_corr=False,
                       scale=True):
     rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
     rawdata.compute_slc_parameters(kbeta=kbeta, rmin=rmin, rmax=rmax, zero=zero, dec=dec)
-    # Construct a filter
-    if f_c is None:
-        filt = _np.ones(rawdata.nsamp)
-    # else:
-    #     filt = self.subband_filter(f_c, bw=bw)
     arr_compr = _np.zeros((rawdata.ns_max - rawdata.ns_min + 1, rawdata.nl_tot_dec), dtype=_np.complex64)
+    #Filter for fft shift
     fshift = _np.ones(rawdata.nsamp / 2 + 1)
     fshift[1::2] = -1
     # For each azimuth
@@ -1158,19 +1159,53 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, f
             dec_pulse[0:rawdata.zero] = dec_pulse[0:rawdata.zero] * rawdata.win2[0:rawdata.zero]
             dec_pulse[-rawdata.zero:] = dec_pulse[-rawdata.zero:] * rawdata.win2[-rawdata.zero:]
         # Emilinate the first sample, as it is used to jump back to the start freq
-        line_comp = _np.fft.rfft(dec_pulse[1::] * filt / rawdata.dec * rawdata.win) * fshift
+        line_comp = _np.fft.rfft(dec_pulse[1::] * rawdata.dec * rawdata.win) * fshift
         if rvp_corr:
             line_comp = line_comp * rvp
         # Decide if applying the range scale factor or not
-        if scale:
-            scale_factor = rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1]
-        else:
-            scale_factor = 1
+        scale_factor = rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1]
         arr_compr[:, idx_az] = (line_comp[rawdata.ns_min:rawdata.ns_max + 1].conj() * scale_factor).astype('complex64')
     # Remove lines used for rotational acceleration
     arr_compr = arr_compr[:, rawdata.nl_acc:rawdata.nl_image + rawdata.nl_acc:]
     slc_dict = rawdata.fill_dict()
     slc_compr = gammaDataset(slc_dict, arr_compr)
+    return slc_compr
+
+
+def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, rvp_corr=False,
+                      scale=True):
+    rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
+    rawdata.compute_slc_parameters(kbeta=kbeta, rmin=rmin, rmax=rmax, zero=zero, dec=dec)
+    arr_compr = _np.zeros((rawdata.ns_max - rawdata.ns_min + 1, rawdata.nl_tot_dec), dtype=_np.complex64)
+    #Filter for fft shift
+    fshift = _np.ones(rawdata.nsamp / 2 + 1)
+    fshift[1::2] = -1
+    #Choose wehter to decimate or not
+    if dec > 1:
+        raw_dec = rawdata.decimate(dec)
+    else:
+        raw_dec = rawdata * 1
+    # if rawdata.dt == _np.dtype(_np.int16) or rawdata.dt == type_mapping['SHORT INTEGER']:
+    raw_dec = raw_dec.astype(_np.float32) / TSF
+    # else:
+    #     raw_dec = raw_dec.astype(_np.float32)
+    if rawdata.zero > 0:
+        raw_dec[0:rawdata.zero,:] = raw_dec[0:rawdata.zero,:] * rawdata.win2[0:rawdata.zero, None]
+        raw_dec[-rawdata.zero:,:] = raw_dec[-rawdata.zero:,:] * rawdata.win2[-rawdata.zero:,None]
+    comp = _np.fft.rfft(raw_dec[1:,:] * rawdata.win[:,None] ,axis=0) * fshift[:,None]
+    #Cut
+    comp = comp[rawdata.ns_min:rawdata.ns_max + 1,:].astype('complex64').conj()
+    #Add rvp correction
+    if rvp_corr:
+        comp *= rvp[:,None]
+    #Amplitude scaling
+    if scale:
+        comp = comp[::-1,:] * rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1, None]
+    else:
+        pass
+    comp = comp[:, rawdata.nl_acc:rawdata.nl_image + rawdata.nl_acc:]
+    slc_dict = rawdata.fill_dict()
+    slc_compr = gammaDataset(slc_dict, comp)
     return slc_compr
 
 

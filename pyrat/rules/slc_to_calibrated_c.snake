@@ -107,8 +107,7 @@ rule covariance:
         topo= "diff_corr/{slcname}_AAAl_AAAu.unw",
         topo_params= "diff_corr/{slcname}_AAAl_AAAu.diff_par"
     output:
-        C = expand("cov_{{type}}/{{slcname}}_{{rx}}.c{i}{j}", i=[0,1,2,3],
-        j=[0,1,2,3]),
+        C = expand("cov_{{type}}/{{slcname}}_{{rx}}.c{i}{j}",i=range(4), j=range(4),),
         par = "cov_{type}/{slcname}_{rx}.par",
     wildcard_constraints:
         type = "(flat)|(normal)"
