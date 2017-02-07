@@ -288,7 +288,8 @@ rule correct_azimuth_ramp:
 ## Make a mli image
 rule multi_look:
     input:
-        slc = '{file}.slc{ext}'
+        slc = '{file}.slc{ext}',
+        slc_par = '{file}.slc{ext}.par'
     wildcard_constraints:
         ext = "(.*|_dec)"
     output:

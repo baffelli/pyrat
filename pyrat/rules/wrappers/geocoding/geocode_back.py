@@ -11,7 +11,7 @@ def geocode_back(input, output, threads, config, params, wildcards):
     nlines = dem_par_dict['nlines']
     filetype = gpf.gamma_datatype_code_from_extension(input.data)
     cmd = "geocode_back  {input.data} {data_width} {input.lut} " \
-          "{output.geocoded_file} {out_width} 0 1 {dtype}".format(data_width=data_width,
+          "{output.geocoded_file} {out_width} 0 1 {dtype} - - - 10".format(data_width=data_width,
     out_width=dem_width, nlines=nlines, dtype=filetype, output=output, input=input)
     shell(cmd)
 
