@@ -428,6 +428,23 @@ def matrix_root(A):
 
 
 def window_idx(arr, idx, zs):
+    """
+    Returns the indices that allow
+    to access a window of size `zs`
+    around `idx`.
+    Parameters
+    ----------
+    arr : array-like
+        The array from which to extract the window
+    idx : iterable
+        The indices of the window center
+    zs : iterable
+        A list of window sizes for each dimension of the array
+
+    Returns
+    -------
+
+    """
     indices = []
     for cnt, (current_size, current_idx) in enumerate(zip(zs, idx)):
         mi = _np.clip(current_idx - current_size // 2, 0, arr.shape[cnt])
