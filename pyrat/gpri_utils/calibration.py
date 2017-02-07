@@ -4,6 +4,7 @@ Created on Thu May 15 14:56:18 2014
 
 @author: baffelli
 """
+import numpy as np
 
 """
 Utilities for GPRI calibration
@@ -11,7 +12,7 @@ Utilities for GPRI calibration
 import itertools as _itertools
 
 import numpy as _np
-from scipy import fftpack as _fftp
+from scipy import fftpack as _fftp, signal
 from scipy import signal as _sig
 from scipy import ndimage as _nd
 
@@ -327,3 +328,46 @@ def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
         return _np.mod(-4 * _np.pi * rel_dist / lam, 2 * _np.pi), dist
     else:
         return (-4 * _np.pi * rel_dist / lam), dist
+
+
+def squint_vec(rawdata, z=2500):
+    win_slice = slice(z, rawdata.shape[0] - z)
+    rawdata_sl = rawdata[win_slice,:]#window the edges
+    max_idx = np.argmax(np.abs(rawdata_sl), axis=1)
+    return max_idx, win_slice
+
+
+def fit_squint(raw, slc_par, azidx, ridx, win=(10,10), z=2500):
+    """
+    Performs a fit of squint-angle verus chirp frequency on the raw data
+    by analyzing the response of a point-like target
+    Parameters
+    ----------
+    raw : pyrat.fileutils.rawData
+    slc_par : pyrat.fileutils.ParameterFile
+    azidx :  int
+        index of point target in azimuth
+    ridx : int
+        index of point target in range
+    win : tuple
+        window to extract around the point target
+    z : integer
+        number to samples to discard and the beginning and end of each chirp
+
+    Returns
+    -------
+
+    """
+    az_slice = raw.azimuth_slice_from_slc_idx(azidx, win[1])
+    # Construct
+    raw_sl = raw[:, az_slice] * 1
+    # Range filter
+    raw_filt = _sig.hilbert(raw_sl.filter_range_spectrum(slc_par, ridx, win[0], k=2), axis=0)
+    az_vec = np.arange(-raw_filt.shape[1] // 2, raw_filt.shape[1] // 2) * raw.azspacing
+    # Find maximum
+    squint_idx, win_slice = squint_vec(raw_filt, z=z)
+    squint = az_vec[squint_idx[::-1]]
+    # fit squint
+    # w = np.abs(np.array([row[squint_idx[idx]] for idx,row in enumerate(raw_filt[win_slice])]))
+    sq_par = np.polyfit(raw.freqvec[win_slice], squint, 1)
+    return squint_idx, squint, sq_par, raw_filt
