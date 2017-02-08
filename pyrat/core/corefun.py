@@ -175,7 +175,7 @@ def complex_interp(arr, osf, polar=False):
         return _ndim.interpolation.zoom(_np.abs(arr), osf) * _np.exp(1j * _ndim.interpolation.zoom(_np.angle(arr), osf))
 
 
-def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2, 4)):
+def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2, 4), polar=True):
     """
     Point target analysis.
     Parameters
@@ -234,17 +234,17 @@ def ptarg(slc, ridx, azidx, rwin=32, azwin=64, osf=16, sw=(2, 4)):
     #          slice(limits[1][0], limits[1][1]),)
     slc_section = slc[win_1]  # slice aroudn global maximum
     if slc.ndim == 2:
-        ptarg_zoom = complex_interp(slc_section, osf, polar=True)
+        ptarg_zoom = complex_interp(slc_section, osf, polar=polar)
     else:
         if slc.ndim == 3:
             ptarg_zoom = []
             for i in range(slc.shape[-1]):
-                ptarg_zoom[i] = complex_interp(slc_section[:, :, i], osf)
+                ptarg_zoom[i] = complex_interp(slc_section[:, :, i], osf,polar=polar)
         elif slc.ndim == 4:
             ptarg_zoom = [[0 for x in range(slc_section.shape[-2])] for y in range(slc_section.shape[-2])]
             for i in range(slc.shape[-1]):
                 for j in range(slc.shape[-2]):
-                    ptarg_zoom[i][j] = complex_interp(slc_section[:, :, i, j], osf)
+                    ptarg_zoom[i][j] = complex_interp(slc_section[:, :, i, j], osf,polar=polar)
             ptarg_zoom = _np.array(ptarg_zoom).transpose([2, 3, 0, 1])
     mx_zoom = _np.argmax(_np.abs(ptarg_zoom))
     mx_list_zoom = _np.unravel_index(mx_zoom, ptarg_zoom.shape)
