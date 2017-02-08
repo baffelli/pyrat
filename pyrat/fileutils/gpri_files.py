@@ -26,6 +26,8 @@ from numpy.lib.stride_tricks import as_strided as _ast
 from . import parameters as _par
 from .parameters import ParameterFile as _PF
 
+import pyfftw.interfaces.numpy_fft as _fftp
+
 # Constants for gpri
 ra = 6378137.0000  # WGS-84 semi-major axis
 rb = 6356752.3141  # WGS-84 semi-minor axis
@@ -1077,16 +1079,32 @@ def interpolation_1D(rawdata, squint_vec, angle_vec):
     return rawdata_corr
 
 
-def interpolation_2D(rawdata, squint_vec, angle_vec):
-    freq_vec = _np.arange(rawdata.shape[0])
-    aa, ff = _np.meshgrid(freq_vec, angle_vec, indexing='xy')
-    az_new_vec = aa - squint_vec[ff]
-    orig_coord = _np.vstack((ff.flatten(), aa.flatten())).T
-    new_coord = _np.vstack((ff.flatten(), az_new_vec.flatten())).T
-    print(new_coord.shape)
-    rawdata_corr, = _interp.interpn((freq_vec, angle_vec), rawdata, new_coord ,method='linear', bounds_error=False)
-    print(rawdata_corr)
-    return rawdata_corr.reshape(rawdata.shape)
+def interpolation_fourier(rawdata, squint_vec, angle_vec):
+    """
+    Interpolation using a series of 1D fft shifts, works with
+     any  vector
+    Parameters
+    ----------
+    rawdata
+    squint_vec
+    angle_vec
+
+    Returns
+    -------
+
+    """
+    #Transform
+    rawdata_hat = _fftp.rfft(rawdata, axis=1)
+    print('transformed')
+    #Compute azimuth frequency vector
+    az_freq = _np.linspace(0,1,rawdata_hat.shape[1])
+    #Relative squint (relative to actual position)
+    rel_sq = squint_vec - _np.linspace(0, rawdata.shape[1], rawdata.shape[0])
+    af, sq = _np.meshgrid(az_freq, rel_sq, indexing='xy')
+    shift_phase = _np.exp(2j * _np.pi * af * sq)
+    rawdata_shift = _fftp.irfft(rawdata_hat * shift_phase, axis=1)
+    return rawdata_shift
+
 
 
 # TODO: why is the squint negative in the raw case
@@ -1215,7 +1233,7 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, r
     if rawdata.zero > 0:
         raw_dec[0:rawdata.zero, :] = raw_dec[0:rawdata.zero, :] * rawdata.win2[0:rawdata.zero, None]
         raw_dec[-rawdata.zero:, :] = raw_dec[-rawdata.zero:, :] * rawdata.win2[-rawdata.zero:, None]
-    comp = _np.fft.rfft(raw_dec[1:, :] * rawdata.win[:, None], axis=0) * fshift[:, None]
+    comp = _fftp.rfft(raw_dec[1:, :] * rawdata.win[:, None], axis=0) * fshift[:, None]
     # Cut
     comp = comp[rawdata.ns_min:rawdata.ns_max + 1, :].astype('complex64').conj()
     # Add rvp correction
