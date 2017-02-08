@@ -143,7 +143,7 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     #Convert to fourier domain
     matched_filter2d_hat = pyfftw.interfaces.scipy_fftpack.fft(matched_filter2d,axis=1, n=slc.shape[1])
     slc_hat = pyfftw.interfaces.scipy_fftpack.fft(slc.astype(_np.complex64), axis=1)
-    slc_filt = pyfftw.interfaces.scipy_fftpack.fft(slc_hat * matched_filter2d_hat, axis=1)
+    slc_filt = pyfftw.interfaces.scipy_fftpack.ifft(slc_hat * matched_filter2d_hat, axis=1)
     #
     # for idx_row, (current_row, current_filter) in enumerate(zip(slc, matched_filter2d)):
     #     slc_filt[idx_row,:] = _sig.convolve(current_row, current_filter, mode='same')
