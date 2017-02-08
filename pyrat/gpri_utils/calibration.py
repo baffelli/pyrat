@@ -134,24 +134,42 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
         slc_filt = slc[:, ::ws_samp] * 1
     # process each range line
     theta = _np.arange(-ws_samp // 2, ws_samp // 2) * _np.deg2rad(slc.GPRI_az_angle_step)
-    for idx_r, r_sl in enumerate(slc.r_vec):
-        filt, dist = distance_from_phase_center(r_ant, r_ph, r_sl, theta, wrap=False)
-        lam = _gpf.C / slc.radar_frequency
-        #
-        #
-        # Normal matched filter
-        matched_filter = _np.exp(-1j * filt) * _np.exp(1j * 4 * _np.pi * r_sl / lam)
-        filter_output = _sig.convolve(slc[idx_r, :], matched_filter, mode='same')
-        if discard_samples:
-            filter_output = filter_output[::ws_samp]
-            slc_filt.GPRI_az_angle_step = slc.GPRI_az_angle_step * ws_samp
-            slc_filt.azimuth_lines = filter_output.shape[0]
-        else:
-            pass
-        slc_filt[idx_r, :] = filter_output
-        slc_filt = slc.__array_wrap__(slc_filt)
-        if idx_r % 1000 == 0:
-            print('Processing range index: ' + str(idx_r))
+    rr, tt = np.meshgrid(slc.r_vec, theta, indexing='ij')
+    filt2d, dist2d = distance_from_phase_center(r_ant, r_ph, rr, tt, wrap=False)
+    lam = _gpf.C / slc.radar_frequency
+    matched_filter2d = (_np.exp(-1j * filt2d) * _np.exp(1j * 4 * _np.pi * rr / lam))
+    #Convert to fourier domain
+    matched_filter2d_hat = _fftp.fft(matched_filter2d,axis=1, n=slc.shape[1])
+    slc_hat = _fftp.fft(slc.astype(_np.complex64), axis=1)
+    slc_filt = _fftp.ifft(slc_hat * matched_filter2d_hat, axis=1)
+    #
+    # for idx_row, (current_row, current_filter) in enumerate(zip(slc, matched_filter2d)):
+    #     slc_filt[idx_row,:] = _sig.convolve(current_row, current_filter, mode='same')
+    # filter_output = _sig.fftconvolve(slc.real, matched_filter2d.real, mode='same') + 1j *_sig.fftconvolve(slc.imag, matched_filter2d.imag, mode='same')
+    slc_filt = slc.__array_wrap__(slc_filt)
+    if discard_samples:
+        slc_filt = slc_filt[:, :ws_samp]
+        slc_filt.GPRI_az_angle_step = slc.GPRI_az_angle_step * ws_samp
+        slc_filt.azimuth_lines = slc_filt.shape[0]
+
+    # for idx_r, r_sl in enumerate(slc.r_vec):
+    #     if idx_r % 1000 == 0:
+    #         print('Processing range index: ' + str(idx_r))
+    #     filt, dist = distance_from_phase_center(r_ant, r_ph, r_sl, theta, wrap=False)
+    #     lam = _gpf.C / slc.radar_frequency
+    #     #
+    #     #
+    #     # Normal matched filter
+    #     matched_filter = _np.exp(-1j * filt) * _np.exp(1j * 4 * _np.pi * r_sl / lam)
+    #     filter_output = _sig.convolve(slc[idx_r, :], matched_filter, mode='same')
+    #     if discard_samples:
+    #         filter_output = filter_output[::ws_samp]
+    #         slc_filt.GPRI_az_angle_step = slc.GPRI_az_angle_step * ws_samp
+    #         slc_filt.azimuth_lines = filter_output.shape[0]
+    #     else:
+    #         pass
+
+    #     slc_filt[idx_r, :] = filter_output
     return slc_filt
 
 
