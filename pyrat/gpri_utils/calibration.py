@@ -158,7 +158,7 @@ def filter1d(slc, filter):
     return slc_filt
 
 
-def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False, filter_fun=filter2d):
+def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False, filter_fun=filter1d):
     r_ant = _np.linalg.norm(slc.phase_center[0:2])
     # Azimuth vector for the entire image
     # az_vec_image = _np.deg2rad(self.slc.GPRI_az_start_angle[0]) + _np.arange(self.slc.shape[0]) * _np.deg2rad(
