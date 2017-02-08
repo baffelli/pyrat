@@ -11,19 +11,22 @@ def polcal_par(input, output, threads, config, params, wildcards):
     C_matrix_flat = mat.coherencyMatrix(params['C_root'], params['C_par'], basis='lexicographic', gamma=True,
                                         bistatic=True)
     #        #The indices are in the raw coordinates, needs to decimate
+    pt = []
     cal_ref = config['list_of_reflectors'][config['calibration']['reflector_index']]
+    # for cal_ref in config['list_of_reflectors']:
     ridx = cal_ref['ridx']
     azidx = cal_ref['azidx'] // C_matrix_flat.GPRI_decimation_factor
     RCS = cal.cr_rcs(cal_ref['side'], C_matrix_flat.radar_frequency, type=cal_ref['type'])
     sw = tuple(params.sw)
-    av_win = [5, 5]  # averaging window
+    av_win = [5, 10]  # averaging window
     C_matrix_flat_av = C_matrix_flat.boxcar_filter(av_win)
     C_ptarg, rplot, azplot, mx_pos, ptarg_info, r_vec, az_vec = cf.ptarg(C_matrix_flat_av, ridx, azidx, sw=sw, azwin=50,
-                                                                         rwin=10, )
+                                                                         rwin=20, )
     rgb, pal, rest = vf.dismph(C_ptarg[:,:,0,3])
     plt.imshow(rgb)
+    plt.plot(mx_pos[1], mx_pos[0], 'bo')
     plt.show()
-
+    C_cal = C_matrix_flat_av[mx_pos]
     # determine imbalance
     phi_t, phi_r, f, g = cal.measure_imbalance(C_ptarg[mx_pos[0], mx_pos[1]], C_matrix_flat_av)
     K = cal.gpri_radcal(C_matrix_flat[:, :, 0, 0], [ridx, azidx], RCS)
