@@ -24,8 +24,11 @@ import scipy.optimize as _opt
 
 import matplotlib.pyplot as plt
 
-import pyfftw
+import pyfftw.interfaces.scipy_fftpack as _fftp
 
+
+
+import math as _math
 
 def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=True):
 
@@ -121,7 +124,43 @@ def remove_window(S):
     return S_corr
 
 
-def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
+
+def symmetric_pad(pad_size):
+    # if pad_size % 2 == 0:
+    #     left_pad = right_pad = np.ceil(-pad_size//2)  + 1
+    # else:
+    left_pad = int(np.floor(pad_size/2)) + 1
+    right_pad = int(np.ceil(pad_size/2))
+    pad_vec = (left_pad, right_pad)
+    return pad_vec
+
+def filter2d(slc, filter):
+    filter_pad_size = ((0,0), symmetric_pad(slc.shape[1]+filter.shape[1]))
+    filter_pad = np.pad(filter, filter_pad_size, mode='constant')
+    slc_pad_size = ((0,0,), symmetric_pad(filter.shape[1]*2))
+    slc_pad = np.pad(slc,slc_pad_size, mode='constant')
+    #Transform
+    fft_fun = lambda arr: _fftp.fft(arr, axis=1)
+    ifft_funt = lambda arr: _fftp.ifftshift(_fftp.ifft(arr, axis=1),axes=(1,))
+    filter_hat = fft_fun(filter_pad)
+    slc_hat = fft_fun(slc_pad)
+    #Product and invese transform
+    slc_filt = ifft_funt(slc_hat * filter_hat)
+    slc_filt = slc_filt[:, slice(slc_pad_size[1][0],slc_filt.shape[1]-slc_pad_size[1][1])]
+    return slc_filt
+
+def filter1d(slc, filter):
+    slc_filt = slc * 0
+    for idx_row, (current_row, current_filter) in enumerate(_itertools.zip_longest(slc, filter)):
+        if idx_row % 1000 == 0:
+            print('Processing range index: ' + str(idx_row))
+        slc_filt[idx_row,:] = _sig.convolve(current_row, current_filter, mode='same')
+    return slc_filt
+
+
+def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False, filter_fun=filter2d):
+
+
     r_ant = _np.linalg.norm(slc.phase_center[0:2])
     # Azimuth vector for the entire image
     # az_vec_image = _np.deg2rad(self.slc.GPRI_az_start_angle[0]) + _np.arange(self.slc.shape[0]) * _np.deg2rad(
@@ -130,48 +169,24 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     ws_samp = ws // slc.GPRI_az_angle_step
     # Filtered slc has different sizes depending
     # if we keep all the samples after filtering
-    if not discard_samples:
-        slc_filt = slc * 1
-    else:
-        slc_filt = slc[:, ::ws_samp] * 1
+    # if not discard_samples:
+    #     slc_filt = slc * 1
+    # else:
+    #     slc_filt = slc[:, ::ws_samp] * 1
     # process each range line
     theta = _np.arange(-ws_samp // 2, ws_samp // 2) * _np.deg2rad(slc.GPRI_az_angle_step)
     rr, tt = np.meshgrid(slc.r_vec, theta, indexing='ij')
-    filt2d, dist2d = distance_from_phase_center(r_ant, r_ph, rr, tt, wrap=False)
     lam = _gpf.C / slc.radar_frequency
+    filt2d, dist2d = distance_from_phase_center(r_ant, r_ph, rr, tt, lam, wrap=False)
     matched_filter2d = (_np.exp(-1j * filt2d) * _np.exp(1j * 4 * _np.pi * rr / lam))
     #Convert to fourier domain
-    matched_filter2d_hat = pyfftw.interfaces.scipy_fftpack.fft(matched_filter2d,axis=1, n=slc.shape[1])
-    slc_hat = pyfftw.interfaces.scipy_fftpack.fft(slc.astype(_np.complex64), axis=1)
-    slc_filt = pyfftw.interfaces.scipy_fftpack.ifft(slc_hat * matched_filter2d_hat, axis=1)
-    #
-    # for idx_row, (current_row, current_filter) in enumerate(zip(slc, matched_filter2d)):
-    #     slc_filt[idx_row,:] = _sig.convolve(current_row, current_filter, mode='same')
-    # filter_output = _sig.fftconvolve(slc.real, matched_filter2d.real, mode='same') + 1j *_sig.fftconvolve(slc.imag, matched_filter2d.imag, mode='same')
-    slc_filt = slc.__array_wrap__(slc_filt)
+    slc_filt_2d = filter_fun(slc.astype(np.complex64), matched_filter2d)
+    slc_filt = slc.__array_wrap__(slc_filt_2d.astype(slc.dtype))
+    print(slc.dtype)
     if discard_samples:
         slc_filt = slc_filt[:, :ws_samp]
         slc_filt.GPRI_az_angle_step = slc.GPRI_az_angle_step * ws_samp
         slc_filt.azimuth_lines = slc_filt.shape[0]
-
-    # for idx_r, r_sl in enumerate(slc.r_vec):
-    #     if idx_r % 1000 == 0:
-    #         print('Processing range index: ' + str(idx_r))
-    #     filt, dist = distance_from_phase_center(r_ant, r_ph, r_sl, theta, wrap=False)
-    #     lam = _gpf.C / slc.radar_frequency
-    #     #
-    #     #
-    #     # Normal matched filter
-    #     matched_filter = _np.exp(-1j * filt) * _np.exp(1j * 4 * _np.pi * r_sl / lam)
-    #     filter_output = _sig.convolve(slc[idx_r, :], matched_filter, mode='same')
-    #     if discard_samples:
-    #         filter_output = filter_output[::ws_samp]
-    #         slc_filt.GPRI_az_angle_step = slc.GPRI_az_angle_step * ws_samp
-    #         slc_filt.azimuth_lines = filter_output.shape[0]
-    #     else:
-    #         pass
-
-    #     slc_filt[idx_r, :] = filter_output
     return slc_filt
 
 
@@ -331,12 +346,12 @@ def synthetic_interferogram(S, DEM, B):
 
 
 
-def distance_from_phase_center(r_arm, r_ph, r_sl, theta, wrap=False):
+def distance_from_phase_center(r_arm, r_ph, r_sl, theta, lam, wrap=False):
     """
     This function computes the relative phase caused by a shifted
     phase center in the antenna. The variation is computed relative to the slante of closest approach
     """
-    lam = _gpf.C / 17.2e9
+    # lam = _gpf.C / 17.2e9
     r_ant = _np.sqrt(r_arm ** 2 + r_ph ** 2)
     alpha = _np.arctan(r_ph / r_arm)
     # Chord length
