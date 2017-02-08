@@ -159,8 +159,6 @@ def filter1d(slc, filter):
 
 
 def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False, filter_fun=filter2d):
-
-
     r_ant = _np.linalg.norm(slc.phase_center[0:2])
     # Azimuth vector for the entire image
     # az_vec_image = _np.deg2rad(self.slc.GPRI_az_start_angle[0]) + _np.arange(self.slc.shape[0]) * _np.deg2rad(
@@ -182,7 +180,6 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False, filter_fun=filt
     #Convert to fourier domain
     slc_filt_2d = filter_fun(slc.astype(np.complex64), matched_filter2d)
     slc_filt = slc.__array_wrap__(slc_filt_2d.astype(slc.dtype))
-    print(slc.dtype)
     if discard_samples:
         slc_filt = slc_filt[:, :ws_samp]
         slc_filt.GPRI_az_angle_step = slc.GPRI_az_angle_step * ws_samp
