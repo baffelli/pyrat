@@ -19,6 +19,7 @@ import warnings as _warn
 
 import numpy as _np
 import scipy as _sp
+import scipy.interpolate as _interp
 import scipy.signal as _sig
 from numpy.lib.stride_tricks import as_strided as _ast
 
@@ -210,7 +211,6 @@ def datetime_from_par_dict(par):
     return dto
 
 
-
 class gammaDataset(_np.ndarray):
     def __new__(cls, *args, **kwargs):
         par_dict = args[0]
@@ -293,12 +293,12 @@ class gammaDataset(_np.ndarray):
     def __array_wrap__(self, obj):
         # new_arr = super(gammaDataset,self).__array_wrap__(obj)
         new_arr = obj.view(type(self))
-        dict_1 = self.__dict__.copy()#remove params, we copy them manually
+        dict_1 = self.__dict__.copy()  # remove params, we copy them manually
         dict_1.pop('_params')
-        new_arr.__dict__ = dict_1#copy dict
+        new_arr.__dict__ = dict_1  # copy dict
         if '_params' in self.__dict__:
             if '_params' not in new_arr.__dict__:
-                new_arr.__dict__['_params'] = self._params.copy()#copy params
+                new_arr.__dict__['_params'] = self._params.copy()  # copy params
         return new_arr
 
     def __getslice__(self, start, stop):
@@ -349,7 +349,7 @@ class gammaDataset(_np.ndarray):
             except (TypeError, IndexError):
                 start_r = r_vec_sl
             try:
-                new_obj_1 = self.__array_wrap__(new_obj_1)#call array_wrap
+                new_obj_1 = self.__array_wrap__(new_obj_1)  # call array_wrap
                 # Compute the new shape
                 if new_obj_1.ndim > 1:
                     new_lines = new_obj_1.shape[1]
@@ -458,7 +458,7 @@ class gammaDataset(_np.ndarray):
             for idx_az in range(arr_dec.shape[1]):
                 # Decimated pulse
                 dec_pulse = _np.zeros_like(self[:, 0])
-                current_idx = slice(idx_az * dec, idx_az*dec+dec)
+                current_idx = slice(idx_az * dec, idx_az * dec + dec)
                 az_data = self[:, current_idx]
                 arr_dec[:, idx_az] = _np.mean(az_data, axis=1)
                 # for idx_dec in range(dec):
@@ -467,8 +467,8 @@ class gammaDataset(_np.ndarray):
                 #         print('decimating line: ' + str(current_idx))
                 #     dec_pulse += self[:, current_idx]
                 # arr_dec[:, idx_az] = dec_pulse
-            # print(arr_dec.shape)
-            # print(arr_dec_1.shape)
+                # print(arr_dec.shape)
+                # print(arr_dec_1.shape)
         # elif mode == 'vectorized':
         #     arr_dec = _np.mean(_np.reshape(self, arr_dec.shape + (,dec)),axis=-1)
         else:
@@ -545,7 +545,7 @@ def get_width(par_path):
     """
     par_dict = par_to_dict(par_path)
     for name_string in ["width", "range_samples", "CHP_num_samp", "map_width",
-                        "interferogram_width","range_samp_1"]:
+                        "interferogram_width", "range_samp_1"]:
         try:
             width = getattr(par_dict, name_string)
             return int(width)
@@ -824,6 +824,10 @@ class rawData(gammaDataset):
         return self.tcycle * self.STP_rotation_speed * self.npats
 
     @property
+    def freqspacing(self):
+        return self.RF_chirp_rate / self.ADC_sample_rate
+
+    @property
     def freqvec(self):
         return self.RF_freq_min + _np.arange(self.CHP_num_samp,
                                              dtype=_np.double) * self.RF_chirp_rate / self.ADC_sample_rate
@@ -864,7 +868,7 @@ class rawData(gammaDataset):
     def rvec(self):
         return self.slr
 
-    def range_spectrum_filter(self, center, width, k = 3):
+    def range_spectrum_filter(self, center, width, k=3):
         """
         Produces a filter for the range data
         Parameters
@@ -877,41 +881,41 @@ class rawData(gammaDataset):
         """
         fshift = _np.ones(self.shape[0])
         fshift[1::2] = -1
-        slc_filter = _np.zeros(self.shape[0]//2 + 1) * 0
-        filter_slice = slice(center - width//2, center + width//2)
+        slc_filter = _np.zeros(self.shape[0] // 2 + 1) * 0
+        filter_slice = slice(center - width // 2, center + width // 2)
         slc_filter[filter_slice] = _sig.kaiser(width, k)
-        raw_filter = _np.hstack([0,_np.fft.irfft(slc_filter) * fshift[1:]])
+        raw_filter = _np.hstack([0, _np.fft.irfft(slc_filter) * fshift[1:]])
         return slc_filter
 
-    def filter_range_spectrum(self,slc, center, width, **kwargs):
+    def filter_range_spectrum(self, slc, center, width, **kwargs):
         r_start_idx = center + slc.near_range_slc / slc.range_pixel_spacing
-        fshift = _np.ones(self.shape[0]//2 + 1)
+        fshift = _np.ones(self.shape[0] // 2 + 1)
         fshift[1::2] = -1
         r_filt = self.range_spectrum_filter(r_start_idx, width, **kwargs)
         raw_sl = self[:, :] * 1
         filter_fun = lambda x: _sig.fftconvolve(x, r_filt, mode='same')
         for i in range(raw_sl.shape[1]):
-            raw_sl[:, i] = _np.hstack([0,_np.fft.irfft(_np.fft.rfft(self[:, i]) * r_filt)])
+            raw_sl[:, i] = _np.hstack([0, _np.fft.irfft(_np.fft.rfft(self[:, i]) * r_filt)])
         return raw_sl
 
     def azimuth_slice_from_slc_idx(self, center, width):
-        az_slice = slice(self.nl_acc + center - width//2,
-                         self.nl_acc + center + width//2)
+        az_slice = slice(self.nl_acc + center - width // 2,
+                         self.nl_acc + center + width // 2)
         return az_slice
 
-    def extract_around_slc_position(self, slc ,center, width):
-        r_start_idx = center[0] + slc.near_range_slc / slc.range_pixel_spacing#shift by start of range (corresponds to the parameter rmin for range compression)
+    def extract_around_slc_position(self, slc, center, width):
+        r_start_idx = center[
+                          0] + slc.near_range_slc / slc.range_pixel_spacing  # shift by start of range (corresponds to the parameter rmin for range compression)
         r_filt = self.range_spectrum_filter(r_start_idx, width[0])
-        #extract azimuth extent
+        # extract azimuth extent
         az_slice = self.azimuth_slice_from_slc_idx(center[1], width[1])
         raw_sl = self[:, az_slice] * 1
-        #Filter
+        # Filter
         filter_fun = lambda x: _sig.fftconvolve(x, r_filt, mode='same')
         for i in range(raw_sl.shape[1]):
-            raw_sl[:, i] = filter_fun(raw_sl[:,i])
-         # raw_filt = _np.apply_along_axis(filter_fun,0, raw_sl)
+            raw_sl[:, i] = filter_fun(raw_sl[:, i])
+            # raw_filt = _np.apply_along_axis(filter_fun,0, raw_sl)
         return raw_sl
-
 
     def decimate(self, dec, mode='sum'):
         dec_raw = super(rawData, self).decimate(dec, mode=mode)
@@ -1035,8 +1039,6 @@ class rawData(gammaDataset):
         return slc_dict
 
 
-
-
 def model_squint(freq_vec):
     return squint_angle(freq_vec, KU_WIDTH, KU_DZ, k=1.0 / 2.0)
 
@@ -1045,7 +1047,7 @@ def linear_squint(freq_vec, sq_parameters):
     return _np.polynomial.polynomial.polyval(freq_vec, [0, sq_parameters])
 
 
-def interpolation_core(rawdata, squint_vec, angle_vec):
+def interpolation_1D(rawdata, squint_vec, angle_vec):
     """
     Core interpolation function used by correct_squint and correct_squint_in_SLC
     Parameters
@@ -1059,15 +1061,35 @@ def interpolation_core(rawdata, squint_vec, angle_vec):
 
     """
     rawdata_corr = rawdata * 1
+    # freq_vec = _np.arange(rawdata.shape[0])
+    # tt, ff = _np.meshgrid(angle_vec, freq_vec)
+    # az_new = tt - squint_vec[ff]
+
     for idx_freq in range(rawdata.shape[0]):
         az_new = angle_vec - squint_vec[idx_freq]
-        rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, rawdata[idx_freq, :], left=0.0, right=0.0)
+        current_data = rawdata[idx_freq, :]
+        # interpolator = _interp.UnivariateSpline(angle_vec, current_data, k=1)
+        # rawdata_corr[idx_freq, :] = interpolator(az_new)
+        rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, current_data, left=0.0, right=0.0)
         if idx_freq % 500 == 0:
             print_str = "interp sample: {idx}, ,shift: {sh} samples".format(idx=idx_freq, sh=az_new[0] - angle_vec[0])
             print(print_str)
     return rawdata_corr
 
-#TODO: why is the squint negative in the raw case
+
+def interpolation_2D(rawdata, squint_vec, angle_vec):
+    freq_vec = _np.arange(rawdata.shape[0])
+    aa, ff = _np.meshgrid(freq_vec, angle_vec, indexing='xy')
+    az_new_vec = aa - squint_vec[ff]
+    orig_coord = _np.vstack((ff.flatten(), aa.flatten())).T
+    new_coord = _np.vstack((ff.flatten(), az_new_vec.flatten())).T
+    print(new_coord.shape)
+    rawdata_corr, = _interp.interpn((freq_vec, angle_vec), rawdata, new_coord ,method='linear', bounds_error=False)
+    print(rawdata_corr)
+    return rawdata_corr.reshape(rawdata.shape)
+
+
+# TODO: why is the squint negative in the raw case
 def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
     # We require a function to compute the squint angle
     squint_vec = squint_function(raw_channel.freqvec, squint_rate)
@@ -1082,7 +1104,7 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     squint_vec = _np.insert(squint_vec, 0, 0)
     rotation_squint = _np.insert(rotation_squint, 0, 0)
     # Interpolated raw channel
-    raw_channel_interp = interpolation_core(raw_channel, -squint_vec, angle_vec)
+    raw_channel_interp = interpolation_1D(raw_channel, -squint_vec, angle_vec)
     raw_channel_interp.__array_wrap__(raw_channel)
     return raw_channel_interp
 
@@ -1129,12 +1151,13 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     assert SLC_corr.shape == SLC.shape, "failed"
     return SLC_corr
 
+
 def range_compression_loop(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, rvp_corr=False,
-                      scale=True):
+                           scale=True):
     rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
     rawdata.compute_slc_parameters(kbeta=kbeta, rmin=rmin, rmax=rmax, zero=zero, dec=dec)
     arr_compr = _np.zeros((rawdata.ns_max - rawdata.ns_min + 1, rawdata.nl_tot_dec), dtype=_np.complex64)
-    #Filter for fft shift
+    # Filter for fft shift
     fshift = _np.ones(rawdata.nsamp / 2 + 1)
     fshift[1::2] = -1
     # For each azimuth
@@ -1177,10 +1200,10 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, r
     rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
     rawdata.compute_slc_parameters(kbeta=kbeta, rmin=rmin, rmax=rmax, zero=zero, dec=dec)
     arr_compr = _np.zeros((rawdata.ns_max - rawdata.ns_min + 1, rawdata.nl_tot_dec), dtype=_np.complex64)
-    #Filter for fft shift
+    # Filter for fft shift
     fshift = _np.ones(rawdata.nsamp / 2 + 1)
     fshift[1::2] = -1
-    #Choose wehter to decimate or not
+    # Choose wehter to decimate or not
     if dec > 1:
         raw_dec = rawdata.decimate(dec)
     else:
@@ -1190,17 +1213,17 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, r
     # else:
     #     raw_dec = raw_dec.astype(_np.float32)
     if rawdata.zero > 0:
-        raw_dec[0:rawdata.zero,:] = raw_dec[0:rawdata.zero,:] * rawdata.win2[0:rawdata.zero, None]
-        raw_dec[-rawdata.zero:,:] = raw_dec[-rawdata.zero:,:] * rawdata.win2[-rawdata.zero:,None]
-    comp = _np.fft.rfft(raw_dec[1:,:] * rawdata.win[:,None] ,axis=0) * fshift[:,None]
-    #Cut
-    comp = comp[rawdata.ns_min:rawdata.ns_max + 1,:].astype('complex64').conj()
-    #Add rvp correction
+        raw_dec[0:rawdata.zero, :] = raw_dec[0:rawdata.zero, :] * rawdata.win2[0:rawdata.zero, None]
+        raw_dec[-rawdata.zero:, :] = raw_dec[-rawdata.zero:, :] * rawdata.win2[-rawdata.zero:, None]
+    comp = _np.fft.rfft(raw_dec[1:, :] * rawdata.win[:, None], axis=0) * fshift[:, None]
+    # Cut
+    comp = comp[rawdata.ns_min:rawdata.ns_max + 1, :].astype('complex64').conj()
+    # Add rvp correction
     if rvp_corr:
-        comp *= rvp[:,None]
-    #Amplitude scaling
+        comp *= rvp[:, None]
+    # Amplitude scaling
     if scale:
-        comp = comp[::-1,:] * rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1, None]
+        comp = comp[:, :] * rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1, None]
     else:
         pass
     comp = comp[:, rawdata.nl_acc:rawdata.nl_image + rawdata.nl_acc:]
