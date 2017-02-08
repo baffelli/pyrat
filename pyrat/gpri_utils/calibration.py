@@ -54,9 +54,9 @@ def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=Tru
 
     """
     r_arm = slc.phase_center[0]
-
+    lam = _gpf.C / slc.radar_frequency
     def cf(r_arm, r_ph, r, az_vec, off, meas_phase):
-        sim_phase, dist = distance_from_phase_center(r_arm, r_ph, r, az_vec, wrap=False)
+        sim_phase, dist = distance_from_phase_center(r_arm, r_ph, r, az_vec, lam, wrap=False)
         cost = _np.mean(_np.abs(sim_phase + off - meas_phase) ** 2)
         return cost
     # Find the maxium in search window
@@ -88,7 +88,7 @@ def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=Tru
     print(res)
     par_dict = {'phase_center_offset': [res.x[0], 'm'], 'residual error': res.fun,
                 'lever_arm_length': [r_arm, 'm'], 'range_of_closest_approach': [r_sl, 'm']}
-    sim_ph, dist = distance_from_phase_center(r_arm, res.x[0], r_sl, az_vec, wrap=False)
+    sim_ph, dist = distance_from_phase_center(r_arm, res.x[0], r_sl, az_vec, lam, wrap=False)
     sim_ph -= sim_ph[sim_ph.shape[0]/2]
     #Compute RVP
     rvp = _np.exp(1j * 4 * dist**2 * slc.chirp_bandwidth / _gpf.C**2)
@@ -178,7 +178,7 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False, filter_fun=filt
     rr, tt = np.meshgrid(slc.r_vec, theta, indexing='ij')
     lam = _gpf.C / slc.radar_frequency
     filt2d, dist2d = distance_from_phase_center(r_ant, r_ph, rr, tt, lam, wrap=False)
-    matched_filter2d = (_np.exp(-1j * filt2d) * _np.exp(1j * 4 * _np.pi * rr / lam))
+    matched_filter2d = (_np.exp(-1j * filt2d))
     #Convert to fourier domain
     slc_filt_2d = filter_fun(slc.astype(np.complex64), matched_filter2d)
     slc_filt = slc.__array_wrap__(slc_filt_2d.astype(slc.dtype))
@@ -360,9 +360,9 @@ def distance_from_phase_center(r_arm, r_ph, r_sl, theta, lam, wrap=False):
     dist =  _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
     rel_dist = r_sl - _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
     if wrap is True:
-        return _np.mod(-4 * _np.pi * rel_dist / lam, 2 * _np.pi), dist
+        return _np.mod(4 * _np.pi * rel_dist / lam, 2 * _np.pi), dist
     else:
-        return (-4 * _np.pi * rel_dist / lam), dist
+        return (4 * _np.pi * rel_dist / lam), dist
 
 
 def squint_vec(rawdata, z=2500):
