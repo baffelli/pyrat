@@ -24,6 +24,8 @@ import scipy.optimize as _opt
 
 import matplotlib.pyplot as plt
 
+import pyfftw
+
 
 def measure_phase_center_location(slc, ridx, azidx, sw=(2,10), aw=60, unwrap=True):
 
@@ -139,9 +141,9 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False):
     lam = _gpf.C / slc.radar_frequency
     matched_filter2d = (_np.exp(-1j * filt2d) * _np.exp(1j * 4 * _np.pi * rr / lam))
     #Convert to fourier domain
-    matched_filter2d_hat = _fftp.fft(matched_filter2d,axis=1, n=slc.shape[1])
-    slc_hat = _fftp.fft(slc.astype(_np.complex64), axis=1)
-    slc_filt = _fftp.ifft(slc_hat * matched_filter2d_hat, axis=1)
+    matched_filter2d_hat = pyfftw.interfaces.scipy_fftpack.fft(matched_filter2d,axis=1, n=slc.shape[1])
+    slc_hat = pyfftw.interfaces.scipy_fftpack.fft(slc.astype(_np.complex64), axis=1)
+    slc_filt = pyfftw.interfaces.scipy_fftpack.fft(slc_hat * matched_filter2d_hat, axis=1)
     #
     # for idx_row, (current_row, current_filter) in enumerate(zip(slc, matched_filter2d)):
     #     slc_filt[idx_row,:] = _sig.convolve(current_row, current_filter, mode='same')
