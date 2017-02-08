@@ -130,7 +130,6 @@ rule covariance:
             C_mat = S.to_coherency_matrix(bistatic=True, basis='lexicographic')
             C_mat.tofile(params.C_root, bistatic=True)
 
-print(config)
 ##############################################################################
 ## Determine polarimetric calibration parameters
 rule polcal_parameters:
@@ -142,7 +141,8 @@ rule polcal_parameters:
         C_par = "cov_flat/{slcname}_{rx}.par",
         slc_par = "slc_corr/{slcname}_AAA{rx}.slc.par",
         C_root = "cov_flat/{slcname}_{rx}",
-        sw = config.get('calibration',(2,4)).get('search_window',(3,4))
+        sw = config.get('calibration',(2,4)).get('search_window',(3,4)),
+        aw = config.get('calibration',[5,5]).get('averaging_window',[5,5])
     script:
         './wrappers/calibration/polcal_parameters.py'
 
