@@ -1,19 +1,14 @@
-from collections import OrderedDict as _od
+import itertools as _iter
 
 import numpy as _np
+import scipy.ndimage as _ndim
 from osgeo import osr as _osr, gdal
-from pyrat.visualization.visfun import bilinear_interpolate, scale_array
 
+from . import transforms as _transf
+from pyrat.visualization.visfun import bilinear_interpolate
 from ..fileutils import gpri_files as _gpf
 from ..fileutils import parameters as _params
 
-
-import scipy.ndimage as _ndim
-import scipy.interpolate as _interp
-
-import itertools as _iter
-
-from ..core import corefun as _cf
 
 def copy_and_modify_gt(RAS, gt):
     from osgeo import gdal
@@ -179,7 +174,6 @@ def reproject_gt(gt_to_project, gt_reference):
                               gt_to_project.GetProjection(), gt_reference.GetProjection(),
                               gdal.GRA_Bilinear)
     return dest
-
 
 
 def reproject_radar(S, S_ref):
@@ -620,18 +614,20 @@ def read_coordinate_extent(ds, coords, interp=None):
     else:
         return interp(RAS, px, py)
 
+
 def direct_lut(image, pixel_size):
     r_vec = image.r_vec
     az_vec = _np.deg2rad(image.az_vec)
-    #Compute inverse LUT (radar coordinate -> image coordinates)
-    rr, zz = _np.meshgrid(r_vec, az_vec,  indexing='xy')
+    # Compute inverse LUT (radar coordinate -> image coordinates)
+    rr, zz = _np.meshgrid(r_vec, az_vec, indexing='xy')
     xx = (rr * _np.cos(zz))
     yy = (rr * _np.sin(zz))
-    #xx and yy contain Coordinates in image space (in meters!) that correspond to each radar pixel
-    #we need to convert it into pixels
+    # xx and yy contain Coordinates in image space (in meters!) that correspond to each radar pixel
+    # we need to convert it into pixels
     xx = (xx - xx.min()) / pixel_size
     yy = (yy - yy.min()) / pixel_size
     return xx + 1j * yy
+
 
 def geocode_image(image, pixel_size, *args):
     """
@@ -675,46 +671,46 @@ def geocode_image(image, pixel_size, *args):
     bound_grid = _np.meshgrid(az_vec_1, r_vec_1)
     x = bound_grid[1] * _np.cos(bound_grid[0])
     y = bound_grid[1] * _np.sin(bound_grid[0])
-    #Determine bounds
+    # Determine bounds
     y_vec = (y.min(), y.max())
     x_vec = (x.min(), x.max())
     y_vec = _np.arange(y_vec[0], y_vec[1], pixel_size)
     x_vec = _np.arange(x_vec[0], x_vec[1], pixel_size)
-    #Grid of desired pixels
+    # Grid of desired pixels
     desired_grid = _np.meshgrid(x_vec, y_vec, indexing='xy')
     desired_r = _np.sqrt(desired_grid[0] ** 2 + desired_grid[1] ** 2)
     desired_az = _np.arctan2(desired_grid[1], desired_grid[0])
     # Convert desired grid to indices
     az_idx = ((desired_az - az_min) / _np.double(az_step))
     r_idx = ((desired_r - r_min) / _np.double(r_step))
-    #clip the elments outisde of range and azimuth
+    # clip the elments outisde of range and azimuth
     r_idx = _np.clip(r_idx, 0, image.shape[0] - 1)
     az_idx = _np.clip(az_idx, 0, image.shape[1] - 1)
     az_idx = az_idx.astype(_np.float)
     r_idx = r_idx.astype(_np.float)
-    #Create interpolation function for y
+    # Create interpolation function for y
 
-    gc = _ndim.map_coordinates(image,_np.vstack((r_idx.flatten(),az_idx.flatten())),mode='constant',cval=0,order=1, prefilter=False).reshape(r_idx.shape)
+    gc = _ndim.map_coordinates(image, _np.vstack((r_idx.flatten(), az_idx.flatten())), mode='constant', cval=0, order=1,
+                               prefilter=False).reshape(r_idx.shape)
     # gc = bilinear_interpolate(image, az_idx, r_idx)
     gc[az_idx.astype(_np.long) == image.shape[1] - 1] = _np.nan
     gc[r_idx.astype(_np.long) == image.shape[0] - 1] = _np.nan
     gc[az_idx.astype(_np.long) == 0] = _np.nan
     gc[r_idx.astype(_np.long) == 0] = _np.nan
     LUT = r_idx + 1j * az_idx
-    #Compute inverse LUT (radar coordinate -> image coordinates)
-    rr, zz = _np.meshgrid(r_vec, az_vec,  indexing='ij')
+    # Compute inverse LUT (radar coordinate -> image coordinates)
+    rr, zz = _np.meshgrid(r_vec, az_vec, indexing='ij')
     xx = (rr * _np.cos(zz))
     yy = (rr * _np.sin(zz))
-    #xx and yy contain Coordinates in image space (in meters!) that correspond to each radar pixel
-    #we need to convert it into pixels
+    # xx and yy contain Coordinates in image space (in meters!) that correspond to each radar pixel
+    # we need to convert it into pixels
     xx = (xx - xx.min()) / pixel_size
     yy = (yy - yy.min()) / pixel_size
     return gc, x_vec, y_vec, LUT, xx + 1j * yy
 
 
-
 def shadow_map(slope_angle, inc_angle):
-    opp_slope_angle = slope_angle  - _np.pi/2
+    opp_slope_angle = slope_angle - _np.pi / 2
     look_angle = _np.pi * 2 - inc_angle
     sh_map = 0 * inc_angle.astype(_np.int8)
     sh_map[slope_angle > look_angle] += 2
@@ -883,11 +879,11 @@ def gdal_to_dict(ds):
     proj_dict = {}
     # Part 1: General Parameters
     proj_dict['title'] = {'value': 'DEM'}
-    proj_dict['DEM_projection'] = {'value':'OMCH'}
+    proj_dict['DEM_projection'] = {'value': 'OMCH'}
     # Set the type according to the dem type
     tp = gdal.GetDataTypeName(ds.GetRasterBand(1).DataType)
     if tp == 'Float32':
-        proj_dict['data_format'] = {'value':'REAL*4'}
+        proj_dict['data_format'] = {'value': 'REAL*4'}
     if tp == 'Int32':
         proj_dict['data_format'] = {'value': 'INTEGER*2'}
     if tp == 'UInt16':
@@ -897,28 +893,28 @@ def gdal_to_dict(ds):
     proj_dict['width'] = {'value': ds.RasterXSize}
     proj_dict['nlines'] = {'value': ds.RasterYSize}
     gt = ds.GetGeoTransform()
-    proj_dict['corner_east'] = {'value': gt[0], 'unit':'m'}
-    proj_dict['corner_north'] = {'value': gt[3], 'unit':'m'}
-    proj_dict['post_north'] = {'value': gt[5], 'unit':'m'}
-    proj_dict['post_east'] = {'value': gt[1], 'unit':'m'}
+    proj_dict['corner_east'] = {'value': gt[0], 'unit': 'm'}
+    proj_dict['corner_north'] = {'value': gt[3], 'unit': 'm'}
+    proj_dict['post_north'] = {'value': gt[5], 'unit': 'm'}
+    proj_dict['post_east'] = {'value': gt[1], 'unit': 'm'}
     # TODO allow using other ellipsods
     # Part 2: Ellipsoid Parameters
     proj_dict['ellipsoid_name'] = {'value': 'Bessel 1841'}
-    proj_dict['ellipsoid_ra'] = {'value': ell_arr[0], 'unit':'m'}
+    proj_dict['ellipsoid_ra'] = {'value': ell_arr[0], 'unit': 'm'}
     rf = ell_arr[0] / (ell_arr[0] - ell_arr[1])
     proj_dict['ellipsoid_reciprocal_flattening'] = {'value': rf}
     # TODO allow using other datums
     # Part 3: Datum Parameters
     proj_dict['datum_name'] = {'value': 'SWiss National 3PAR'}
-    proj_dict['datum_shift_dx'] = {'value': 679.396, 'unit':'m'}
-    proj_dict['datum_shift_dy'] = {'value':-0.095, 'unit':'m'}
-    proj_dict['datum_shift_dz'] = {'value': 406.471, 'unit':'m'}
-    proj_dict['datum_scale_m'] = {'value': 0.0, 'unit':'m'}
-    proj_dict['datum_rotation_alpha'] = {'value': 0.0, 'unit':'arc-sec'}
-    proj_dict['datum_rotation_beta'] = {'value':0.0, 'unit':'arc-sec'}
-    proj_dict['datum_rotation_gamma'] = {'value':0.0, 'unit':'arc-sec'}
+    proj_dict['datum_shift_dx'] = {'value': 679.396, 'unit': 'm'}
+    proj_dict['datum_shift_dy'] = {'value': -0.095, 'unit': 'm'}
+    proj_dict['datum_shift_dz'] = {'value': 406.471, 'unit': 'm'}
+    proj_dict['datum_scale_m'] = {'value': 0.0, 'unit': 'm'}
+    proj_dict['datum_rotation_alpha'] = {'value': 0.0, 'unit': 'arc-sec'}
+    proj_dict['datum_rotation_beta'] = {'value': 0.0, 'unit': 'arc-sec'}
+    proj_dict['datum_rotation_gamma'] = {'value': 0.0, 'unit': 'arc-sec'}
     # Part 4: Projection Parameters for UTM, TM, OMCH, LCC, PS, PC, AEAC, LCC2, OM, HOM coordinates
-    proj_dict['projection_name'] = {'value':'OM - Switzerland'}
+    proj_dict['projection_name'] = {'value': 'OM - Switzerland'}
     if proj_dict['DEM_projection'] in ['UTM', "TM", "OMCH", "LCC", "PS", "PC", "AEAC", "LCC2", "OM", "HOM"]:
         proj_dict['center_latitude'] = {'value': ell_arr[2]}
         proj_dict['center_longitude'] = {'value': ell_arr[3]}
@@ -960,20 +956,20 @@ def get_geotransform(dem_par):
     -------
 
     """
-    return dem_par.corner_east, dem_par.post_east, 0, dem_par.corner_north,0 , dem_par.post_north
+    return dem_par.corner_east, dem_par.post_east, 0, dem_par.corner_north, 0, dem_par.post_north
 
 
 def get_extent(geotransform, shape):
-
     x = sorted((geotransform[0], geotransform[0] + geotransform[1] * shape[0]))
     y = sorted((geotransform[3], geotransform[3] + geotransform[5] * shape[1]))
-    return x[0],x[1], y[0],y[1]
+    return x[0], x[1], y[0], y[1]
 
 
 def get_ds_extent(ds):
     gt = ds.GetGeoTransform()
     ext = get_extent(gt, (ds.RasterXSize, ds.RasterYSize))
     return ext
+
 
 def estimate_heading(mli_par, radar_coord, carto_azimuth):
     """
@@ -990,11 +986,9 @@ def estimate_heading(mli_par, radar_coord, carto_azimuth):
     -------
 
     """
-    #eccess heading of the point (heading w.r.t radar image center)
+    # eccess heading of the point (heading w.r.t radar image center)
     xc_heading = mli_par.GPRI_az_angle_step * (radar_coord[1] - mli_par.azimuth_lines / 2)
     return carto_azimuth - xc_heading
-
-
 
 
 def geo_coord_to_dem_coord(coord, dem_par):
@@ -1022,7 +1016,8 @@ def geo_coord_to_dem_coord(coord, dem_par):
     y_DEM = coord[1] - dem_par.corner_north / dem_par.post_north
     return (x_DEM, y_DEM)
 
-#TODO: only works with omch
+
+# TODO: only works with omch
 def basemap_dict_from_gt(DS):
     """
     Creates a dict of parameters to be used with Basemap
@@ -1074,8 +1069,7 @@ def segment_geotif(gt, dem_par):
     return dest
 
 
-
-def interpolate_complex(data,LUT, **kwargs):
+def interpolate_complex(data, LUT, **kwargs):
     """
     Returns a function to interpolate
     a complex dataset if the input data is complex,
@@ -1090,82 +1084,113 @@ def interpolate_complex(data,LUT, **kwargs):
 
     """
     if _np.iscomplexobj(data):
-        data_interp = _ndim.map_coordinates(data.real, LUT, **kwargs) + 1j*_ndim.map_coordinates(data.imag, LUT, **kwargs)
+        data_interp = _ndim.map_coordinates(data.real, LUT, **kwargs) + 1j * _ndim.map_coordinates(data.imag, LUT,
+                                                                                                   **kwargs)
     else:
-       data_interp = _ndim.map_coordinates(data, LUT, **kwargs)
+        data_interp = _ndim.map_coordinates(data, LUT, **kwargs)
     return data_interp
 
 
 def get_reference_coord(dict, reference_name):
-    reference_feature = [f for f in dict['features'] if f['id']==reference_name]
+    reference_feature = [f for f in dict['features'] if f['id'] == reference_name]
     radar_coord = reference_feature[0]['properties']['radar_coordinates']
     return radar_coord
+
 
 class GeocodingTable(object):
     """
     Class to represent geocoding tables (
     """
+
     def __init__(self, dem_par, lut):
         lut, dem_par = _gpf.load_dataset(dem_par, lut, dtype=_gpf.type_mapping["FCOMPLEX"])
-        # lut = lut.view(cls)
-        self.lut = lut
+        #Setup transforms
+        self.dem_idx_to_radar_idx_t = _transf.ComplexLut(lut)
+        self.radar_idx_to_dem_idx_t = self.dem_idx_to_radar_idx_t.inverted()
+        self.gt = _transf.GeoTransform(get_geotransform(dem_par))
+        self.dem_idx_to_geo_t = self.gt
+        self.geo_to_dem_idx_t = self.gt.inverted()
         self.params = dem_par.copy()
 
     def __getitem__(self, item):
         return self.lut.__getitem__(item)
 
+
+    def dem_idx_to_radar_idx(self, dem_index):
+        return self.dem_idx_to_radar_idx_t.transform_point(dem_index)
+
+    def radar_idx_to_dem_idx(self, radar_index):
+        return self.radar_idx_to_dem_idx_t.transform_point(radar_index)
+
     def geo_coord_to_dem_coord(self, coord):
-        gt = self.geotransform
-        x = (coord[0] - gt[0]) / gt[1]
-        y = (coord[1] - gt[3]) / gt[5]
-        return [x,y]
-
-    def geo_coord_to_radar_coord(self, geo_coord):
-        dem_coord = self.geo_coord_to_dem_coord(geo_coord)
-        coord = self[int(dem_coord[0]),int(dem_coord[1])]
-        return [coord.real, coord.imag]
-
-    def radar_coord_to_dem_coord(self, coord):
-        dist = _np.sqrt((self.lut.imag - coord[1])**2 + (self.lut.real - coord[0])**2)
-        i = _np.argmin(dist)
-        dem_coord = _np.unravel_index(i, self.lut.shape)
-        # dem_coord = self.geocode_data(coord[0] + coord[1] * 1j)#first compute
-        return dem_coord
+        return self.geo_to_dem_idx_t.transform_point(coord)
 
     def dem_coord_to_geo_coord(self, coord):
-        gt = self.geotransform
-        x = coord[0] * gt[1] + gt[0]
-        y = coord[1] * gt[5] + gt[3]
-        return [x, y]
+        return self.gt.transform_point(coord)
+
+    def geo_coord_to_radar_coord(self, geo_coord):
+        t = self.geo_to_dem_idx_t + self.dem_idx_to_radar_idx
+        # dem_coord = self.geo_coord_to_dem_coord(geo_coord)
+        # coord = self[int(dem_coord[0]), int(dem_coord[1])]
+        return t.transform_point(geo_coord)
+
+    def radar_coord_to_dem_coord(self, coord):
+        return self.dem_idx_to_radar_idx(coord)
+
+    # def radar_coord_to_dem_coord(self, coord):
+    #     dist = _np.sqrt((self.lut.imag - coord[1]) ** 2 + (self.lut.real - coord[0]) ** 2)
+    #     i = _np.argmin(dist)
+    #     dem_coord = _np.unravel_index(i, self.lut.shape)
+    #     # dem_coord = self.geocode_data(coord[0] + coord[1] * 1j)#first compute
+    #     return dem_coord
+
+    # def dem_coord_to_geo_coord(self, coord):
+    #     gt = self.geotransform
+    #     x = coord[0] * gt[1] + gt[0]
+    #     y = coord[1] * gt[5] + gt[3]
+    #     return [x, y]
 
     def get_extent(self):
         return get_extent(self.geotransform, self.lut.shape)
 
     def get_geocoded_extent(self, data):
-        r_vec = _np.linspace(0, data.shape[0],num=10)
-        az_vec = _np.linspace(0, data.shape[1],num=10)
+        r_vec = _np.linspace(0, data.shape[0], num=10)
+        az_vec = _np.linspace(0, data.shape[1], num=10)
         ext_vec = []
         for r, az in _iter.product(r_vec, az_vec):
             ext_vec.append(self.dem_coord_to_geo_coord(self.radar_coord_to_dem_coord([r, az])))
         ext_vec = _np.array(ext_vec)
-        return [ext_vec[:,0].min(),ext_vec[:,0].max(), ext_vec[:,1].min(), ext_vec[:,1].max()]
-
+        return [ext_vec[:, 0].min(), ext_vec[:, 0].max(), ext_vec[:, 1].min(), ext_vec[:, 1].max()]
 
     def geocode_data(self, data):
-        output_shape = self.lut.shape + data.shape[2:] if data.ndim > 2 else self.lut.shape
-        data_gc = _np.zeros(output_shape, dtype=data.dtype).view(type(data))
-        interp_fun = lambda data: interpolate_complex(data, _np.vstack((self.lut.real.flatten(), self.lut.imag.flatten())), mode='constant', cval=_np.nan,
-                                   order=1, prefilter=False).reshape(self.lut.shape)
-        if data.ndim > 2:
-            axis_shapes = [list(range(data.shape[i])) for i in range(2,data.ndim)]
-            #All combination of axes have to be interpolated on the same 2D grid,
-            #therefore we use itertools product function
-            for i, axes in enumerate(_iter.product(*axis_shapes)):
-                data_gc[(Ellipsis,)*2 + axes] = interp_fun(data[(Ellipsis,)*2 + axes]).reshape(self.lut.shape)
-        else:
-            data_gc = interp_fun(data).reshape(self.lut.shape).view(type(data))
-        data_gc = data.__array_wrap__(data_gc)
-        return data_gc
+        gc_data =  self.dem_idx_to_radar_idx_t.transform_array(data)
+        return data.__array_wrap__(gc_data)
+
+    # def geocode_data(self, data):
+    #     output_shape = self.lut.shape + data.shape[2:] if data.ndim > 2 else self.lut.shape
+    #     data_gc = _np.zeros(output_shape, dtype=data.dtype).view(type(data))
+    #     interp_fun = lambda data: interpolate_complex(data,
+    #                                                   _np.vstack((self.lut.real.flatten(), self.lut.imag.flatten())),
+    #                                                   mode='constant', cval=_np.nan,
+    #                                                   order=1, prefilter=False).reshape(self.lut.shape)
+    #     if data.ndim > 2:
+    #         axis_shapes = [list(range(data.shape[i])) for i in range(2, data.ndim)]
+    #         # All combination of axes have to be interpolated on the same 2D grid,
+    #         # therefore we use itertools product function
+    #         for i, axes in enumerate(_iter.product(*axis_shapes)):
+    #             data_gc[(Ellipsis,) * 2 + axes] = interp_fun(data[(Ellipsis,) * 2 + axes]).reshape(self.lut.shape)
+    #     else:
+    #         data_gc = interp_fun(data).reshape(self.lut.shape).view(type(data))
+    #     data_gc = data.__array_wrap__(data_gc)
+    #     return data_gc
+
+    # @property
+    # def x_idx_vec(self):
+    #     return _np.arange(self.lut.shape[0])
+    #
+    # @property
+    # def y_idx_vec(self):
+    #     return _np.arange(self.lut.shape[1])
 
     @property
     def geotransform(self):
