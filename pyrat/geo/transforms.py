@@ -47,19 +47,24 @@ class ComplexLut(Transform):
     """
 
     def __init__(self, lut):
+        super().__init__()
         # Create interpolator
         x_vec = _np.arange(lut.shape[0])
         y_vec = _np.arange(lut.shape[1])
         self.real_interp = _interp.RectBivariateSpline(x_vec, y_vec, lut.real, kx=1, ky=1)
         self.imag_interp = _interp.RectBivariateSpline(x_vec, y_vec, lut.imag, kx=1, ky=1)
         self.lut = lut
+        self.input_dims = 2
+        self.output_dims = 2
 
     def transform(self, point):
         return _np.concatenate((self.real_interp(point[:, 0], point[:, 1]), self.imag_interp(point[:, 0], point[:, 1])),
                                1)
 
     def transform_point(self, point):
-        return self.transform(_np.array([[point[0], point[1]]]))
+        t = self.transform(_np.array([[point[0], point[1]]]))
+        print(t)
+        return t
 
     def transform_array(self, data, mode='constant', cval=_np.nan, order=1, prefilter=False):
         # Set output shape
@@ -76,15 +81,20 @@ class ComplexLut(Transform):
             data_gc = interpolate_ndim(x,y,self.lut.real, self.lut.imag, data, mode=mode, cval=cval, prefilter=prefilter)
         return data_gc
 
-    def inverted(self):
-        # maximum indices of range and aizmuth in the LUT
+    def inverted(self, width):
+        # # maximum indices of range and aizmuth in the LUT
         max_r_idx = _np.nanmax(self.lut.real)
+        # min_r_idx = _np.nanmin(self.lut.real)
         max_az_idx = _np.nanmax(self.lut.imag)
-        x_idx_vec = _np.linspace(0, self.lut.shape[0], num=max_r_idx)
-        y_idx_vec = _np.linspace(0, self.lut.shape[1], num=max_az_idx)
+        # n_r = (max_r_idx - min_r_idx)
+        # print(n_r)
+        print(max_r_idx)
+        x_idx_vec = _np.linspace(0, self.lut.shape[0], num=width)
+        nlines = (self.lut.shape[0] *self.lut.shape[1]) // width
+        y_idx_vec = _np.linspace(0, self.lut.shape[1], num=nlines)
         xx, yy = _np.meshgrid(x_idx_vec, y_idx_vec, indexing='ij')
-        lut_inverse_r = self.real_interp(x_idx_vec, y_idx_vec)
-        lut_inverse_az = self.imag_interp(x_idx_vec, y_idx_vec)
+        lut_inverse_r = self.real_interp( x_idx_vec, y_idx_vec)
+        lut_inverse_az = self.imag_interp( x_idx_vec, y_idx_vec,)
         return ComplexLut(lut_inverse_r + 1j * lut_inverse_az)
 
 

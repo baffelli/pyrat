@@ -1102,11 +1102,11 @@ class GeocodingTable(object):
     Class to represent geocoding tables (
     """
 
-    def __init__(self, dem_par, lut):
+    def __init__(self, dem_par, lut, radar_width):
         lut, dem_par = _gpf.load_dataset(dem_par, lut, dtype=_gpf.type_mapping["FCOMPLEX"])
         #Setup transforms
-        self.dem_idx_to_radar_idx_t = _transf.ComplexLut(lut)
-        self.radar_idx_to_dem_idx_t = self.dem_idx_to_radar_idx_t.inverted()
+        self.dem2radar = _transf.ComplexLut(lut)
+        self.radar2dem = _transf.ComplexLut(lut).inverted(radar_width)
         self.gt = _transf.GeoTransform(get_geotransform(dem_par))
         self.dem_idx_to_geo_t = self.gt
         self.geo_to_dem_idx_t = self.gt.inverted()
@@ -1117,10 +1117,10 @@ class GeocodingTable(object):
 
 
     def dem_idx_to_radar_idx(self, dem_index):
-        return self.dem_idx_to_radar_idx_t.transform_point(dem_index)
+        return self.radar2dem.transform_point(dem_index)
 
     def radar_idx_to_dem_idx(self, radar_index):
-        return self.radar_idx_to_dem_idx_t.transform_point(radar_index)
+        return self.dem2radar.transform_point(radar_index)
 
     def geo_coord_to_dem_coord(self, coord):
         return self.geo_to_dem_idx_t.transform_point(coord)
@@ -1129,13 +1129,17 @@ class GeocodingTable(object):
         return self.gt.transform_point(coord)
 
     def geo_coord_to_radar_coord(self, geo_coord):
-        t = self.geo_to_dem_idx_t + self.dem_idx_to_radar_idx
+        t =  self.radar2dem + self.geo_to_dem_idx_t
         # dem_coord = self.geo_coord_to_dem_coord(geo_coord)
         # coord = self[int(dem_coord[0]), int(dem_coord[1])]
         return t.transform_point(geo_coord)
 
     def radar_coord_to_dem_coord(self, coord):
         return self.dem_idx_to_radar_idx(coord)
+
+    def radar_coord_to_geo_coord(self, coord):
+        t = self.dem2radar + self.dem_idx_to_geo_idx
+        return t.transform_point(coord)
 
     # def radar_coord_to_dem_coord(self, coord):
     #     dist = _np.sqrt((self.lut.imag - coord[1]) ** 2 + (self.lut.real - coord[0]) ** 2)
@@ -1151,46 +1155,21 @@ class GeocodingTable(object):
     #     return [x, y]
 
     def get_extent(self):
-        return get_extent(self.geotransform, self.lut.shape)
+        return get_extent(self.geotransform, [self.params.width,self.params.nlines])
 
     def get_geocoded_extent(self, data):
         r_vec = _np.linspace(0, data.shape[0], num=10)
         az_vec = _np.linspace(0, data.shape[1], num=10)
         ext_vec = []
         for r, az in _iter.product(r_vec, az_vec):
-            ext_vec.append(self.dem_coord_to_geo_coord(self.radar_coord_to_dem_coord([r, az])))
+            ext_vec.append(self.radar_coord_to_geo_coord([r, az]))
         ext_vec = _np.array(ext_vec)
         return [ext_vec[:, 0].min(), ext_vec[:, 0].max(), ext_vec[:, 1].min(), ext_vec[:, 1].max()]
 
     def geocode_data(self, data):
-        gc_data =  self.dem_idx_to_radar_idx_t.transform_array(data)
+        gc_data =  self.dem2radar.transform_array(data)
         return data.__array_wrap__(gc_data)
 
-    # def geocode_data(self, data):
-    #     output_shape = self.lut.shape + data.shape[2:] if data.ndim > 2 else self.lut.shape
-    #     data_gc = _np.zeros(output_shape, dtype=data.dtype).view(type(data))
-    #     interp_fun = lambda data: interpolate_complex(data,
-    #                                                   _np.vstack((self.lut.real.flatten(), self.lut.imag.flatten())),
-    #                                                   mode='constant', cval=_np.nan,
-    #                                                   order=1, prefilter=False).reshape(self.lut.shape)
-    #     if data.ndim > 2:
-    #         axis_shapes = [list(range(data.shape[i])) for i in range(2, data.ndim)]
-    #         # All combination of axes have to be interpolated on the same 2D grid,
-    #         # therefore we use itertools product function
-    #         for i, axes in enumerate(_iter.product(*axis_shapes)):
-    #             data_gc[(Ellipsis,) * 2 + axes] = interp_fun(data[(Ellipsis,) * 2 + axes]).reshape(self.lut.shape)
-    #     else:
-    #         data_gc = interp_fun(data).reshape(self.lut.shape).view(type(data))
-    #     data_gc = data.__array_wrap__(data_gc)
-    #     return data_gc
-
-    # @property
-    # def x_idx_vec(self):
-    #     return _np.arange(self.lut.shape[0])
-    #
-    # @property
-    # def y_idx_vec(self):
-    #     return _np.arange(self.lut.shape[1])
 
     @property
     def geotransform(self):
