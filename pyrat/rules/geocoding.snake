@@ -134,18 +134,18 @@ rule sh_map:
 
 
 
-##############################################################################
-###	This produces the inverted geocoding map (dem to radar)
-#rule gc_map_inversion:
-#	input:
-#        dem_seg_par = "geo/{tablename}.dem_seg.par",
-#        lut	= "geo/{tablename}.gpri_to_dem",
-#        reference_mli_par ="geo/{tablename}.mli.par",
-#	output:
-#        inverse_lut = "geo/{tablename}.dem_to_gpri"
-#	script:
-#        './wrappers/geocoding/gc_map_inversion.py'
-#
+#############################################################################
+##	This produces the inverted geocoding map (dem to radar)
+rule gc_map_inversion:
+    input:
+        dem_seg_par = "geo/{tablename}.dem_seg.par",
+        lut	= "geo/{tablename}.gpri_to_dem",
+        reference_mli_par ="geo/{tablename}.mli.par",
+    output:
+        inverse_lut = "geo/{tablename}.dem_to_gpri"
+    script:
+        './wrappers/geocoding/gc_map_inversion.py'
+
 
 #############################################################################
 ##	This rule gproduces a geotiff from the data
