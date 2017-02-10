@@ -9,6 +9,7 @@ from pyrat.visualization.visfun import bilinear_interpolate
 from ..fileutils import gpri_files as _gpf
 from ..fileutils import parameters as _params
 
+import matplotlib.transforms as _mplt
 
 def copy_and_modify_gt(RAS, gt):
     from osgeo import gdal
@@ -1158,8 +1159,8 @@ class GeocodingTable(object):
         return get_extent(self.geotransform, [self.params.width,self.params.nlines])
 
     def get_geocoded_extent(self, data):
-        r_vec = _np.linspace(0, data.shape[0], num=10)
-        az_vec = _np.linspace(0, data.shape[1], num=10)
+        r_vec = [0, data.shape[0]]
+        az_vec = [0, data.shape[1]]
         ext_vec = []
         for r, az in _iter.product(r_vec, az_vec):
             ext_vec.append(self.radar_coord_to_geo_coord([r, az]))
@@ -1167,7 +1168,7 @@ class GeocodingTable(object):
         return [ext_vec[:, 0].min(), ext_vec[:, 0].max(), ext_vec[:, 1].min(), ext_vec[:, 1].max()]
 
     def geocode_data(self, data):
-        gc_data =  self.radar2dem.transform_array(data)
+        gc_data =  self.dem2radar.transform_array(data)
         return data.__array_wrap__(gc_data)
 
 

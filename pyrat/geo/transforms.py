@@ -2,19 +2,10 @@ import itertools as _iter
 
 import numpy as _np
 import numpy as np
-from matplotlib.transforms import Transform, Affine2D
+from matplotlib.transforms import Transform, Affine2D, Bbox
 from scipy import interpolate as _interp
 
 import scipy.ndimage as _ndim
-
-def interpolate_complex(x, y, x_new, y_new, data,kx=1,ky=1):
-    print(x.shape,y.shape, data.shape)
-    int_fun = lambda x,y,z : _interp.interp2d(x,y,z.T)
-    real_interpolator = int_fun(x,y,data.real)
-    imag_interpolator = int_fun(x,y,data.imag)
-    real_interp = real_interpolator(x_new.flatten(), y_new.flatten(),assume_sorted=False).reshape(x_new.shape)
-    imag_interp = imag_interpolator(x_new.flatten(), y_new.flatten(),assume_sorted=False).reshape(x_new.shape)
-    return real_interp + 1j* imag_interp
 
 def interpolate_ndim(x,y,x_new, y_new, data, **kwargs):
     new_coords = _np.vstack((x_new.flatten(), y_new.flatten()))
@@ -25,18 +16,6 @@ def interpolate_ndim(x,y,x_new, y_new, data, **kwargs):
         data_interp = _ndim.map_coordinates(data, new_coords, **kwargs)
     return data_interp.reshape(x_new.shape)
 
-
-def interpolate_complex_ND(x, y, x_new, y_new, data,kx=1,ky=1, grid=False):
-    xx, yy = np.meshgrid(x,y, indexing='ij')
-    print(data.flatten().shape)
-    print(xx.flatten().shape)
-    int_fun = lambda x,y,z : _interp.NearestNDInterpolator(np.vstack((x.flatten(),y.flatten())).T,z.flatten())
-    real_interpolator = int_fun(xx,yy,data.real.flatten())
-    imag_interpolator = int_fun(xx,yy,data.imag.flatten())
-    call_points = np.vstack((x_new.flatten(),y_new.flatten())).T
-    real_interp = real_interpolator(call_points).reshape(x_new.shape)
-    imag_interp = imag_interpolator(call_points).reshape(x_new.shape)
-    return real_interp + 1j* imag_interp
 
 
 
@@ -75,6 +54,9 @@ class ComplexLut(Transform):
         t = self.transform(point)
         return t
 
+    def transform_bbox(self, bbox):
+        return Bbox.from_extents(self.transform(bbox.get_points()))
+
     def transform_array(self, data, mode='constant', cval=_np.nan, order=1, prefilter=False):
         # Set output shape
         output_shape = self.lut.shape + data.shape[2:] if data.ndim > 2 else self.lut.shape
@@ -90,20 +72,6 @@ class ComplexLut(Transform):
             data_gc = interpolate_ndim(x,y,self.lut.real, self.lut.imag, data, mode=mode, cval=cval, prefilter=prefilter)
         return data_gc
 
-    # def inverted(self, width, nlines):
-    #     #Grid in lut coordinates
-    #     x_dem = _np.arange(0, self.lut.shape[0])
-    #     y_dem = _np.arange(0, self.lut.shape[1])
-    #     xx_dem, yy_dem = _np.meshgrid(x_dem, y_dem, indexing='ij')
-    #     re_interp = _interp.interp2d(self.lut.imag, self.lut.real, xx_dem)
-    #     im_interp = _interp.interp2d(self.lut.imag, self.lut.real, yy_dem)
-    #     #Grid in map coordinates
-    #     x_idx_vec = _np.linspace(0, self.lut.shape[0], num=width)
-    #     y_idx_vec = _np.linspace(0, self.lut.shape[1], num=nlines)
-    #     xx, yy = _np.meshgrid(x_idx_vec, y_idx_vec, indexing='ij')
-    #     #Define interpolators
-    #     inverse_lut = re_interp(xx, yy) + 1j * im_interp(xx, yy)
-    #     return ComplexLut(inverse_lut)
 
 
 class GeoTransform(Affine2D):
