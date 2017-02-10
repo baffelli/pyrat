@@ -1102,11 +1102,12 @@ class GeocodingTable(object):
     Class to represent geocoding tables (
     """
 
-    def __init__(self, dem_par, lut, radar_width):
+    def __init__(self, dem_par, lut, mli_par, inverse_lut):
         lut, dem_par = _gpf.load_dataset(dem_par, lut, dtype=_gpf.type_mapping["FCOMPLEX"])
+        inverse_lut, mli_par = _gpf.load_dataset(mli_par, inverse_lut, dtype=_gpf.type_mapping["FCOMPLEX"])
         #Setup transforms
         self.dem2radar = _transf.ComplexLut(lut)
-        self.radar2dem = _transf.ComplexLut(lut).inverted(radar_width)
+        self.radar2dem = _transf.ComplexLut(inverse_lut)
         self.gt = _transf.GeoTransform(get_geotransform(dem_par))
         self.dem_idx_to_geo_t = self.gt
         self.geo_to_dem_idx_t = self.gt.inverted()
@@ -1117,29 +1118,28 @@ class GeocodingTable(object):
 
 
     def dem_idx_to_radar_idx(self, dem_index):
-        return self.radar2dem.transform_point(dem_index)
+        return self.dem2radar.transform(dem_index)
 
     def radar_idx_to_dem_idx(self, radar_index):
-        return self.dem2radar.transform_point(radar_index)
+        return self.radar2dem.transform(radar_index)
 
     def geo_coord_to_dem_coord(self, coord):
-        return self.geo_to_dem_idx_t.transform_point(coord)
+        return self.geo_to_dem_idx_t.transform(coord)
 
     def dem_coord_to_geo_coord(self, coord):
-        return self.gt.transform_point(coord)
+        return self.gt.transform(coord)
 
     def geo_coord_to_radar_coord(self, geo_coord):
-        t =  self.radar2dem + self.geo_to_dem_idx_t
+        t =  self.geo_to_dem_idx_t + self.dem2radar
         # dem_coord = self.geo_coord_to_dem_coord(geo_coord)
         # coord = self[int(dem_coord[0]), int(dem_coord[1])]
-        return t.transform_point(geo_coord)
+        return t.transform(geo_coord)
 
     def radar_coord_to_dem_coord(self, coord):
         return self.dem_idx_to_radar_idx(coord)
 
     def radar_coord_to_geo_coord(self, coord):
-        t = self.dem2radar + self.dem_idx_to_geo_idx
-        return t.transform_point(coord)
+        return self.gt.transform(self.radar2dem.transform(coord))
 
     # def radar_coord_to_dem_coord(self, coord):
     #     dist = _np.sqrt((self.lut.imag - coord[1]) ** 2 + (self.lut.real - coord[0]) ** 2)
@@ -1167,7 +1167,7 @@ class GeocodingTable(object):
         return [ext_vec[:, 0].min(), ext_vec[:, 0].max(), ext_vec[:, 1].min(), ext_vec[:, 1].max()]
 
     def geocode_data(self, data):
-        gc_data =  self.dem2radar.transform_array(data)
+        gc_data =  self.radar2dem.transform_array(data)
         return data.__array_wrap__(gc_data)
 
 

@@ -56,14 +56,23 @@ class ComplexLut(Transform):
         self.lut = lut
         self.input_dims = 2
         self.output_dims = 2
+        self.is_separable = False
+        self.has_inverse = False
+
+    def transform_affine(self, point):
+        pass
+
+    def transform_non_affine(self, point):
+        return self.transform(point)
 
     def transform(self, point):
+        #Ensure point is a 2D array
+        point = _np.atleast_2d(point)
         return _np.concatenate((self.real_interp(point[:, 0], point[:, 1]), self.imag_interp(point[:, 0], point[:, 1])),
                                1)
 
     def transform_point(self, point):
-        t = self.transform(_np.array([[point[0], point[1]]]))
-        print(t)
+        t = self.transform(point)
         return t
 
     def transform_array(self, data, mode='constant', cval=_np.nan, order=1, prefilter=False):
@@ -81,21 +90,20 @@ class ComplexLut(Transform):
             data_gc = interpolate_ndim(x,y,self.lut.real, self.lut.imag, data, mode=mode, cval=cval, prefilter=prefilter)
         return data_gc
 
-    def inverted(self, width):
-        # # maximum indices of range and aizmuth in the LUT
-        max_r_idx = _np.nanmax(self.lut.real)
-        # min_r_idx = _np.nanmin(self.lut.real)
-        max_az_idx = _np.nanmax(self.lut.imag)
-        # n_r = (max_r_idx - min_r_idx)
-        # print(n_r)
-        print(max_r_idx)
-        x_idx_vec = _np.linspace(0, self.lut.shape[0], num=width)
-        nlines = (self.lut.shape[0] *self.lut.shape[1]) // width
-        y_idx_vec = _np.linspace(0, self.lut.shape[1], num=nlines)
-        xx, yy = _np.meshgrid(x_idx_vec, y_idx_vec, indexing='ij')
-        lut_inverse_r = self.real_interp( x_idx_vec, y_idx_vec)
-        lut_inverse_az = self.imag_interp( x_idx_vec, y_idx_vec,)
-        return ComplexLut(lut_inverse_r + 1j * lut_inverse_az)
+    # def inverted(self, width, nlines):
+    #     #Grid in lut coordinates
+    #     x_dem = _np.arange(0, self.lut.shape[0])
+    #     y_dem = _np.arange(0, self.lut.shape[1])
+    #     xx_dem, yy_dem = _np.meshgrid(x_dem, y_dem, indexing='ij')
+    #     re_interp = _interp.interp2d(self.lut.imag, self.lut.real, xx_dem)
+    #     im_interp = _interp.interp2d(self.lut.imag, self.lut.real, yy_dem)
+    #     #Grid in map coordinates
+    #     x_idx_vec = _np.linspace(0, self.lut.shape[0], num=width)
+    #     y_idx_vec = _np.linspace(0, self.lut.shape[1], num=nlines)
+    #     xx, yy = _np.meshgrid(x_idx_vec, y_idx_vec, indexing='ij')
+    #     #Define interpolators
+    #     inverse_lut = re_interp(xx, yy) + 1j * im_interp(xx, yy)
+    #     return ComplexLut(inverse_lut)
 
 
 class GeoTransform(Affine2D):
