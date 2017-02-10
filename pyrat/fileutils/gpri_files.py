@@ -130,7 +130,7 @@ def gt_mapping_from_extension(filename):
         'bmp': 0,
         'sim_sar': 2,
         'ls_map': 5,
-        'dem_seg': 4,
+        'dem_seg': 2,
         'inc': 2,
         'unw': 2,
         'u': 2,
