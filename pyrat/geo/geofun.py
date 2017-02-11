@@ -1159,12 +1159,14 @@ class GeocodingTable(object):
         return get_extent(self.geotransform, [self.params.width,self.params.nlines])
 
     def get_geocoded_extent(self, data):
-        r_vec = [0, data.shape[0]]
-        az_vec = [0, data.shape[1]]
-        radar_coords = [[r,az] for r in r_vec for az  in az_vec]
-        ext_vec = [self.radar_coord_to_geo_coord(coord) for coord in radar_coords]
-        ext_vec = _np.vstack(ext_vec)
-        return [ext_vec[0, 0], ext_vec[1, 0], ext_vec[0, 1], ext_vec[1, 1]]
+        top_left = [0, 0]
+        bottom_left =  [0, data.shape[1]]
+        top_middle = [0,  data.shape[1]//2]
+        top_right = [data.shape[0],0]
+        bottom_middle = [data.shape[0], data.shape[1]//2]
+        bottom_right = [data.shape[0], data.shape[1]]
+        ext_vec = _np.vstack([self.radar_coord_to_geo_coord(coord) for coord in [top_left,top_right,top_middle, bottom_right, bottom_middle, bottom_left]])
+        return [ext_vec[:,0].min(), ext_vec[:,0].max(),ext_vec[:,1].min(), ext_vec[:,1].max()]
 
     def geocode_data(self, data):
         gc_data =  self.dem2radar.transform_array(data)
