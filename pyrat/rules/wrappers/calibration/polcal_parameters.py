@@ -19,15 +19,14 @@ def polcal_par(input, output, threads, config, params, wildcards):
     RCS = cal.cr_rcs(cal_ref['side'], C_matrix_flat.radar_frequency, type=cal_ref['type'])
     sw = tuple(params.sw)# search window
     av_win = params.aw  # averaging window
+    rwin = params.rwin
+    azwin = params.azwin
     C_matrix_flat_av = C_matrix_flat.boxcar_filter(av_win)
-    C_ptarg, rplot, azplot, mx_pos, ptarg_info, r_vec, az_vec = cf.ptarg(C_matrix_flat_av, ridx, azidx, sw=sw, azwin=50,
-                                                                         rwin=20, )
-    # rgb, pal, rest = vf.dismph(C_ptarg[:,:,0,3])
-    # plt.imshow(rgb)
-    # plt.plot(mx_pos[1], mx_pos[0], 'bo')
-    # plt.show()
-    # determine imbalance
-    phi_t, phi_r, f, g = cal.measure_imbalance(C_ptarg[mx_pos[0], mx_pos[1]], C_matrix_flat_av)
+    win = cf.window_idx(C_matrix_flat[:,:,0,3], [ridx, azidx], sw)
+
+    C_ptarg_pol, rplot, azplot, mx_pos_pol, ptarg_info, r_vec, az_vec = cf.ptarg(C_matrix_flat, ridx, azidx, sw=sw, azwin=azwin,
+                                                                         rwin=rwin, polar=True)
+    phi_t, phi_r, f, g = cal.measure_imbalance(C_ptarg_pol[mx_pos_pol], C_matrix_flat_av)
     K = cal.gpri_radcal(C_matrix_flat[:, :, 0, 0], [ridx, azidx], RCS)
     cal_dict = {}
     cal_dict['phi_t'] = {'value': phi_t}
