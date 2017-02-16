@@ -8,23 +8,62 @@ from .. import  block_processing as bp
 from .. import corefun as cf
 
 import matplotlib.pyplot as plt
+import visualization.visfun as vf
+import scipy.signal as sig
 
 class TestBlock_array(TestCase):
 
+
+
     def testMean(self):
+        def H(a):
+            counts, edged = np.histogram(a, bins=256)
+            counts[counts==0]=1
+            return -np.mean(np.log(counts) * counts)
         data = dt.camera()
-        print(data.shape)
-        data_block = bp.block_array(data, [10,10], overlap=[6,3])
-        data_block.process(lambda a: cf.smooth(a,[5,5]))
-        plt.imshow(data_block.A)
+        data_block = bp.block_array(data.astype(np.double), [10,10], overlap=[2,2])
+        A_proc = data_block.process(lambda a: H(a))
+        rgb, *rest =vf.dismph(A_proc.A, type='circular', k=0.1)
+        plt.imshow(A_proc.A,vmin=-10,vmax=10)
         plt.show()
+
+    def testSetLowerEdge(self):
+        data = dt.camera()
+        val= 4
+        data_block = bp.block_array(data.astype(np.double), [10, 10], overlap=[2, 2])
+        A_proc = data_block.process(lambda a: val)
+        plt.imshow(A_proc.A)
+        plt.show()
+        self.assertTrue(np.all(A_proc.A == val))
+
+    def testGetSize(self):
+        """
+        Test if the block read from the
+        data have the expected size
+        Returns
+        -------
+
+        """
+        data = dt.checkerboard()
+        bs = [25,25]
+        overlap = [4,4]
+        data_block = bp.block_array(data, bs, overlap=overlap)
+        b = data_block[5]
+        self.assertEqual(list(b.shape), [b +o*2 for b,o in zip(bs,overlap)])
+
+    def testSet(self):
+        data = dt.checkerboard()
+        bs = [25,25]
+        overlap = [4,4]
+        data_block = bp.block_array(data, bs, overlap=overlap)
+        data_block[4] = data_block[4]
 
     def testSetAndGet(self):
         data = dt.checkerboard()
         data_block = bp.block_array(data, [25,25], overlap=[4,4])
         b = data_block[0]
         print(b.shape)
-        data_block[6] = b * 4
+        # data_block[6] = b * 4
         print(data_block.nblocks)
         f, (ax, ax_part) = plt.subplots(2,1)
         ax.imshow(data_block.A, vmin=0, vmax=255)
