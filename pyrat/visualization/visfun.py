@@ -492,11 +492,11 @@ def circular_palette(N=24, type='circular', radius=40, lum=70):
 
     """
     if type == 'circular':
-        theta = _np.linspace(0, 2 * _np.pi, N)
+        theta = _np.linspace(0, 2 * _np.pi, num=N)
     elif type == 'repeated':
-        theta = [_np.linspace(0, 2 * _np.pi, N / 2),]*2
+        theta = [_np.linspace(0, 2 * _np.pi, num=N / 2),]*2
     elif type == 'increasing':
-        theta = _np.linspace(0,_np.pi, N)
+        theta = _np.linspace(0,_np.pi, num=N)
     a = 2 * radius * _np.cos(theta)
     b = radius * _np.sin(theta)
     L = _np.ones(a.shape) * lum #Equiluminant
@@ -525,16 +525,17 @@ def disp_value_and_variance(data, variance, pal='RdBu', vmin=None, vmax=None, va
     return rgb
 
 
-def dismph_palette(data, N=20,**kwargs):
+def dismph_palette(data, **kwargs):
     mli = kwargs.pop('mli',None)#
     coherence = kwargs.pop('coherence')
+    N = kwargs.get('N', 24)
     if coherence is False:
         ampl_orig = _np.abs(data)
         angle_orig = _np.angle(data)
     else:
         ampl_orig = _np.abs(mli)
         angle_orig = _np.angle(data)
-    ampl, phase = [_np.linspace(_np.nanmin(chan), _np.nanmax(chan), N) for chan in [ampl_orig, angle_orig]]
+    ampl, phase = [_np.linspace(_np.nanmin(chan), _np.nanmax(chan), num=N) for chan in [ampl_orig, angle_orig]]
     aa, pp = _np.meshgrid(ampl, phase)
     rgb, pal, norm = dismph(aa * _np.exp(1j * pp), **kwargs)
     ext = [ ampl.min(), ampl.max(),phase.min(), phase.max(), ]
@@ -552,7 +553,7 @@ def get_data_extent(data):
 
 
 def dismph(data, min_val=-_np.pi, max_val=_np.pi, k=0.5, mli=None, peak=False, N=24, sf=1, coherence_slope=12, type='circular', coherence=False, black_background=True, coherence_threshold=0.3):
-    pal = circular_palette(N, type=type)
+    pal = circular_palette(N=N, type=type)
     norm = _mpl.colors.Normalize(vmin=min_val, vmax=max_val)
     # Extract amplitude and phase
     ang = scale_array(_np.angle(data), min_val=min_val, max_val=max_val)
