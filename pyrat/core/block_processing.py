@@ -17,17 +17,22 @@ def writing_indices(ij, overlaps, blocks, shape):
         sl += (slice(start, stop),)
     return sl
 
-def padding_indices(ij, overlaps, blocks, shape):
+def padding_sizes(ij, overlaps, blocks, shape):
     pads = ()
     for index, overlap, bs, shp in zip(ij, overlaps, blocks, shape):
         pad_start = index * bs - (overlap)
         pad_stop = shp - (bs * index + (overlap + bs))
         ps = 0 if pad_start >= 0 else -pad_start
-        pe = 0 if pad_stop >= 0 else bs - pad_stop
+        pe = -pad_stop if pad_stop <= 0 else 0
         pads += ((ps, pe),)
     return pads
+#
+# def trimming_indices(ij, overlaps, blocks, shape):
+#     trims = ()
+#     pad = padding_sizes(ij, overlaps, blocks, shape)
+#     for index, overlap, bs, shp in zip(ij, overlaps, blocks, shape):
 
-def trimming_indices(ij, overlaps, blocks, shape)
+
 
 
 class block_array:
@@ -42,7 +47,7 @@ class block_array:
         obj.nblocks = []
         # Compute shapes
         for current_shape, block_shape, overlap_size in zip(A.shape, block_size, overlap):
-            obj.nblocks.append(current_shape // block_shape)
+            obj.nblocks.append(_np.floor(current_shape / block_shape))
         obj.maxiter = _np.prod(obj.nblocks)
         obj.current = -1
 
@@ -53,24 +58,42 @@ class block_array:
         # read it
         A_cut = self.A[i_read, j_read]
         # Compute padding size
-        pads = padding_indices((i, j), self.overlap, self.bs, self.A.shape)
+        pads = padding_sizes((i, j), self.overlap, self.bs, self.A.shape)
         # pad
         A_cut = _np.pad(A_cut, pads, mode='constant')
         return A_cut
 
     def __setitem__(self, sl, item):
+        #get location of block
         i, j = _np.unravel_index(sl, self.nblocks)
+        i_read, j_read = reading_indices((i, j), self.overlap, self.bs, self.A.shape)
         i_write, j_write = writing_indices((i, j), self.overlap, self.bs, self.A.shape)
-        pad_i, pad_j = padding_indices((i, j), self.overlap, self.bs, self.A.shape)
-        print(i_write,j_write)
-        self.A[i_write, j_write] = item[pad_i[0]:-(self.overlap[0] + pad_i[1]),self.overlap[1]:-(pad_j[1])]
+        pad_i, pad_j = padding_sizes((i, j), self.overlap, self.bs, self.A.shape)
+        #Cut out the padded part
+        if _np.isscalar(item):
+            self.A[i_write, j_write] = item
+        else:
+            print(pad_i, pad_j)
+            print(i_write, j_write)
+            end_cut = lambda x: -1 if x == 0 else x
+            item_cut = item[(self.overlap[0]):-(self.overlap[0]),(self.overlap[1]):-(self.overlap[1])]
+            self.A[i_write, j_write] = item_cut
 
     def put_current(self, bl):
         self[self.current] = bl
 
+    def __copy__(self):
+        new = type(self)(self.A * 1, self.bs, overlap=self.overlap)
+        new.__dict__.update(self.__dict__)
+        #Copy array
+        new.A = self.A * 1
+        return new
+
     def process(self, function):
+        A_copy = self.__copy__()
         for bl in self:
-            self[self.current] = function(bl)
+            A_copy[self.current] = function(bl)
+        return A_copy
 
     def __iter__(self):
         return self
