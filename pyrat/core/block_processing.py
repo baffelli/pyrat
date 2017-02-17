@@ -34,14 +34,14 @@ class block:
             overlap_pad_stop = pe(shp - (block_start + bs))
             # Pad for partial block
             pad_start = 0
-            pad_stop = pe(shp - (block_start + (bs + overlap)))
+            pad_stop = pe(shp - (block_start + (bs * self.pad_partial_blocks + overlap)))
             # Add
             overlap_pads += ((overlap_pad_start, overlap_pad_stop),)
             partial_pads += ((pad_start, pad_stop),)
             # Compute the additional amount of trimming
             trimming += ((abs(pad_start - overlap_pad_start), abs(pad_stop - overlap_pad_stop)),)
-        if not self.pad_partial_blocks:
-            partial_pads = ((0, 0), (0, 0))
+        # if not self.pad_partial_blocks:
+        #     partial_pads = ((0, 0), (0, 0))
 
         return overlap_pads, partial_pads, trimming
 
@@ -51,7 +51,7 @@ class block:
         overlap_paddnig, partial_padding, trimming = self.compute_padding()
         # Extra padding for the additional dimensions
         extra_pad = ((0, 0),) * (self.original_data.ndim - 2)
-        block_pad = _np.pad(self.original_data, overlap_paddnig + extra_pad, mode='constant')
+        block_pad = _np.pad(_np.pad(self.original_data, overlap_paddnig + extra_pad, mode='constant'), partial_padding+extra_pad, mode='constant')
         # If the data is not of the size of the block, pad it
         return block_pad
 
@@ -61,8 +61,8 @@ class block:
         overlap_pad, partial_pad, trimming = self.compute_padding()
         data_proc = fun(self.data)
         if trim and not _np.isscalar(data_proc):
-            data_proc = data_proc[self.overlap[0]:pad_cut(self.overlap[0] - trimming[0][1]),
-                        self.overlap[1]:pad_cut(self.overlap[1] - trimming[1][1])]
+            data_proc = data_proc[self.overlap[0]:pad_cut(self.overlap[0] + trimming[0][1]),
+                        self.overlap[1]:pad_cut(self.overlap[1] + trimming[1][1])]
         # f, (a1,a2) = plt.subplots(2,1)
         # a1.imshow(data_proc)
         # a2.imshow(self.data)
@@ -79,7 +79,7 @@ class block_array:
         obj.nblocks = []
         # Compute shapes
         for current_shape, block_shape, overlap_size in zip(A.shape[0:2], block_size, overlap):
-            obj.nblocks.append(int(_np.ceil(current_shape / (block_shape))))
+            obj.nblocks.append(int(_np.ceil(current_shape / block_shape)))
         obj.maxiter = _np.prod(obj.nblocks)
         obj.current = -1
         obj.pad_partial_blocks = pad_partial_blocks

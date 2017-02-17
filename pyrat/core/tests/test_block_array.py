@@ -22,7 +22,7 @@ class TestBlock_array(TestCase):
         data = dt.coffee()
 
         plt.show()
-        data_block = bp.block_array(data, [10,10], overlap=[0,0], trim_output=True, pad_partial_blocks=False)
+        data_block = bp.block_array(data, [11,11], overlap=[0,0], trim_output=True, pad_partial_blocks=False)
         A_proc = data_block.process(lambda a: H(a))
         print(A_proc.shape)
         print(data.shape)
