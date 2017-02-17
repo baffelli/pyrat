@@ -11,30 +11,39 @@ import matplotlib.pyplot as plt
 import visualization.visfun as vf
 import scipy.signal as sig
 
+import scipy.ndimage as ndim
 class TestBlock_array(TestCase):
 
 
 
     def testMean(self):
         def H(a):
-            counts, edged = np.histogram(a, bins=256)
-            counts[counts==0]=1
-            return -np.mean(np.log(counts) * counts)
+            a_sm = np.median(a) * np.ones_like(a)
+            return a_sm
         data = dt.camera()
-        data_block = bp.block_array(data.astype(np.double), [10,10], overlap=[2,2])
+        print(data.shape)
+        data_block = bp.block_array(data.astype(np.double), [10,10], overlap=[20,20])
         A_proc = data_block.process(lambda a: H(a))
-        rgb, *rest =vf.dismph(A_proc.A, type='circular', k=0.1)
-        plt.imshow(A_proc.A,vmin=-10,vmax=10)
+        print(A_proc.shape)
+        plt.imshow(np.abs(A_proc))
         plt.show()
 
-    def testSetLowerEdge(self):
-        data = dt.camera()
-        val= 4
-        data_block = bp.block_array(data.astype(np.double), [10, 10], overlap=[2, 2])
-        A_proc = data_block.process(lambda a: val)
-        plt.imshow(A_proc.A)
-        plt.show()
-        self.assertTrue(np.all(A_proc.A == val))
+    # def testPadPartial(self):
+    #     data = np.zeros((100, 100))
+    #     data_block = bp.block_array(data.astype(np.double), [10, 10], overlap=[3, 3], pad_partial_blocks=True)
+    #     shapes = []
+    #     for b in data_block:
+    #         shapes.append(b.data.shape)
+    #     print(shapes)
+    #
+    # def testSetLowerEdge(self):
+    #     data = np.zeros((100,100))
+    #     val= 4
+    #     data_block = bp.block_array(data.astype(np.double), [10, 13], overlap=[3,2])
+    #     A_proc = data_block.process(lambda a: a.data + 4)
+    #     plt.imshow(A_proc.A)
+    #     plt.show()
+    #     self.assertTrue(np.all(A_proc.A == val))
 
     def testGetSize(self):
         """
