@@ -18,14 +18,17 @@ class TestBlock_array(TestCase):
 
     def testMean(self):
         def H(a):
-            a_sm = np.median(a) * np.ones_like(a)
-            return a_sm
-        data = dt.camera()
-        print(data.shape)
-        data_block = bp.block_array(data.astype(np.double), [10,10], overlap=[20,20])
+            return cf.smooth(a,[3,3,3]).astype(a.dtype)
+        data = dt.coffee()
+
+        plt.show()
+        data_block = bp.block_array(data, [10,10], overlap=[0,0], trim_output=True, pad_partial_blocks=False)
         A_proc = data_block.process(lambda a: H(a))
         print(A_proc.shape)
-        plt.imshow(np.abs(A_proc))
+        print(data.shape)
+        f, (a1,a2) = plt.subplots(2,1)
+        a1.imshow(data)
+        a2.imshow(A_proc)
         plt.show()
 
     # def testPadPartial(self):

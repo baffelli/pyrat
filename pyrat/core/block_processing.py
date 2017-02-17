@@ -11,24 +11,7 @@ def reading_indices(ij, overlaps, blocks, shape):
     return sl
 
 
-def writing_indices(ij, overlaps, blocks, shape):
-    sl = ()
-    for index, overlap, bs, shp in zip(ij, overlaps, blocks, shape):
-        start = _np.clip(bs * index, 0, shp)
-        stop = _np.clip(bs * index + bs, 0, shp)
-        sl += (slice(start, stop),)
-    return sl
 
-
-def padding_sizes(ij, overlaps, blocks, shape, pad_partial=True):
-    pads = ()
-    for index, overlap, bs, shp in zip(ij, overlaps, blocks, shape):
-        pad_start = index * bs - (overlap)
-        pad_stop = shp - (bs * index + (overlap + bs))
-        ps = 0 if pad_start >= 0 else -pad_start
-        pe = -pad_stop if pad_stop <= 0 else 0
-        pads += ((ps, pe),)
-    return pads
 
 
 class block:
@@ -43,34 +26,49 @@ class block:
 
 
     def compute_padding(self):
-        pads = ()
+        overlap_pads = ()
+        partial_pads = ()
+        trimming = ()
+        ps = lambda p: 0 if p > 0 else -p
+        pe = lambda p: -p if p < 0 else 0
         for index, overlap, bs, shp in zip(self.location, self.overlap, self.block_shape, self.image_shape):
+            #This is where the block starts
             block_start = index * bs
-            pad_start = block_start  - overlap
-            pad_stop = shp - (block_start + (overlap + bs * self.pad_partial_blocks))
-            ps = 0 if pad_start > 0 else -pad_start
-            pe = -pad_stop if pad_stop < 0 else 0
-            pads += ((ps, pe),)
-        return pads
+            #Pad for the overlap
+            overlap_pad_start = ps(block_start - (overlap))
+            overlap_pad_stop = pe(shp - (block_start + bs))
+            #Pad for partial block
+            pad_start = 0
+            pad_stop = pe(shp - (block_start + (bs * self.pad_partial_blocks + overlap)))
+            #Add
+            overlap_pads += ((overlap_pad_start, overlap_pad_stop),)
+            partial_pads += ((pad_start,pad_stop),)
+            #Compute the additional amount of trimming
+            trimming += ((abs(pad_start - overlap_pad_start) , abs(pad_stop- overlap_pad_stop)),)
+
+        return overlap_pads, partial_pads, trimming
+
 
     @property
     def data(self):
-        padding = self.compute_padding()
-        block_pad = _np.pad(self.original_data, padding, mode='constant')
+        #Padding for partial blocks
+        overlap_paddnig, partial_padding, trimming = self.compute_padding()
+        #Extra padding for the additional dimensions
+        extra_pad = ((0,0),) * (self.original_data.ndim - 2 )
+        block_pad = _np.pad(self.original_data, overlap_paddnig + extra_pad, mode='constant')
         # If the data is not of the size of the block, pad it
         return block_pad
 
     def process(self, fun, trim=True):
         pad_cut = lambda x: -x if x > 0 else None
         #Compute padding
-        pads = self.compute_padding()
-        print(pads)
+        overlap_pad, partial_pad, trimming = self.compute_padding()
         data_proc = fun(self.data)
-        if trim:
-           data_proc =  data_proc[self.overlap[0]:pad_cut(self.overlap[0]),self.overlap[1]:pad_cut(self.overlap[1])]
+        if trim and  not _np.isscalar(data_proc):
+           data_proc =  data_proc[self.overlap[0]:pad_cut(self.overlap[0] - trimming[0][1]),self.overlap[1]:pad_cut(self.overlap[1]- trimming[1][1])]
         # f, (a1,a2) = plt.subplots(2,1)
         # a1.imshow(data_proc)
-        # a2.imshow(self.original / data_proc)
+        # a2.imshow(self.data)
         # plt.show()
         return data_proc
 
