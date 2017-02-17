@@ -39,12 +39,14 @@ class block:
             overlap_pad_stop = pe(shp - (block_start + bs))
             #Pad for partial block
             pad_start = 0
-            pad_stop = pe(shp - (block_start + (bs * self.pad_partial_blocks + overlap)))
+            pad_stop = pe(shp - (block_start + (bs + overlap)))
             #Add
             overlap_pads += ((overlap_pad_start, overlap_pad_stop),)
             partial_pads += ((pad_start,pad_stop),)
             #Compute the additional amount of trimming
             trimming += ((abs(pad_start - overlap_pad_start) , abs(pad_stop- overlap_pad_stop)),)
+        if not self.pad_partial_blocks:
+            partial_pads = ((0,0), (0,0))
 
         return overlap_pads, partial_pads, trimming
 
