@@ -100,7 +100,6 @@ class block:
         data_proc = fun(self)
         if trim and not _np.isscalar(data_proc):
             data_proc = data_proc[self.overlap[0]:pad_cut(self.overlap[0] + trims[0]),self.overlap[1]:pad_cut(self.overlap[1] + trims[1])]
-        print(pads, trims)
         return data_proc
 
 
@@ -166,7 +165,6 @@ class block_array:
         return self
 
     def __next__(self):
-        print(self.current)
         if self.current >= self.maxiter - 1:
             # self.current = -1
             raise StopIteration
