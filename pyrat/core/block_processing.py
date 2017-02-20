@@ -55,8 +55,8 @@ class block_array:
             pads = tuple([(0,int(p)) for p in pads]) + ((0,0),) * (A.ndim - 2)
             A = _np.pad(A,pads, mode='constant')
         #Compute padding for the border
-            overlap_pad = tuple([(o,o) for o in overlap]) +  ((0, 0),) * (A.ndim - 2)
-            A = _np.pad(A, overlap_pad, mode='constant')
+        overlap_pad = tuple([(o,o) for o in overlap]) +  ((0, 0),) * (A.ndim - 2)
+        A = _np.pad(A, overlap_pad, mode='constant')
         print(A.shape)
         obj.A = A
         obj.maxiter = _np.prod(obj.nblocks)
