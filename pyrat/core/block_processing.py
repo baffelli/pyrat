@@ -58,16 +58,20 @@ class block:
 
         """
         pads = ()
+        trims = ()
         #Compute the indices
         indices, clipped_indices = self.valid_indices()
-        for i, clip_i in zip(indices, clipped_indices):
+        for i, clip_i, ov, bs in zip(indices, clipped_indices, self.overlap, self.block_shape):
             start_pad = i.start - clip_i.start
             stop_pad = i.stop - clip_i.stop
             start_pad = -start_pad if start_pad < 0 else 0
             stop_pad = stop_pad if stop_pad > 0 else 0
             pads += ((start_pad,stop_pad),)
             #Compute the amount of trimming
-        return pads
+            trim = i.stop - clip_i.stop - ov
+            trim = trim if trim > 0  else 0
+            trims += (trim,)
+        return pads, trims
     #
     # def trimming(self):
     #     indices, clipped_indices = self.valid_indices()
@@ -85,18 +89,18 @@ class block:
     @property
     def data(self):
         indices, clipped_indices = self.valid_indices()
-        pads = self.pads()
+        pads, trims = self.pads()
         data = _np.pad(self.original_data[clipped_indices], pads + ((0,0),)*(self.original_data.ndim-2), mode='constant')
         return data
 
     def process(self, fun, trim=True):
         pad_cut = lambda x: -x  if x > 0 else None
-        pads = self.pads()
+        pads, trims = self.pads()
         # Compute padding
         data_proc = fun(self)
         if trim and not _np.isscalar(data_proc):
-            data_proc = data_proc[self.overlap[0]:pad_cut(self.overlap[0]),self.overlap[1]:pad_cut(self.overlap[1])]
-        print(data_proc.shape)
+            data_proc = data_proc[self.overlap[0]:pad_cut(self.overlap[0] + trims[0]),self.overlap[1]:pad_cut(self.overlap[1] + trims[1])]
+        print(pads, trims)
         return data_proc
 
 
