@@ -18,7 +18,6 @@ include: './geocoding.snake'
 
 
 
-
 ##############################################################################
 ## Interferogram 		
 rule interferogram:
@@ -141,10 +140,10 @@ rule polcal_parameters:
         C_par = "cov_flat/{slcname}_{rx}.par",
         slc_par = "slc_corr/{slcname}_AAA{rx}.slc.par",
         C_root = "cov_flat/{slcname}_{rx}",
-        sw = config.get('calibration',(2,4)).get('search_window',(3,4)),
-        aw = config.get('calibration',[5,5]).get('averaging_window',[5,5]),
-        rwin = config.get('calibration',20).get('rwin',20),
-        azwin = config.get('calibration',50).get('azwin',50)
+        sw = config.get('calibration', {'search_window':(2,4)}).get('search_window'),
+        aw = config.get('calibration', {'averaging_window':[5,5]}).get('averaging_window'),
+        rwin = config.get('calibration', {'rwin':20}).get('rwin'),
+        azwin = config.get('calibration', {'azwin':50}).get('azwin')
     script:
         './wrappers/calibration/polcal_parameters.py'
 
@@ -178,19 +177,9 @@ rule polcal:
     params:
         C_input_root = "cov_flat/{slcname}_{rx}",
         C_output_root = "cov_cal/{slcname}_{rx}",
-    run:
-        C_matrix_flat = mat.coherencyMatrix(params['C_input_root'], params['C_input_root'] + '.par', basis='lexicographic', gamma=True, bistatic=True)
-        cal_dict = gpf.par_to_dict(input.cal_par)
-        phi_t = cal_dict['phi_t']
-        phi_r = cal_dict['phi_r']
-        f = cal_dict['f']
-        g = cal_dict['g']
-        K = cal_dict['K']
-        D = cal.distortion_matrix(phi_t, phi_r, f, g)
-        D_inv = np.diag(1/np.diag(D))
-        C_cal = np.float(K) * C_matrix_flat.transform(D_inv,D_inv.T.conj())
-        print(C_cal)
-        C_cal.tofile(params['C_output_root'], bistatic=True)
+    script:
+        'wrappers/calibration/apply_polcal.py'
+
 
 
 
