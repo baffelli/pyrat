@@ -1150,7 +1150,7 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     shift = _np.ones(SLC.shape[0])
     shift[1::2] = -1
     # Convert the data into raw samples
-    rawdata = _np.fft.irfft(SLC[:, :] * shift[:, None], axis=0, ) * TSF
+    rawdata = _fftp.irfft(SLC[:, :] * shift[:, None], axis=0, ) * TSF
     rawdata_corr = rawdata * 1
     # Now correct the squint
     freqvec = SLC.radar_frequency + _np.linspace(-SLC.chirp_bandwidth / 2, SLC.chirp_bandwidth / 2,
@@ -1162,9 +1162,9 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
         freqvec.shape[0] // 2]  # In addition, we correct for the beam motion during the chirp
     # Normal angle vector
     angle_vec = _np.arange(SLC.shape[1])
-    rawdata_corr = interpolation_core(rawdata, squint_vec, angle_vec)
+    rawdata_corr = interpolation_1D(rawdata, squint_vec, angle_vec)
     # Now range compress again (this function is really boring
-    SLC_corr = _np.fft.rfft(rawdata_corr, axis=0) / TSF * shift[:, None]
+    SLC_corr = _fftp.rfft(rawdata_corr, axis=0) / TSF * shift[:, None]
     SLC_corr = SLC.__array_wrap__(SLC_corr)  # Call array wrap to make sure properties are correctly set
     assert SLC_corr.shape == SLC.shape, "failed"
     return SLC_corr
