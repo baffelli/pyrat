@@ -42,11 +42,10 @@ class TestBlock_array(TestCase):
             plt.pause(1)
 
     def testPlusOne(self):
-        data = np.zeros((500,500))
-        data = dt.checkerboard().astype(np.double)
-        win = [11,11]
-        overlap = [15,15]
-        fun = lambda a: a.data +1
+        data = dt.coffee().astype(np.double)
+        win = [15,15]
+        overlap = [7,7]
+        fun = lambda a: cf.smooth(a.data[:,:,::-1]
         data_block = bp.block_array(data, win, overlap=overlap, trim_output=True, pad_partial_blocks=False)
         data_proc = data_block.process(fun)
         f, (a1,a2) = plt.subplots(2,1, sharex=True, sharey=True)
