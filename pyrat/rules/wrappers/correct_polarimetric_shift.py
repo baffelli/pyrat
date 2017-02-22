@@ -8,7 +8,7 @@ def correct_squint(input, output, threads, config, params, wildcards):
     az_mutliplier = off_multiplier[wildcards.chan]
     coreg_off_par = gpf.par_to_dict(input.off_par)
     # Modify the azimuth shift using the multplier
-    coreg_off_par.azimuth_offset_polynomial[-1] *= az_mutliplier
+    coreg_off_par.azimuth_offset_polynomial =[coeff * az_mutliplier for coeff in coreg_off_par.azimuth_offset_polynomial]
     coreg_off_par.range_offset_polynomial = [0 for el in
                                              coreg_off_par.range_offset_polynomial]  # We do not need to correct range shift so we set it to zero
     gpf.dict_to_par(coreg_off_par, params.coreg_off_par)
