@@ -102,6 +102,7 @@ def gamma_datatype_code_from_extension(filename):
                "sh_map": 3,
                "u": 0,
                "lv_theta": 0,
+               "lv_phi": 0,
                "psi": 0,
                "bmp": 2,
                "tif": 2,
