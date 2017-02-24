@@ -47,7 +47,6 @@ rule rename_mli:
         shell("cp {input.mli_par} {output.mli_par}")
         shell("cp {input.mli} {output.mli}")
 
-
 ##############################################################################
 ##	This rule produces the geocoding LUT
 rule geocoding_table:
@@ -76,16 +75,14 @@ rule geocoding_table:
         lat_ovr = 1,
         lon_ovr = 1,
         frame = 100,
+        temp_mli_par = 'geo/{tablename}_shifted.mli.par',
         diff_par = "geo/{tablename}_refinement.diff_par",
         offs= "geo/{tablename}_refinement.offs",
         ccp= "geo/{tablename}_refinement.ccp",
-        lut_fine = "geo/{tablename}_refinement.gpri_to_dem_fine",
         scan_heading = config['geocoding']['scan_heading'],
-        refine_table= config['geocoding'].get('refine_table')
-    wildcard_constraints:
-        ext = "(_initial)|(^$)"
     script:
         './wrappers/geocoding/geocoding_table.py'
+
 
 
 ##############################################################################
