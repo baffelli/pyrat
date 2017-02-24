@@ -10,9 +10,9 @@ def geocode_forward(input, output, threads, config, params, wildcards):
     par_dict = gpf.par_to_dict(input.reference_mli_par)
     nlines = par_dict.azimuth_lines
     filetype = gpf.gamma_datatype_code_from_extension(input.data)
-    cmd = "geocode {input.lut} {input.data} {out_width} {output.geocoded_file} {data_width} {nlines} 0 {dtype}".format(
+    cmd = "geocode {input.lut} {input.data} {dem_width} {output.geocoded_file} {data_width} {nlines} 0 {dtype}".format(
         data_width=data_width,
-        out_width=dem_width, nlines=nlines, dtype=filetype, input=input, output=output)
+        dem_width=dem_width, nlines=nlines, dtype=filetype, input=input, output=output)
     shell(cmd)
 
 
