@@ -1054,14 +1054,10 @@ def interpolation_1D(rawdata, squint_vec, angle_vec):
 
     """
     rawdata_corr = rawdata * 1
-    # freq_vec = _np.arange(rawdata.shape[0])
-    # tt, ff = _np.meshgrid(angle_vec, freq_vec)
-    # az_new = tt - squint_vec[ff]
-
     for idx_freq in range(rawdata.shape[0]):
         az_new = angle_vec - squint_vec[idx_freq]
         current_data = rawdata[idx_freq, :]
-        interpolator = _interp.interp1d(angle_vec, current_data, kind='linear', bounds_error=False, fill_value=0)
+        interpolator = _interp.interp1d(angle_vec, current_data, kind='linear', bounds_error=False, fill_value=0, assume_sorted=True)
         rawdata_corr[idx_freq, :] = interpolator(az_new)
         # rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, current_data, left=0.0, right=0.0)
         if idx_freq % 500 == 0:
@@ -1117,6 +1113,14 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     raw_channel_interp.__array_wrap__(raw_channel)
     return raw_channel_interp
 
+def slc_to_raw(SLC):
+    # rawdata_corr = rawdata * 1
+    shift = _np.ones(SLC.shape[0])
+    shift[1::2] = -1
+    # Convert the data into raw samples
+    rawdata = _fftp.irfft(SLC[:, :] * shift[:, None], axis=0, ) * TSF
+    return rawdata
+
 
 def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9):
     """
@@ -1135,14 +1139,8 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     pyrat.fileutils.gpri_files.gammaDataset
 
     """
-    SLC_corr = SLC * 1
-    rawdata = _np.zeros((SLC.shape[0] * 2 - 1, SLC.shape[1]), dtype=_np.int16)
-    # rawdata_corr = rawdata * 1
-    shift = _np.ones(SLC.shape[0])
-    shift[1::2] = -1
     # Convert the data into raw samples
-    rawdata = _fftp.irfft(SLC[:, :] * shift[:, None], axis=0, ) * TSF
-    rawdata_corr = rawdata * 1
+    rawdata = slc_to_raw(SLC)
     # Now correct the squint
     freqvec = SLC.radar_frequency + _np.linspace(-SLC.chirp_bandwidth / 2, SLC.chirp_bandwidth / 2,
                                                  rawdata.shape[0])
@@ -1155,6 +1153,8 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     angle_vec = _np.arange(SLC.shape[1])
     rawdata_corr = interpolation_1D(rawdata, squint_vec, angle_vec)
     # Now range compress again (this function is really boring
+    shift = _np.ones(SLC.shape[0])
+    shift[1::2] = -1
     SLC_corr = _fftp.rfft(rawdata_corr, axis=0) / TSF * shift[:, None]
     SLC_corr = SLC.__array_wrap__(SLC_corr)  # Call array wrap to make sure properties are correctly set
     assert SLC_corr.shape == SLC.shape, "failed"
