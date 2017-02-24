@@ -11,7 +11,7 @@ rules = {_os.path.splitext(_os.path.basename(rule_path))[0]: rule_path
 wrappers_base = _os.path.dirname(__file__) + '/rules/wrappers/'
 
 wrappers = {}
-for filenames in _glob.glob(wrappers_base + '/*/*.py'):
+for filenames in _glob.glob(wrappers_base + '/*/*[!\.].py'):
     dirname = _os.path.basename(_os.path.normpath(_os.path.dirname(filenames)))
     rulename = _os.path.splitext(_os.path.basename(filenames))[0]
     new_dict = {rulename: filenames}
