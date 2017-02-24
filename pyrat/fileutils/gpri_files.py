@@ -464,16 +464,6 @@ class gammaDataset(_np.ndarray):
                 current_idx = slice(idx_az * dec, idx_az * dec + dec)
                 az_data = self[:, current_idx]
                 arr_dec[:, idx_az] = _np.mean(az_data, axis=1)
-                # for idx_dec in range(dec):
-                #     current_idx = idx_az * dec + idx_dec
-                #     if current_idx % 1000 == 0:
-                #         print('decimating line: ' + str(current_idx))
-                #     dec_pulse += self[:, current_idx]
-                # arr_dec[:, idx_az] = dec_pulse
-                # print(arr_dec.shape)
-                # print(arr_dec_1.shape)
-        # elif mode == 'vectorized':
-        #     arr_dec = _np.mean(_np.reshape(self, arr_dec.shape + (,dec)),axis=-1)
         else:
             arr_dec = self[:, ::dec]
         arr_dec = self.__array_wrap__(arr_dec)
@@ -1071,9 +1061,9 @@ def interpolation_1D(rawdata, squint_vec, angle_vec):
     for idx_freq in range(rawdata.shape[0]):
         az_new = angle_vec - squint_vec[idx_freq]
         current_data = rawdata[idx_freq, :]
-        # interpolator = _interp.UnivariateSpline(angle_vec, current_data, k=1)
-        # rawdata_corr[idx_freq, :] = interpolator(az_new)
-        rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, current_data, left=0.0, right=0.0)
+        interpolator = _interp.interp1d(angle_vec, current_data, kind='linear', bounds_error=False, fill_value=0)
+        rawdata_corr[idx_freq, :] = interpolator(az_new)
+        # rawdata_corr[idx_freq, :] = _np.interp(az_new, angle_vec, current_data, left=0.0, right=0.0)
         if idx_freq % 500 == 0:
             print_str = "interp sample: {idx}, ,shift: {sh} samples".format(idx=idx_freq, sh=az_new[0] - angle_vec[0])
             print(print_str)

@@ -2,7 +2,7 @@ import pyrat.fileutils.gpri_files as gpf
 from snakemake import shell
 
 
-def correct_squint(input, output, threads, config, params, wildcards):
+def correct_shift(input, output, threads, config, params, wildcards):
     # Compute the amount of shift (0 for AAA, the full for BBB and 1/2 for the remaining)
     off_multiplier = {'AAA': 0.0, 'BBB': 1.0, 'BAA': 0.5, 'ABB': 0.5}
     az_mutliplier = off_multiplier[wildcards.chan]
@@ -19,5 +19,5 @@ def correct_squint(input, output, threads, config, params, wildcards):
 
     
 
-correct_squint(snakemake.input, snakemake.output, snakemake.threads, snakemake.config, snakemake.params,
+correct_shift(snakemake.input, snakemake.output, snakemake.threads, snakemake.config, snakemake.params,
     snakemake.wildcards)
