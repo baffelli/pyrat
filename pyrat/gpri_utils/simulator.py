@@ -41,7 +41,7 @@ def ant_pat(samples, bw):
 
 
 class RadarSimulator:
-    def __init__(self, targets, prf, r_ph, squint=True, antenna_bw=0.2, squint_rate=4.2e-9):
+    def __init__(self, targets, prf, r_ph, squint=True, antenna_bw=0.2, squint_rate=4.2e-9, chan='AAAl'):
         """
         Initializes a gpri raw data simulator
 
@@ -99,6 +99,7 @@ class RadarSimulator:
         raw_dict['STP_antenna_start'] = self.prf['STP_antenna_start']
         raw_dict['STP_antenna_end'] = self.prf['STP_antenna_end']
         raw_dict['TSC_acc_ramp_step'] = self.prf['STP_acc_ramp_step']
+        raw_dict['TX_RX_SEQ'] = chan
         # raw_dict['TSC_version'] = 'SW V3.04'
         # raw_dict['TX_mode'] = 'None'
         # raw_dict['TX_RX_SEQ'] = 'AAAl'
@@ -119,6 +120,12 @@ class RadarSimulator:
 
     def simulate(self):
         raw_data = _np.zeros([self.block_length, self.azimuth_samples], dtype=_np.float32)
+        raw_data = _gpf.rawData(self.raw_par, raw_data, from_array=True)
+        #Generate phase cente location using a dummy slc
+        raw_data.compute_slc_parameters()
+        slc_dict = raw_data.fill_dict()
+        slc = _gpf.gammaDataset(slc_dict, raw_data)
+        r_ant = _np.linalg.norm(slc.phase_center[0:2])
         # Antenna pattern
         for targ in self.targ_list:
             #For each target, construct slice
@@ -142,7 +149,7 @@ class RadarSimulator:
         raw_data = _gpf.rawData(self.raw_par, raw_data, from_array=True)
         if self.squint:
             # Apply squint by using correct_squint with the opposite rate
-            raw_data = _gpf.correct_squint(raw_data, squint_rate=-self.squint_rate)
+            raw_data = _gpf.correct_squint(raw_data, squint_function=lambda f,w:-_gpf.model_squint(f +self.prf['RF_center_freq']))
             # ang_vec = _np.arange(raw_data.shape[1])
             # # Create frequency vector
             # freq_vec = _np.linspace(self.prf['CHP_freq_min'], self.prf['CHP_freq_max'], self.prf['CHP_num_samp'],
