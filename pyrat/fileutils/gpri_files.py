@@ -728,15 +728,31 @@ def default_slc_dict():
     This function creates a default dict for the slc parameters of the
     gpri, that the user can then fill according to needs
     The default parameters are read from '/default_slc_par.par'
-    :return:
     """
     par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_slc_par.par')
     return par
 
 
-#Standard parameter file
 def default_prf():
+    """
+    This function creates a default dict for the gpri acquisition parameters that can be filled
+    according to the needs
+    Returns
+    -------
+
+    """
     par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_prf.prf')
+    return par
+
+def default_raw_par():
+    """
+    This function creates a default dict for the raw parameters that can be filled
+    according to the needs
+    Returns
+    -------
+
+    """
+    par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_raw_parameter.raw_par')
     return par
 
 class rawData(gammaDataset):
@@ -757,14 +773,18 @@ class rawData(gammaDataset):
     #     if hasattr(obj, '__dict__'):
     #         self.__dict__ = _cp.deepcopy(obj.__dict__)
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, from_array=False, **kwargs):
         if 'channel_mapping' not in kwargs:
             channel_mapping = {'TX_A_position': 0, 'TX_B_position': 0.125,
                                'RX_Au_position': 0.475, 'RX_Al_position': 0.725,
                                'RX_Bu_position': 0.6, 'RX_Bl_position': 0.85}
         else:
             channel_mapping = kwargs['channel_mapping']
-        data, par_dict = load_raw(args[0], args[1])
+        #choose wether to extract it from array or to load data
+        if not from_array:
+            data, par_dict = load_raw(args[0], args[1])
+        else:
+            data, par_dict = args[1], args[0]
         obj = data.view(cls)
         obj._params = par_dict.copy()
         obj.nsamp = obj.CHP_num_samp // 1
