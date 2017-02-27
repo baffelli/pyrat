@@ -734,6 +734,11 @@ def default_slc_dict():
     return par
 
 
+#Standard parameter file
+def default_prf():
+    par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_prf.prf')
+    return par
+
 class rawData(gammaDataset):
     # def __array_wrap__(self, out_arr):
     #     # This is just a lazy
