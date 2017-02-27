@@ -9,7 +9,7 @@ from pyrat.visualization.visfun import bilinear_interpolate
 from ..fileutils import gpri_files as _gpf
 from ..fileutils import parameters as _params
 
-import matplotlib.transforms as _mplt
+import matplotlib.pyplot as plt
 
 def copy_and_modify_gt(RAS, gt):
     from osgeo import gdal
@@ -117,7 +117,7 @@ def numpy_dt_to_numeric_dt(numpy_dt):
 
 def auto_azimuth(DOM, sec, tiepoint, initial_heading, center):
     def ftm(heading):
-        DOM_sec = segment_GT(DOM, center, sec, heading)
+        DOM_sec = segment_dem_radar(DOM, center, sec, heading)
         DOM_sec = resample_DEM(DOM_sec, [0.25, -0.25])
         DEM_seg, lut_sec, rev_lut_sec, xrad, yrad, ia, area, area_beta, r_sl = gc_map(DOM_sec, center,
                                                                                       sec, heading, seg_DEM=False)
@@ -204,16 +204,15 @@ def reproject_radar(S, S_ref):
 
 def WGS84_to_LV95(center):
     from osgeo import osr
-
     WG = osr.SpatialReference(osr.GetWellKnownGeogCSAsWKT('WGS84'))
     CH = osr.SpatialReference()
-    CH.ImportFromEPSG(2056)
+    CH.ImportFromEPSG(21781)
     Tx = osr.CoordinateTransformation(WG, CH)
     center_1 = Tx.TransformPoint(center[1], center[0], center[2])
     return center_1
 
 
-def compute_map_extent(MAP, center, S, heading, return_coverage=False):
+def compute_radar_data_extent(MAP, center, S, heading, return_coverage=False):
     """
     This function computes the extent
     that a gpri Image occupies
@@ -230,26 +229,27 @@ def compute_map_extent(MAP, center, S, heading, return_coverage=False):
     heading : float
         The heading on the map in degrees
     """
-    ext = get_extent(MAP)
     # Compute the area covered by radar
     # in DEM coordinates
     r_vec = (S.r_vec.max(), S.r_vec.min())
-    az_vec = _np.mod(S.az_vec - heading, _np.pi * 2)
+    az_vec = _np.deg2rad(S.az_vec + heading)
     r, az = _np.meshgrid(r_vec, az_vec)
     x = r * _np.sin(az) + center[0]
     y = r * _np.cos(az) + center[1]
-    # Compute limits of area covered and clip to the DEM size
-    x_lim = _np.clip(_np.sort((x.min(), x.max())), _np.min(ext[0]), _np.max(ext[0]))
-    y_lim = _np.clip(_np.sort((y.min(), y.max())), _np.min(ext[1]), _np.max(ext[1]))
-    # get DEM geotransform
-    GT = MAP.GetGeoTransform()
-    # Convert grid limits into DEM indices
-    x_lim_idx = ((x_lim - GT[0]) / GT[1])
-    y_lim_idx = ((y_lim - GT[3]) / GT[5])
-    if return_coverage:
-        return x_lim, x_lim_idx, y_lim, y_lim_idx, x, y
-    else:
-        return x_lim, x_lim_idx, y_lim, y_lim_idx
+    ext = (x.min(),x.max(), y.min(), y.max())
+    return ext
+    # # Compute limits of area covered and clip to the DEM size
+    # x_lim = _np.clip(_np.sort((x.min(), x.max())), _np.min(ext[0:2]), _np.max(ext[0:2]))
+    # y_lim = _np.clip(_np.sort((y.min(), y.max())), _np.min(ext[2:4]), _np.max(ext[2:4]))
+    # # get DEM geotransform
+    # GT = MAP.GetGeoTransform()
+    # # Convert grid limits into DEM indices
+    # x_lim_idx = ((x_lim - GT[0]) / GT[1])
+    # y_lim_idx = ((y_lim - GT[3]) / GT[5])
+    # if return_coverage:
+    #     return x_lim, x_lim_idx, y_lim, y_lim_idx, x, y
+    # else:
+    #     return x_lim, x_lim_idx, y_lim, y_lim_idx
 
 
 def extract_extent(GD, ext):
@@ -263,7 +263,7 @@ def extract_extent(GD, ext):
         The dataset of interest
     ext : iterable
         The extent specified in the form
-        ((x_min, x_max), (y_min, y_max))
+        (x_min, x_max,y_min, y_max)
 
     Returns
     -------
@@ -275,10 +275,10 @@ def extract_extent(GD, ext):
     # Define the new geotransform
     # the spacing is the same as the original,
     # the corner is specified by the new transform
-    gt_new = [ext[0][0], GT[1], GT[2], ext[1][1], GT[4], GT[5]]
+    gt_new = [ext[0], GT[1], GT[2], ext[2], GT[4], GT[5]]
     # Now we compute the new size
-    n_pix_x = int(_np.abs((ext[0][1] - ext[0][0]) / GT[1]))
-    n_pix_y = int(_np.abs((ext[1][1] - ext[1][0]) / GT[5]))
+    n_pix_x = int(_np.abs((ext[1] - ext[0]) / GT[1]))
+    n_pix_y = int(_np.abs((ext[3] - ext[2]) / GT[5]))
     # Now, we can generate a new dataset
     mem_drv = gdal.GetDriverByName('MEM')
     dest = mem_drv.Create('', n_pix_x,
@@ -306,26 +306,35 @@ def np_to_gdal_format(arr):
         return arr.transpose([1, 2, 0])
 
 
-def segment_GT(DEM, center, S_l, heading):
-    from osgeo import osr
-
-    x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
-    # Now we cut the section of interest
-    x_idx = _np.sort(x_lim_idx).astype(_np.int)
-    y_idx = _np.sort(y_lim_idx).astype(_np.int)
-    nx = _np.abs(_np.diff(x_idx))[0]
-    ny = _np.abs(_np.diff(y_idx))[0]
-    # z =  gdal_to_np_format(DEM.ReadAsArray(y_idx[0],y_idx[0]))[y_idx[0]:y_idx[1],x_idx[0]:x_idx[1] ]
-    z = gdal_to_np_format(DEM.ReadAsArray(x_idx[0], y_idx[0], nx, ny))
-    # Now we save the DEM segment$
-    GT = DEM.GetGeoTransform()
-    GT_seg = list(GT)
-    GT_seg[0] = x_lim[0]
-    GT_seg[3] = y_lim[1]
-    proj = osr.SpatialReference()
-    proj.ImportFromWkt(DEM.GetProjection())
-    DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
-    return DEM_seg
+def segment_dem_radar(DEM, center, S_l, heading):
+    ext = compute_radar_data_extent(DEM, center, S_l, heading)
+    corners = extent_to_corners(ext)
+    print(corners)
+    sl = (slice(corners[0][0],corners[1][0]),slice(corners[0][1],corners[1][1]))
+    #Additional dims
+    additional_dims = DEM.RasterCount
+    segmented = DEM.ReadAsArray()[(None,)*additional_dims + sl]
+    print(segmented.shape)
+    plt.imshow(segmented[0,:,:])
+    plt.show()
+    # # Now we cut the section of interest
+    # x_idx = _np.sort(x_lim_idx).astype(_np.int)
+    # y_idx = _np.sort(y_lim_idx).astype(_np.int)
+    # nx = _np.abs(_np.diff(x_idx))[0]
+    # ny = _np.abs(_np.diff(y_idx))[0]
+    # print(x_idx[0],y_idx[0])
+    # z =  gdal_to_np_format(DEM.ReadAsArray())
+    # print(z)
+    # # z = gdal_to_np_format(DEM.ReadAsArray(x_idx[0], y_idx[0], nx, ny))
+    # # Now we save the DEM segment$
+    # GT = DEM.GetGeoTransform()
+    # GT_seg = list(GT)
+    # GT_seg[0] = x_lim[0]
+    # GT_seg[3] = y_lim[1]
+    # proj = osr.SpatialReference()
+    # proj.ImportFromWkt(DEM.GetProjection())
+    # DEM_seg = write_gt(z, GT_seg, DEM.GetProjection())
+    return segmented
 
 
 def gc_map_bi(DEM, center_TX, center_RX, S_l, heading, interp=None, seg_DEM=True):
@@ -358,9 +367,9 @@ def gc_map_bi(DEM, center_TX, center_RX, S_l, heading, interp=None, seg_DEM=True
     # %% DEM Segmentation
     # First of all, we compute the extent of the DEM
     # that is approx. covered by the radar
-    x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center_RX, S_l, heading)
+    x_lim, x_lim_idx, y_lim, y_lim_idx = compute_radar_data_extent(DEM, center_RX, S_l, heading)
     if seg_DEM:
-        DEM_seg = segment_GT(DEM, center_RX, S_l, heading)
+        DEM_seg = segment_dem_radar(DEM, center_RX, S_l, heading)
     else:
         DEM_seg = DEM
     z = (DEM_seg.ReadAsArray()).astype(_np.float32)
@@ -421,7 +430,7 @@ def gc_map_bi(DEM, center_TX, center_RX, S_l, heading, interp=None, seg_DEM=True
     return DEM_seg, lut
 
 
-def gc_map(DEM, center, S_l, heading, interp=None, seg_DEM=True):
+def gc_map(DEM, S_l, interp=None, seg_DEM=True, heading=0):
     """
     This function computes a lookup-table
     that contains the radar coordinates
@@ -447,11 +456,11 @@ def gc_map(DEM, center, S_l, heading, interp=None, seg_DEM=True):
 
     """
     # %% DEM Segmentation
+    #Compute radar location
+    center = WGS84_to_LV95([S_l.GPRI_ref_north, S_l.GPRI_ref_east, S_l.GPRI_ref_alt ])
     # First of all, we compute the extent of the DEM
-    # that is approx. covered by the radar
-    x_lim, x_lim_idx, y_lim, y_lim_idx = compute_map_extent(DEM, center, S_l, heading)
     if seg_DEM:
-        DEM_seg = segment_GT(DEM, center, S_l, heading)
+        DEM_seg = segment_dem_radar(DEM, center, S_l, heading)
     else:
         DEM_seg = DEM
     z = (DEM_seg.ReadAsArray()).astype(_np.float32)
@@ -498,39 +507,39 @@ def gc_map(DEM, center, S_l, heading, interp=None, seg_DEM=True):
     x_idx = (xrad - GT_seg[0]) / GT_seg[1]
     y_idx = (yrad - GT_seg[3]) / GT_seg[5]
     rev_lut = x_idx + 1j * y_idx
-    # Compute the beta nought area given as the area of the
-    # illuminated annulus
-    r_d = r_vec[1] - r_vec[0]
-    area_beta = (az_vec[1] - az_vec[0]) * ((r_vec + r_d) ** 2 - r_vec ** 2)
-    # Using the coordinates and the DEM in the radar centric cartesian system, we can compute the area etc
-    zrad = bilinear_interpolate(z_rad, x_idx, y_idx)
-    positions = _np.dstack((xrad, yrad, zrad))
-    a = _np.roll(positions, 1, axis=0) - positions
-    b = _np.roll(positions, 1, axis=1) - positions
-    c = positions - _np.roll(positions, 1, axis=0)
-    d = positions - _np.roll(positions, 1, axis=1)
-    # Compute and normalize normals
-    c1 = _np.cross(a, b)
-    c2 = _np.cross(c, d)
-    normal = c1 / 2 + c2 / 2
-    area = _np.linalg.norm(c1, axis=2) / 2 + _np.linalg.norm(c2, axis=2) / 2
-    normal = normal / _np.linalg.norm(normal, axis=2)[:, :, None]
-    # Compute zenith angle
-    u = _np.arccos(normal[:, :, 2])
-    # Compute incidence angle
-    los_v = positions / _np.linalg.norm(positions, axis=2)[:, :, None]
-    dot = los_v[:, :, 0] * normal[:, :, 0] + los_v[:, :, 1] * normal[:, :, 1] + los_v[:, :, 2] * normal[:, :, 2]
-    #    ia = _np.arccos(dot)
-    ia = _np.arcsin(zrad / _np.linalg.norm(positions, axis=2))
-    # Compute the shadow map
-    current = ia[:, 0]
-    shadow = _np.zeros_like(ia)
-    for idx_r in range(ia.shape[1] - 1):
-        nex = ia[:, idx_r + 1]
-        sh = nex < current
-        shadow[:, idx_r] = sh
-        current = nex * sh + current * ~sh
-    return DEM_seg, lut, rev_lut, xrad, yrad, ia, area, area_beta, r_sl
+    # # Compute the beta nought area given as the area of the
+    # # illuminated annulus
+    # r_d = r_vec[1] - r_vec[0]
+    # area_beta = (az_vec[1] - az_vec[0]) * ((r_vec + r_d) ** 2 - r_vec ** 2)
+    # # Using the coordinates and the DEM in the radar centric cartesian system, we can compute the area etc
+    # zrad = bilinear_interpolate(z_rad, x_idx, y_idx)
+    # positions = _np.dstack((xrad, yrad, zrad))
+    # a = _np.roll(positions, 1, axis=0) - positions
+    # b = _np.roll(positions, 1, axis=1) - positions
+    # c = positions - _np.roll(positions, 1, axis=0)
+    # d = positions - _np.roll(positions, 1, axis=1)
+    # # Compute and normalize normals
+    # c1 = _np.cross(a, b)
+    # c2 = _np.cross(c, d)
+    # normal = c1 / 2 + c2 / 2
+    # area = _np.linalg.norm(c1, axis=2) / 2 + _np.linalg.norm(c2, axis=2) / 2
+    # normal = normal / _np.linalg.norm(normal, axis=2)[:, :, None]
+    # # Compute zenith angle
+    # u = _np.arccos(normal[:, :, 2])
+    # # Compute incidence angle
+    # los_v = positions / _np.linalg.norm(positions, axis=2)[:, :, None]
+    # dot = los_v[:, :, 0] * normal[:, :, 0] + los_v[:, :, 1] * normal[:, :, 1] + los_v[:, :, 2] * normal[:, :, 2]
+    # #    ia = _np.arccos(dot)
+    # ia = _np.arcsin(zrad / _np.linalg.norm(positions, axis=2))
+    # # Compute the shadow map
+    # current = ia[:, 0]
+    # shadow = _np.zeros_like(ia)
+    # for idx_r in range(ia.shape[1] - 1):
+    #     nex = ia[:, idx_r + 1]
+    #     sh = nex < current
+    #     shadow[:, idx_r] = sh
+    #     current = nex * sh + current * ~sh
+    return DEM_seg, lut, rev_lut
 
 
 def ly_sh_map(r_sl, ia):
@@ -944,6 +953,12 @@ def geotif_to_dem(gt, par_path, bin_path):
     dem = DS.GetRasterBand(1).ReadAsArray()
     dem.astype(_gpf.type_mapping[dem_dic['data_format']]).tofile(bin_path)
 
+def extent_to_corners(ext):
+    corners = []
+    for x,y in zip(ext[0:2],ext[2:4]):
+        corners.append([x,y])
+    return corners
+
 
 def get_geotransform(dem_par):
     """
@@ -1033,7 +1048,7 @@ def basemap_dict_from_gt(DS):
     sr = _osr.SpatialReference().ImportFromWkt(DS.GetProjection)
 
 
-def segment_geotif(gt, dem_par):
+def clip_dataset(gt, dem_par):
     """
     Segement a geotif to correspond to the size
     specified by "dem_par"
@@ -1064,9 +1079,6 @@ def segment_geotif(gt, dem_par):
     res = gdal.ReprojectImage(DS, dest,
                               DS.GetProjection(), DS.GetProjection(),
                               gdal.GRA_Bilinear)
-    import matplotlib.pyplot as plt
-    plt.imshow(dest.ReadAsArray())
-    plt.show()
     return dest
 
 
