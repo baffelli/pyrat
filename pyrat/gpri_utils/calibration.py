@@ -154,12 +154,15 @@ def filter1d(slc, filter):
     for idx_row, (current_row, current_filter) in enumerate(_itertools.zip_longest(slc, filter)):
         if idx_row % 1000 == 0:
             print('Processing range index: ' + str(idx_row))
+        # _sig.fftconvolve(current_row.real, current_filter.real, mode='same') + 1j * _sig.fftconvolve(current_row.imag,
+        #                                                                                              current_filter.imag,
+        #                                                                                              mode='same')
         slc_filt[idx_row,:] = _sig.convolve(current_row, current_filter, mode='same')
     return slc_filt
 
 
 def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False, filter_fun=filter1d):
-    r_ant = _np.linalg.norm(slc.phase_center[0:2])
+    r_arm = _np.linalg.norm(slc.phase_center[0:2])
     # Azimuth vector for the entire image
     # az_vec_image = _np.deg2rad(self.slc.GPRI_az_start_angle[0]) + _np.arange(self.slc.shape[0]) * _np.deg2rad(
     #     self.slc.GPRI_az_angle_step[0])
@@ -175,7 +178,7 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False, filter_fun=filt
     theta = _np.arange(-ws_samp // 2, ws_samp // 2) * _np.deg2rad(slc.GPRI_az_angle_step)
     rr, tt = np.meshgrid(slc.r_vec, theta, indexing='ij')
     lam = _gpf.C / slc.radar_frequency
-    filt2d, dist2d = distance_from_phase_center(r_ant, r_ph, rr, tt, lam, wrap=False)
+    filt2d, dist2d = distance_from_phase_center(r_arm, r_ph, rr, tt, lam, wrap=False)
     matched_filter2d = (_np.exp(-1j * filt2d))
     #Convert to fourier domain
     slc_filt_2d = filter_fun(slc.astype(np.complex64), matched_filter2d)
@@ -343,19 +346,19 @@ def synthetic_interferogram(S, DEM, B):
 
 
 
-def distance_from_phase_center(r_arm, r_ph, r_sl, theta, lam, wrap=False):
+def distance_from_phase_center(L_arm, L_ph, R_0, theta, lam, wrap=False):
     """
     This function computes the relative phase caused by a shifted
     phase center in the antenna. The variation is computed relative to the slante of closest approach
     """
     # lam = _gpf.C / 17.2e9
-    r_ant = _np.sqrt(r_arm ** 2 + r_ph ** 2)
-    alpha = _np.arctan(r_ph / r_arm)
+    L_ant = _np.sqrt(L_arm ** 2 + L_ph ** 2)
+    alpha = _np.arctan(L_ph / L_arm)
     # Chord length
-    c = r_ant + r_sl
-    mixed_term = 2 * c * r_ant * _np.cos(theta + alpha)
-    dist =  _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
-    rel_dist = r_sl - _np.sqrt(c ** 2 + r_ant ** 2 - mixed_term)
+    c = L_ant + R_0
+    mixed_term = 2 * c * L_ant * _np.cos(theta + alpha)
+    dist =  _np.sqrt(c ** 2 + L_ant ** 2 - mixed_term)
+    rel_dist = R_0 - dist
     if wrap is True:
         return _np.mod(4 * _np.pi * rel_dist / lam, 2 * _np.pi), dist
     else:
