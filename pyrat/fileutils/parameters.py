@@ -255,8 +255,9 @@ class ParameterFile(object):
             res_dict = args[0]
             file_title = res_dict.get('file_title')
         params = _coll.OrderedDict()
+        params = {}
         for key, item in res_dict.items():
-            params[key] = _coll.OrderedDict()
+            params[key] = {}
             for (subkey, subitem) in item.items():
                 params[key][subkey] = flatify(subitem)
         # params['file_title'] = {'value': file_title, 'unit': None}
@@ -319,8 +320,11 @@ class ParameterFile(object):
             self.params.update({key: {'value': value, 'unit': unit}})
 
     def copy(self):
-        params = _cp.deepcopy(self.params.copy())
-        new_pf = ParameterFile(params)
+        new_params = {}
+        for key, value in self.params.items():
+            new_params[key] = value
+        # params = _cp.deepcopy(self.params.copy())
+        new_pf = ParameterFile(new_params)
         return new_pf
 
 
