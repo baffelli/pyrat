@@ -794,7 +794,7 @@ class rawData(gammaDataset):
         obj.rps = (obj.ADC_sample_rate / obj.nsamp * C / 2.) / obj.RF_chirp_rate  # range pixel spacing
         obj.slr = (
                       obj.pn1 * obj.ADC_sample_rate / obj.nsamp * C // 2.) / obj.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
-        obj.scale = (abs(obj.slr) / obj.slr[obj.nsamp // 8]) ** 1.5  # cubic range weighting in power
+        obj.scale = ((abs(obj.slr) / obj.slr[obj.nsamp // 8]) ** 1.5).astype(_np.float32)  # cubic range weighting in power
         obj.ns_max = int(round(0.90 * obj.nsamp / 2))  # default maximum number of range samples for this chirp
         # obj.tcycle = (obj.block_length) / obj.ADC_sample_rate  # time/cycle
         obj.dt = type_mapping['SHORT INTEGER']
@@ -1134,7 +1134,8 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     rotation_squint = _np.insert(rotation_squint, 0, 0)
     # Interpolated raw channel
     raw_channel_interp = interp(raw_channel, -squint_vec, angle_vec)
-    raw_channel_interp.__array_wrap__(raw_channel)
+    #Set original type
+    raw_channel_interp.__array_wrap__(raw_channel).astype(raw_channel.dtype)
     return raw_channel_interp
 
 def slc_to_raw(SLC):
@@ -1235,9 +1236,8 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, r
                       scale=True):
     rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
     rawdata.compute_slc_parameters(kbeta=kbeta, rmin=rmin, rmax=rmax, zero=zero, dec=dec)
-    arr_compr = _np.zeros((rawdata.ns_max - rawdata.ns_min + 1, rawdata.nl_tot_dec), dtype=_np.complex64)
     # Filter for fft shift
-    fshift = _np.ones(rawdata.nsamp / 2 + 1)
+    fshift = _np.ones(rawdata.nsamp / 2 + 1, dtype=_np.float32)
     fshift[1::2] = -1
     # Choose wehter to decimate or not
     if dec > 1:
@@ -1253,7 +1253,7 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, r
         raw_dec[-rawdata.zero:, :] = raw_dec[-rawdata.zero:, :] * rawdata.win2[-rawdata.zero:, None]
     comp = _fftp.rfft(raw_dec[1:, :] * rawdata.win[:, None], axis=0) * fshift[:, None]
     # Cut
-    comp = comp[rawdata.ns_min:rawdata.ns_max + 1, :].astype('complex64').conj()
+    comp = comp[rawdata.ns_min:rawdata.ns_max + 1, :].astype(_np.complex64).conj()
     # Add rvp correction
     if rvp_corr:
         comp *= rvp[:, None]
