@@ -4,7 +4,8 @@ import pyfftw.interfaces.numpy_fft as _fftp
 from . import calibration as _cal
 
 
-def process_undecimated_slc(slc, squint_rate, phase_center_shift, integration_length, decimation_factor=5, correct_azimuth=True):
+
+def process_undecimated_slc(slc, squint_rate, phase_center_shift, ws=0.6, decimation_factor=5, correct_azimuth=True):
     """
     This function processes an undecimated SLC to which no squint correction was applies. It is a combination of squint
     correction, azimut correction and decimation in a single step.
@@ -23,7 +24,7 @@ def process_undecimated_slc(slc, squint_rate, phase_center_shift, integration_le
     """
     slc_desq = _gpf.correct_squint_in_SLC(slc, squint_rate=squint_rate)
     #Prepare filter
-    ws_samp = integration_length // slc.GPRI_az_angle_step
+    ws_samp = ws // slc.GPRI_az_angle_step
     theta = np.arange(-ws_samp // 2, ws_samp // 2) * np.deg2rad(slc.GPRI_az_angle_step)
     #Convert into grid
     r = slc.r_vec

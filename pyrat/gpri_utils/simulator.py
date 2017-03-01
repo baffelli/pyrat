@@ -3,6 +3,8 @@ __author__ = 'baffelli'
 import argparse
 import sys
 
+import pyfftw.interfaces.numpy_fft as _fftp
+
 import numpy as _np
 
 from . import calibration as _cal
@@ -23,15 +25,15 @@ def distance_to_delay(distance):
 def if_signal(duration, samp_rate, r_dist, fc, bw):
     delay = distance_to_delay(r_dist)
     n_samp = duration * samp_rate
-    t = _np.arange(0, n_samp) * 1 / samp_rate
-    print(t.max(), duration)
+    t = _np.arange(0, n_samp-1) * 1 / samp_rate
     t, tau = _np.meshgrid(t, delay, indexing='ij')
     chirp_rate = bw * 1 / duration
     # Backscatter signal
     bs_sig = _np.exp(1j * 2 * _np.pi * (fc * (t - tau) + 1 / 2 * chirp_rate * (t - tau) ** 2))
     # Reference chirp
     ref_chirp = _np.exp(1j * 2 * _np.pi * (fc * t + 1 / 2 * chirp_rate * (t) ** 2))
-    return (bs_sig * ref_chirp.conj()).real
+    dechirp = (bs_sig * ref_chirp.conj()).real
+    return dechirp
 
 
 def ant_pat(samples, bw):
@@ -141,11 +143,15 @@ class RadarSimulator:
             # Antenna pattern
 
             ant_pattern = ant_pat(az_slice,_np.deg2rad(self.antenna_bw))
-            raw_data[:, targ_start:targ_stop] += 10 ** (targ[2] / 10) * if_signal(self.tcycle, self.prf['ADC_sample_rate']
+            #Get range location
+            pixel_loc = int((targ[0] - slc.near_range_slc)//slc.range_pixel_spacing)
+            scale = raw_data.scale[pixel_loc]
+            raw_data[1::, targ_start:targ_stop] += 1/scale* 10 ** (targ[2] / 10) * if_signal(self.tcycle, self.prf['ADC_sample_rate']
                                                                     , dist, self.prf['RF_center_freq'],
                                                                     self.bw) * ant_pattern[None, :]
             # Convert to GPRI data
-            (raw_data/_gpf.TSF).astype(_gpf.type_mapping['SHORT INTEGER'])
+        # Apply scaling
+        raw_data =(raw_data).astype(_gpf.type_mapping['SHORT INTEGER'])
         raw_data = _gpf.rawData(self.raw_par, raw_data, from_array=True)
         if self.squint:
             # Apply squint by using correct_squint with the opposite rate

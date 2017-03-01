@@ -456,7 +456,7 @@ class gammaDataset(_np.ndarray):
 
     def decimate(self, dec, mode='sum'):
         if mode == 'sum':
-            arr_dec = _np.zeros((self.shape[0], int(self.shape[1] // dec)), dtype=gammaDataset)
+            arr_dec = _np.zeros((self.shape[0], int(self.shape[1] // dec)), dtype=self.dtype)
             arr_dec_1 = arr_dec * 0
             for idx_az in range(arr_dec.shape[1]):
                 # Decimated pulse
@@ -794,7 +794,7 @@ class rawData(gammaDataset):
         obj.rps = (obj.ADC_sample_rate / obj.nsamp * C / 2.) / obj.RF_chirp_rate  # range pixel spacing
         obj.slr = (
                       obj.pn1 * obj.ADC_sample_rate / obj.nsamp * C // 2.) / obj.RF_chirp_rate + RANGE_OFFSET  # slant range for each sample
-        obj.scale = ((abs(obj.slr) / obj.slr[obj.nsamp // 8]) ** 1.5).astype(_np.float32)  # cubic range weighting in power
+        obj.scale = ((abs(obj.slr) / obj.slr[obj.nsamp // 8]) ** 1.5)  # cubic range weighting in power
         obj.ns_max = int(round(0.90 * obj.nsamp / 2))  # default maximum number of range samples for this chirp
         # obj.tcycle = (obj.block_length) / obj.ADC_sample_rate  # time/cycle
         obj.dt = type_mapping['SHORT INTEGER']

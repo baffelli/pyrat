@@ -182,11 +182,9 @@ def azimuth_correction(slc, r_ph, ws=0.6, discard_samples=False, filter_fun=filt
     matched_filter2d = (_np.exp(-1j * filt2d))
     #Convert to fourier domain
     slc_filt_2d = filter_fun(slc.astype(np.complex64), matched_filter2d)
-    slc_filt = slc.__array_wrap__(slc_filt_2d.astype(slc.dtype))
+    slc_filt = slc.__array_wrap__(slc_filt_2d).astype(slc.dtype)
     if discard_samples:
-        slc_filt = slc_filt[:, :ws_samp]
-        slc_filt.GPRI_az_angle_step = slc.GPRI_az_angle_step * ws_samp
-        slc_filt.azimuth_lines = slc_filt.shape[0]
+        slc_filt = slc_filt.decimate(ws_samp, mode='discard')
     return slc_filt
 
 
