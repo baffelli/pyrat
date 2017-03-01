@@ -6,7 +6,7 @@ class TestParameters(unittest.TestCase):
 
     def setUp(self):
         self.dummy_val = 5
-        self.params = ParameterFile('../default_slc_par.par')
+        self.params = ParameterFile.from_file('../default_slc_par.par')
         self.params_copy = self.params.copy()
         self.copy_path = './copy.par'
 
@@ -61,7 +61,7 @@ class TestParameters(unittest.TestCase):
 
     def testReload(self):
         self.params.tofile(self.copy_path)
-        copy_params = ParameterFile(self.copy_path)
+        copy_params = ParameterFile.from_file(self.copy_path)
         self.assertEqual(self.params.image_format, copy_params.image_format)
 
     def testItems(self):
@@ -72,7 +72,7 @@ class TestParameters(unittest.TestCase):
         self.params.add_parameter('range_samples', 5)
 
     def testCreateEmptyAndAdd(self):
-        params = ParameterFile({})
+        params = ParameterFile.from_dict({})
         params.add_parameter('image',23,unit='m')
         self.assertIn('image', params)
 
@@ -94,7 +94,7 @@ class TestParameters(unittest.TestCase):
 class TestRawParameters(unittest.TestCase):
     def setUp(self):
         self.dummy_val = 5
-        self.params = ParameterFile('./raw_parameters.raw_par')
+        self.params = ParameterFile.from_file('./raw_parameters.raw_par')
 
 
     # def testLoad(self):

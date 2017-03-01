@@ -244,26 +244,51 @@ class ParameterFile(object):
     Class to represent gamma keyword:paramerter files
     """
 
-    def __init__(self, *args):
-        if isinstance(args[0], str):
-            parser = ParameterParser()
-            with open(args[0], 'r') as par_text:
-                # parsedResults = parser.parse(par_text.read())
-                res_dict = parser.as_ordered_dict(par_text.read())
-                file_title = res_dict.pop('file_title')
-        elif hasattr(args[0], 'items'):
-            res_dict = args[0]
-            file_title = res_dict.get('file_title')
-        params = _coll.OrderedDict()
+    @classmethod
+    def from_dict(cls, dict):
+        instance = ParameterFile()
+        instance.params = dict
+        instance.add_parameter('file_title',  dict.get('file_title'))
+        return instance
+
+    @classmethod
+    def from_file(cls, path):
+        instance = ParameterFile()
+        parser = ParameterParser()
+        with open(path, 'r') as par_text:
+            res_dict = parser.as_ordered_dict(par_text.read())
+            file_title = res_dict.pop('file_title')
         params = {}
         for key, item in res_dict.items():
             params[key] = {}
             for (subkey, subitem) in item.items():
                 params[key][subkey] = flatify(subitem)
-        # params['file_title'] = {'value': file_title, 'unit': None}
-        # self.file_title = file_title
-        self.params = params
-        self.add_parameter('file_title', file_title)
+        instance.params = params
+        instance.add_parameter('file_title',  file_title)
+        return instance
+
+
+
+    # def __init__(self, *args):
+    #     if isinstance(args[0], str):
+    #         parser = ParameterParser()
+    #         with open(args[0], 'r') as par_text:
+    #             # parsedResults = parser.parse(par_text.read())
+    #             res_dict = parser.as_ordered_dict(par_text.read())
+    #             file_title = res_dict.pop('file_title')
+    #     elif hasattr(args[0], 'items'):
+    #         res_dict = args[0]
+    #         file_title = res_dict.get('file_title')
+    #     params = _coll.OrderedDict()
+    #     params = {}
+    #     for key, item in res_dict.items():
+    #         params[key] = {}
+    #         for (subkey, subitem) in item.items():
+    #             params[key][subkey] = flatify(subitem)
+    #     # params['file_title'] = {'value': file_title, 'unit': None}
+    #     # self.file_title = file_title
+    #     self.params = params
+    #     self.add_parameter('file_title', file_title)
 
     def __getattr__(self, key):
         try:
@@ -322,9 +347,9 @@ class ParameterFile(object):
     def copy(self):
         new_params = {}
         for key, value in self.params.items():
-            new_params[key] = value
+            new_params[key] = value.copy()
         # params = _cp.deepcopy(self.params.copy())
-        new_pf = ParameterFile(new_params)
+        new_pf = ParameterFile.from_dict(new_params)
         return new_pf
 
 
