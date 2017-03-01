@@ -156,7 +156,6 @@ class RadarSimulator:
         if self.squint:
             # Apply squint by using correct_squint with the opposite rate
             raw_data = _gpf.correct_squint(raw_data, squint_function=lambda f,w:-_gpf.model_squint(f +self.prf['RF_center_freq']))
-
         return raw_data
 
 
