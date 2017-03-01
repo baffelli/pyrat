@@ -35,16 +35,13 @@ def process_undecimated_slc(slc, squint_rate, phase_center_shift, ws=0.6, decima
     filt2d, dist2d = _cal.distance_from_phase_center(r_ant, phase_center_shift, rr, tt, lam, wrap=False)
     matched_filter2d = np.exp(-1j*filt2d)
     filt_hat = matched_filter2d
-    #Becuase the filter varies slowly with range, we assume a single filter for all frequencies
-    filt_hat  = matched_filter2d[slc.shape[0]/2,:]
     #Decimate and filter
     arr_dec = np.zeros((slc.shape[0], int(slc_desq.shape[1]//decimation_factor)), dtype=np.complex64)
     #Pad to filter length
     for idx_az in range(arr_dec.shape[1]):
         #start of convolution window
-        start_idx = idx_az * decimation_factor - np.floor(ws_samp /2)
-        stop_idx = idx_az * decimation_factor + np.ceil(ws_samp / 2)
-        # print(start_idx)
+        start_idx = idx_az * decimation_factor - np.floor(ws_samp/2)
+        stop_idx = idx_az * decimation_factor + np.ceil(ws_samp/2)
         #Padding left and right
         pad_left = 0 if start_idx > 0 else -start_idx
         pad_right = 0 if stop_idx < slc_desq.shape[1] else stop_idx - slc_desq.shape[1]
@@ -55,7 +52,7 @@ def process_undecimated_slc(slc, squint_rate, phase_center_shift, ws=0.6, decima
             pass
         else:
             filt_hat = np.ones(slc_pad.shape[1])
-        arr_dec[:, idx_az] = np.mean(slc_pad[::] * filt_hat[::-1], axis=1)
+        arr_dec[:, idx_az] = np.mean(slc_pad[:,::-1] * filt_hat[::], axis=1)
     # arr_dec = fftp.fft(arr,axis=0)[0:slc.shape[0]] * shift[:,None]
     # slc_corr = fftp.rfft(arr_dec, axis=0) *
     # rgb, *rest = vf.dismph(slc_corr, k=0.5, sf=0.2)
