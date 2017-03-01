@@ -528,7 +528,7 @@ def dict_to_par(par_dict, par_file):
 
 
 def par_to_dict(par_path):
-    par = _par.ParameterFile(par_path)
+    par = _par.ParameterFile.from_file(par_path)
     return par
 
 
@@ -729,7 +729,7 @@ def default_slc_dict():
     gpri, that the user can then fill according to needs
     The default parameters are read from '/default_slc_par.par'
     """
-    par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_slc_par.par')
+    par = _par.ParameterFile.from_file(_os.path.dirname(__file__) + '/default_slc_par.par')
     return par
 
 
@@ -741,7 +741,7 @@ def default_prf():
     -------
 
     """
-    par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_prf.prf')
+    par = _par.ParameterFile.from_file(_os.path.dirname(__file__) + '/default_prf.prf')
     return par
 
 def default_raw_par():
@@ -752,7 +752,7 @@ def default_raw_par():
     -------
 
     """
-    par = _par.ParameterFile(_os.path.dirname(__file__) + '/default_raw_parameter.raw_par')
+    par = _par.ParameterFile.from_file(_os.path.dirname(__file__) + '/default_raw_parameter.raw_par')
     return par
 
 class rawData(gammaDataset):
@@ -1106,10 +1106,9 @@ def interpolation_fourier(rawdata, squint_vec, angle_vec):
 
     """
     #Transform
-    rawdata_hat = _fftp.rfft(rawdata, axis=1)
-    print('transformed')
+    rawdata_hat = _fftp.fft(rawdata, axis=1)
     #Compute azimuth frequency vector
-    az_freq = _np.linspace(0,1,rawdata_hat.shape[1])
+    az_freq = _fftp.fftfreq(rawdata.shape[1])
     #Relative squint (relative to actual position)
     rel_sq = squint_vec - _np.linspace(0, rawdata.shape[1], rawdata.shape[0])
     af, sq = _np.meshgrid(az_freq, rel_sq, indexing='xy')
@@ -1120,7 +1119,7 @@ def interpolation_fourier(rawdata, squint_vec, angle_vec):
 
 
 # TODO: why is the squint negative in the raw case
-def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9):
+def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-9, interp=interpolation_1D):
     # We require a function to compute the squint angle
     squint_vec = squint_function(raw_channel.freqvec, squint_rate)
     squint_vec = squint_vec / raw_channel.ang_per_tcycle
@@ -1134,7 +1133,7 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     squint_vec = _np.insert(squint_vec, 0, 0)
     rotation_squint = _np.insert(rotation_squint, 0, 0)
     # Interpolated raw channel
-    raw_channel_interp = interpolation_1D(raw_channel, -squint_vec, angle_vec)
+    raw_channel_interp = interp(raw_channel, -squint_vec, angle_vec)
     raw_channel_interp.__array_wrap__(raw_channel)
     return raw_channel_interp
 
@@ -1147,7 +1146,8 @@ def slc_to_raw(SLC):
     return rawdata
 
 
-def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9):
+
+def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9, interp=interpolation_1D):
     """
     This function corrects the frequency-dependent antenna squint in a range compressed SLC dataset.
     Parameters
@@ -1176,7 +1176,7 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
         freqvec.shape[0] // 2]  # In addition, we correct for the beam motion during the chirp
     # Normal angle vector
     angle_vec = _np.arange(SLC.shape[1])
-    rawdata_corr = interpolation_1D(rawdata, squint_vec, angle_vec)
+    rawdata_corr = interp(rawdata, squint_vec, angle_vec)
     # Now range compress again (this function is really boring
     shift = _np.ones(SLC.shape[0])
     shift[1::2] = -1
@@ -1186,47 +1186,49 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     return SLC_corr
 
 
-def range_compression_loop(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, rvp_corr=False,
-                           scale=True):
-    rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
-    rawdata.compute_slc_parameters(kbeta=kbeta, rmin=rmin, rmax=rmax, zero=zero, dec=dec)
-    arr_compr = _np.zeros((rawdata.ns_max - rawdata.ns_min + 1, rawdata.nl_tot_dec), dtype=_np.complex64)
-    # Filter for fft shift
-    fshift = _np.ones(rawdata.nsamp / 2 + 1)
-    fshift[1::2] = -1
-    # For each azimuth
-    for idx_az in range(0, rawdata.nl_tot_dec):
-        # Decimated pulse
-        dec_pulse = _np.zeros(rawdata.block_length, dtype=_np.float32)
-        for idx_dec in range(rawdata.dec):
-            current_idx = idx_az * rawdata.dec + idx_dec
-            current_idx_1 = idx_az + idx_dec * rawdata.dec
-            if rawdata.dt == _np.dtype(_np.int16) or rawdata.dt == type_mapping['SHORT INTEGER']:
-                current_data = rawdata[:, current_idx].astype(_np.float32) / TSF
-            else:
-                current_data = rawdata[:, current_idx].astype(_np.float32)
-            if current_idx % 1000 == 0:
-                print('Accessing azimuth index: {} '.format(current_idx))
-            try:
-                dec_pulse = dec_pulse + current_data
-            except IndexError as err:
-                print(err.message)
-                break
-        if rawdata.zero > 0:
-            dec_pulse[0:rawdata.zero] = dec_pulse[0:rawdata.zero] * rawdata.win2[0:rawdata.zero]
-            dec_pulse[-rawdata.zero:] = dec_pulse[-rawdata.zero:] * rawdata.win2[-rawdata.zero:]
-        # Emilinate the first sample, as it is used to jump back to the start freq
-        line_comp = _np.fft.rfft(dec_pulse[1::] * rawdata.dec * rawdata.win) * fshift
-        if rvp_corr:
-            line_comp = line_comp * rvp
-        # Decide if applying the range scale factor or not
-        scale_factor = rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1]
-        arr_compr[:, idx_az] = (line_comp[rawdata.ns_min:rawdata.ns_max + 1].conj() * scale_factor).astype('complex64')
-    # Remove lines used for rotational acceleration
-    arr_compr = arr_compr[:, rawdata.nl_acc:rawdata.nl_image + rawdata.nl_acc:]
-    slc_dict = rawdata.fill_dict()
-    slc_compr = gammaDataset(slc_dict, arr_compr)
-    return slc_compr
+
+
+# def range_compression_loop(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, rvp_corr=False,
+#                            scale=True):
+#     rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
+#     rawdata.compute_slc_parameters(kbeta=kbeta, rmin=rmin, rmax=rmax, zero=zero, dec=dec)
+#     arr_compr = _np.zeros((rawdata.ns_max - rawdata.ns_min + 1, rawdata.nl_tot_dec), dtype=_np.complex64)
+#     # Filter for fft shift
+#     fshift = _np.ones(rawdata.nsamp / 2 + 1)
+#     fshift[1::2] = -1
+#     # For each azimuth
+#     for idx_az in range(0, rawdata.nl_tot_dec):
+#         # Decimated pulse
+#         dec_pulse = _np.zeros(rawdata.block_length, dtype=_np.float32)
+#         for idx_dec in range(rawdata.dec):
+#             current_idx = idx_az * rawdata.dec + idx_dec
+#             current_idx_1 = idx_az + idx_dec * rawdata.dec
+#             if rawdata.dt == _np.dtype(_np.int16) or rawdata.dt == type_mapping['SHORT INTEGER']:
+#                 current_data = rawdata[:, current_idx].astype(_np.float32) / TSF
+#             else:
+#                 current_data = rawdata[:, current_idx].astype(_np.float32)
+#             if current_idx % 1000 == 0:
+#                 print('Accessing azimuth index: {} '.format(current_idx))
+#             try:
+#                 dec_pulse = dec_pulse + current_data
+#             except IndexError as err:
+#                 print(err.message)
+#                 break
+#         if rawdata.zero > 0:
+#             dec_pulse[0:rawdata.zero] = dec_pulse[0:rawdata.zero] * rawdata.win2[0:rawdata.zero]
+#             dec_pulse[-rawdata.zero:] = dec_pulse[-rawdata.zero:] * rawdata.win2[-rawdata.zero:]
+#         # Emilinate the first sample, as it is used to jump back to the start freq
+#         line_comp = _np.fft.rfft(dec_pulse[1::] * rawdata.dec * rawdata.win) * fshift
+#         if rvp_corr:
+#             line_comp = line_comp * rvp
+#         # Decide if applying the range scale factor or not
+#         scale_factor = rawdata.scale[rawdata.ns_min:rawdata.ns_max + 1]
+#         arr_compr[:, idx_az] = (line_comp[rawdata.ns_min:rawdata.ns_max + 1].conj() * scale_factor).astype('complex64')
+#     # Remove lines used for rotational acceleration
+#     arr_compr = arr_compr[:, rawdata.nl_acc:rawdata.nl_image + rawdata.nl_acc:]
+#     slc_dict = rawdata.fill_dict()
+#     slc_compr = gammaDataset(slc_dict, arr_compr)
+#     return slc_compr
 
 
 def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, rvp_corr=False,
