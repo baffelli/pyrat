@@ -156,19 +156,6 @@ class RadarSimulator:
         if self.squint:
             # Apply squint by using correct_squint with the opposite rate
             raw_data = _gpf.correct_squint(raw_data, squint_function=lambda f,w:-_gpf.model_squint(f +self.prf['RF_center_freq']))
-            # ang_vec = _np.arange(raw_data.shape[1])
-            # # Create frequency vector
-            # freq_vec = _np.linspace(self.prf['CHP_freq_min'], self.prf['CHP_freq_max'], self.prf['CHP_num_samp'],
-            #                         dtype=float) + \
-            #            + self.prf['RF_center_freq']
-            # sq_ang = _gpf.linear_squint(freq_vec, self.squint_rate)
-            # sq_vec = (sq_ang - sq_ang[sq_ang.shape[0] / 2]) / self.ang_per_tcycle
-            # sq_vec = _np.insert(sq_vec, 0, 0)
-            # for idx_r in range(0, raw_data.shape[0]):
-            #     if idx_r % 100 == 0:
-            #         print("interp range: {}, squint in samples {} ".format(idx_r, sq_vec[idx_r]))
-            #     az_new = ang_vec + sq_vec[idx_r]
-            #     raw_data[idx_r, :] = _np.interp(az_new, ang_vec, raw_data[idx_r, :], left=0.0, right=0.0)
 
         return raw_data
 
