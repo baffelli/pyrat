@@ -5,7 +5,7 @@ from . import calibration as _cal
 
 
 
-def process_undecimated_slc(slc, squint_rate, phase_center_shift, ws=0.6, decimation_factor=5, correct_azimuth=True):
+def process_undecimated_slc(slc, squint_rate, phase_center_shift, ws=0.6, decimation_factor=5, correct_azimuth=True, interp=_gpf.interpolation_1D):
     """
     This function processes an undecimated SLC to which no squint correction was applies. It is a combination of squint
     correction, azimut correction and decimation in a single step.
@@ -22,7 +22,7 @@ def process_undecimated_slc(slc, squint_rate, phase_center_shift, ws=0.6, decima
     -------
 
     """
-    slc_desq = _gpf.correct_squint_in_SLC(slc, squint_rate=squint_rate)
+    slc_desq = _gpf.correct_squint_in_SLC(slc, squint_rate=squint_rate, interp=interp).astype(slc.dtype)
     #Prepare filter
     ws_samp = ws // slc.GPRI_az_angle_step
     theta = np.arange(-ws_samp // 2, ws_samp // 2) * np.deg2rad(slc.GPRI_az_angle_step)
@@ -62,9 +62,7 @@ def process_undecimated_slc(slc, squint_rate, phase_center_shift, ws=0.6, decima
     slc_corr.GPRI_az_angle_step = decimation_factor * slc_corr.GPRI_az_angle_step
     slc_corr.azimuth_line_time = decimation_factor * slc_corr.azimuth_line_time
     slc_corr.prf = slc_corr.prf / decimation_factor
-    # arr_dec.azimuth_looks *= dec
-    # if not hasattr(arr_dec, 'GPRI_decimation_factor'):
-    slc_corr._params.add_parameter('GPRI_decimation_factor', ws_samp)
+    slc_corr._params.add_parameter('GPRI_decimation_factor', decimation_factor)
     # else:
     #     arr_dec.GPRI_decimation_factor = dec
     slc_corr.azimuth_lines = arr_dec.shape[1]

@@ -1088,8 +1088,16 @@ def interpolation_1D(rawdata, squint_vec, angle_vec):
         if idx_freq % 500 == 0:
             print_str = "interp sample: {idx}, ,shift: {sh} samples".format(idx=idx_freq, sh=az_new[0] - angle_vec[0])
             print(print_str)
+    rawdata_corr = rawdata_corr.__array_wrap__(rawdata)
     return rawdata_corr
 
+def interpolation_2D(rawdata, squint_vec, angle_vec):
+    freq_vec = _np.arange(rawdata.shape[0])
+    ff, aa = _np.meshgrid(freq_vec, angle_vec, indexing='ij')
+    az_new = aa - squint_vec[ff]
+    interpolator = _interp.RectBivariateSpline(freq_vec,angle_vec, rawdata, bbox=[freq_vec.min(), freq_vec.max(), az_new.min(), az_new.max()])
+    interpolated = interpolator(ff[:,0],az_new[0,:],grid=True)
+    return interpolated
 
 def interpolation_fourier(rawdata, squint_vec, angle_vec):
     """
@@ -1133,9 +1141,9 @@ def correct_squint(raw_channel, squint_function=linear_squint, squint_rate=4.2e-
     squint_vec = _np.insert(squint_vec, 0, 0)
     rotation_squint = _np.insert(rotation_squint, 0, 0)
     # Interpolated raw channel
-    raw_channel_interp = interp(raw_channel, -squint_vec, angle_vec)
+    raw_channel_interp = interp(raw_channel.astype(raw_channel.dtype), -squint_vec, angle_vec)
     #Set original type
-    raw_channel_interp.__array_wrap__(raw_channel).astype(raw_channel.dtype)
+    raw_channel_interp = raw_channel.__array_wrap__(raw_channel_interp)
     return raw_channel_interp
 
 def slc_to_raw(SLC):
