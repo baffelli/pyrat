@@ -7,15 +7,11 @@ select a certain range of dates, compute all interferograms etc
 
 import csv as _csv
 import datetime as _dt
+import itertools as _iter
 import operator as _op
-import numpy as _np
-
 import pickle
 
-import itertools as _iter
-
-
-import itertools as _iter
+import numpy as _np
 
 
 def try_format(dt, fmt):
@@ -34,6 +30,26 @@ class ListOfDates():
     using a range of dates that may not be contained in the list, the closest date are chosen to slice the list of dates
     """
 
+    @classmethod
+    def fromfile(cls, fname,delimiter=',' ,**kwargs):
+        """
+        Classmethod to create a :obj:`ListOfDates` object from a csv file
+        Parameters
+        ----------
+        fname : :obj:`str`
+            The filename
+        delimiter : optional, :obj:`str`
+            The csv delimiter
+        Returns
+        -------
+
+        """
+        with open(fname, 'r') as f:  # the object contains a list of valid slcs
+            # reader = _csv.reader(f, delimiter=delimiter)
+            dat = [lin.strip() for lin in f.readlines()]
+            all_dates = ListOfDates(dat, **kwargs)
+        return all_dates
+
     def __init__(self, dates, date_format="%Y%m%d_%H%M%S"):
         """
         Initializes the ListOfDates object
@@ -46,7 +62,13 @@ class ListOfDates():
             String to describe the parsing format, as used by datetime.datetime.strptime
 
         """
-        self.dates = sorted([_dt.datetime.strptime(x, date_format) for x in dates])
+        formatted_dates = []
+        for d in dates:
+            try:
+               formatted_dates.append( _dt.datetime.strptime(d, date_format))
+            except ValueError:
+                continue
+        self.dates = sorted(formatted_dates)
         self.format = date_format
 
     def select_date_range(self, start_date, end_date):
@@ -88,7 +110,31 @@ class ListOfDates():
         comparison_op = _op.ge if n >= 0 else _op.le
         valid_dates = [date.strftime(self.format) for date in self.dates if
                        comparison_op(date, try_format(start_date, self.format))][:abs(n):]
+        if len(valid_dates) == 1:
+            valid_dates = valid_dates[0]
         return valid_dates
+
+    def __repr__(self):
+        return self.dates.__repr__()
+
+    def distance(self, start_date, stop_date):
+        """
+        Compute the distance in seconds beteween `start_date` and `stop_date`
+
+        Parameters
+        ----------
+        start_date:  :obj:`str`, :obj:`_dt.datetime`
+            The first date
+        stop_date: :obj:`str`, :obj:`_dt.datetime`
+            The second date
+        Returns
+        -------
+            :ob:`float`
+        """
+        start = try_format(start_date, self.format)
+        stop = try_format(stop_date, self.format)
+        delta = (stop - start).total_seconds()
+        return delta
 
 
 class StackHelper:
@@ -96,33 +142,64 @@ class StackHelper:
     Helper class to represent series of slcs,
     can use a Snakemake remoteprovider
     """
-    # @classmethod
-    # def dynamic_list(cls, pattern):
-    #     """
-    #     Create a dynamic list from a certain path
-    #     :param path:
-    #     :return:
-    #     """
-    #     cls.pattern = pattern
+
+    @classmethod
+    def fromfile(cls, fname, **kwargs):
+        #parse dates
+        ld = ListOfDates.fromfile(fname, **kwargs)
+        c = StackHelper()
+        c.all_dates = ld
+        return c
+
+    @classmethod
+    def fromlist(cls, ld, **kwargs):
+        ls = ListOfDates(ld, **kwargs)
+        c = StackHelper()
+        c.all_dates = ls
+        return c
+
+    # def __init__(self, list_of_dates, nstack=1, window=None, n_ref=0, stride=1, step=1, **kwargs):
+    #     # Load list of slcs
+    #     try:
+    #         with open(list_of_dates, 'r') as f:  # the object contains a list of valid slcs
+    #             reader = _csv.reader(f)
+    #             self.all_dates = ListOfDates(list(reader)[0], **kwargs)
+    #     except (FileNotFoundError, TypeError):
+    #         try:
+    #             self.all_dates = ListOfDates(list_of_dates, **kwargs)
+    #         except:
+    #             raise TypeError("{} is not a file path or a list of strings".format(list_of_dates))
 
 
-    def __init__(self, list_of_dates, nstack=1, window=None, n_ref=0, stride=1, step=1, **kwargs):
-        # Load list of slcs
-        try:
-            with open(list_of_dates, 'r') as f:  # the object contains a list of valid slcs
-                reader = _csv.reader(f)
-                self.all_dates = ListOfDates(list(reader)[0], **kwargs)
-        except (FileNotFoundError, TypeError):
-            try:
-                self.all_dates = ListOfDates(list_of_dates, **kwargs)
-            except:
-                raise TypeError("{l} is not a file path or a list of strings".format(list_of_dates))
 
-    # @property
-    # def dynamic_dates(self):
-    #     if hasattr(self, 'pattern'):
-    #         _sn.glob_wildcards()
 
+    def all_combinations_with_separation(self, start_dt, stop_dt, bl_max=60 * 60):
+        """
+        This function computes all combinations
+        of pairs of files in the list that have a temporal
+        separation less than `bl_max`
+
+        Parameters
+        ----------
+        start_dt
+        stop_dt
+        bl_max
+
+        Returns
+        -------
+
+        """
+        # first find the nearest valid date to the start and to the stop
+        correct_start = self.all_dates.select_n_dates(start_dt, 1)
+        correct_stop = self.all_dates.select_n_dates(stop_dt, 1)
+        # Now find all the dates in between
+        dates = self.all_dates.select_date_range(correct_start, correct_stop)
+        print(dates)
+        # Compute unique combinations
+        valid = [(master, slave) for master, slave in _iter.combinations(dates, 2) if
+                 self.all_dates.distance(correct_start, correct_stop) < bl_max]
+        for master, slave in valid:
+            print(master, slave)
 
 
     def nearest_valid(self, wildcards, pattern, start_str='start_dt'):
@@ -175,7 +252,8 @@ class StackHelper:
             strings.append(pattern.format(**wc))
         return strings
 
-    def itab_entries_between_dates(self, wildcards, pattern, start_str='start_dt', stop_str='stop_dt', itab_path=None,  **kwargs):
+    def itab_entries_between_dates(self, wildcards, pattern, start_str='start_dt', stop_str='stop_dt', itab_path=None,
+                                   **kwargs):
         """
         Returns all combinations of valid dates between the dates `start_str`
         and `end_str` computed using `Itab` with the itab parameters given in `**kwargs`. The dates are searched in the list of dates using the dates contained in `wildcards`
@@ -232,11 +310,6 @@ class StackHelper:
         return strings
 
 
-
-
-
-
-
 class Itab:
     """
     Class to represent itab files, list of acquisitions to compute
@@ -244,7 +317,7 @@ class Itab:
     """
 
     def __init__(self, n_slc, stride=1, step=1, n_ref=0, **kwargs):
-        #number of slcs
+        # number of slcs
         self.n_slc = n_slc
         self.tab = []
         stack_tab = []
@@ -252,7 +325,7 @@ class Itab:
         self.stride = stride
         # The maximum number of steps between each master and slave
         self.max_distance = kwargs.get('max_distance', n_slc)
-        #The size of each stack
+        # The size of each stack
         self.stack_size = kwargs.get('stack_size', n_slc)
         # The increment of the slave slc for every iteration
         self.step = step
@@ -266,18 +339,18 @@ class Itab:
             self.master = (x for x in n_ref)
             # self.window = 0
         else:
-            self.master = iter(range(0, self.stack_size , stride))
+            self.master = iter(range(0, self.stack_size, stride))
 
         self.slave = range(self.step, self.step + self.max_distance, self.step)
         for master, slave in _iter.product(self.master, self.slave):
-                line = [master, slave+master]
-                stack_tab.append(line)
+            line = [master, slave + master]
+            stack_tab.append(line)
         list_of_slcs = list(range(n_slc))
         line_counter = 0
         for stack_counter, idx_stack in enumerate(range(0, self.n_slc // self.stack_size, 1)):
             for master, slave in stack_tab:
                 master_idx = master + idx_stack * self.stack_size
-                slave_idx = slave + idx_stack*self.stack_size
+                slave_idx = slave + idx_stack * self.stack_size
                 if master_idx < self.n_slc and slave_idx < self.n_slc:
                     line = [list_of_slcs[master_idx], list_of_slcs[slave_idx], line_counter, 1, stack_counter]
                     self.tab.append(line)
@@ -311,8 +384,6 @@ class Itab:
             #     line[1] += 1  # Add one because itab files are one-based indexed and python is zero based
             #     of.writelines(" ".join(map(str, line)) + " 1" + '\n')
 
-
-
     @staticmethod
     def pickle(file):
         with open(file, 'rb') as in_file:
@@ -322,17 +393,16 @@ class Itab:
         with open(file, 'wb+') as of:
             pickle.dump(self, of, protocol=0)
 
-
     @staticmethod
     def fromfile(file):
         tab = _np.genfromtxt(file, dtype=int)
         step = tab[0, 0] - tab[1, 0]
         stride = tab[0, 1] - tab[1, 1]
-        ref_slc = tab[0, 0] -1
-        n_slc = _np.max(tab[:, 0:2]) -1
-        n_stacks = _np.max(tab[:,-1]) + 1
+        ref_slc = tab[0, 0] - 1
+        n_slc = _np.max(tab[:, 0:2]) - 1
+        n_stacks = _np.max(tab[:, -1]) + 1
         a = Itab(n_slc, step=step, stride=stride, n_ref=ref_slc, stack_size=n_stacks)
-        tab[:,0:2] =- 1#subtract one because the file is saved with one based indices
+        tab[:, 0:2] = - 1  # subtract one because the file is saved with one based indices
         a.tab = tab
         return a
 
