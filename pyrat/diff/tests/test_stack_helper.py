@@ -5,17 +5,16 @@ import glob as glob
 from .. import utils
 
 
-class TestListOfDates(TestCase):
+class TestStack(TestCase):
+
     def setUp(self):
-        with open('./list_of_slcs.csv') as infile:
-            # reader = csv.reader(infile)
-            dates = infile.readlines()
-            dates = [date.strip() for date in dates]
-        self.dates = dates
-        self.list_of_dates = utils.ListOfDates(self.dates)
+        stack = utils.StackHelper.fromfile('./list_of_slcs.csv')
+        self.stack = stack
 
     def test_combinations(self):
-        pass
+        start = '20150803_000000'
+        stop = '20150803_180000'
+        s = self.stack.all_combinations_with_separation(start, stop)
 
     def test_select_manual_range(self):
         start = '20150803_000000'

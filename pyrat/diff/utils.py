@@ -117,6 +117,33 @@ class ListOfDates():
     def __repr__(self):
         return self.dates.__repr__()
 
+    def all_combinations_with_separation(self, start_dt, stop_dt, bl_max=60 * 60):
+        """
+        This function computes all combinations
+        of pairs of files between `start_dt` and `stop_dt` in the list that have a temporal
+        separation less than `bl_max`
+
+        Parameters
+        ----------
+        start_dt
+        stop_dt
+        bl_max
+
+        Returns
+        -------
+        tuple of strings
+        """
+        # first find the nearest valid date to the start and to the stop
+        correct_start = self.select_n_dates(start_dt, 1)
+        correct_stop = self.select_n_dates(stop_dt, 1)
+        # Now find all the dates in between
+        dates = self.select_date_range(correct_start, correct_stop)
+        # Compute unique combinations
+        valid = [(master,slave) for master, slave in _iter.combinations(dates, 2) if
+                 self.distance(master, slave) < bl_max]
+        return valid
+
+
     def distance(self, start_date, stop_date):
         """
         Compute the distance in seconds beteween `start_date` and `stop_date`
@@ -158,49 +185,34 @@ class StackHelper:
         c.all_dates = ls
         return c
 
-    # def __init__(self, list_of_dates, nstack=1, window=None, n_ref=0, stride=1, step=1, **kwargs):
-    #     # Load list of slcs
-    #     try:
-    #         with open(list_of_dates, 'r') as f:  # the object contains a list of valid slcs
-    #             reader = _csv.reader(f)
-    #             self.all_dates = ListOfDates(list(reader)[0], **kwargs)
-    #     except (FileNotFoundError, TypeError):
-    #         try:
-    #             self.all_dates = ListOfDates(list_of_dates, **kwargs)
-    #         except:
-    #             raise TypeError("{} is not a file path or a list of strings".format(list_of_dates))
-
-
-
-
-    def all_combinations_with_separation(self, start_dt, stop_dt, bl_max=60 * 60):
+    def all_patterns_with_separation(self,wildcards, pattern, start_str='start_dt', stop_str='stop_dt',
+                                   date_placeholder='datetime', bl_max=60 * 60):
         """
         This function computes all combinations
-        of pairs of files in the list that have a temporal
-        separation less than `bl_max`
+        of pairs of files between `wildcards.start_str` and `wildcards.stop_str` in the list that have a temporal
+        separation less than `bl_max` and uses them to format `pattern`
 
         Parameters
         ----------
-        start_dt
-        stop_dt
+        wildcards
+        pattern
+        start_str
+        stop_str
         bl_max
 
         Returns
         -------
-
+        tuple of strings
         """
-        # first find the nearest valid date to the start and to the stop
-        correct_start = self.all_dates.select_n_dates(start_dt, 1)
-        correct_stop = self.all_dates.select_n_dates(stop_dt, 1)
-        # Now find all the dates in between
-        dates = self.all_dates.select_date_range(correct_start, correct_stop)
-        print(dates)
-        # Compute unique combinations
-        valid = [(master, slave) for master, slave in _iter.combinations(dates, 2) if
-                 self.all_dates.distance(correct_start, correct_stop) < bl_max]
-        for master, slave in valid:
-            print(master, slave)
-
+        valid_comb = self.all_dates.all_combinations_with_separation(wildcards[start_str], wildcards[stop_str], bl_max=bl_max)
+        files = []
+        wc = dict(wildcards)
+        print(len(valid_comb))
+        for m, s in valid_comb:
+            wc[start_str] = m
+            wc[stop_str] = s
+            files.append(pattern.format(**wc))
+        return files
 
     def nearest_valid(self, wildcards, pattern, start_str='start_dt'):
         """
