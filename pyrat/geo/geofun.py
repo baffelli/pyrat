@@ -23,6 +23,30 @@ def copy_and_modify_gt(RAS, gt):
         output_dataset.GetRasterBand(n_band + 1).WriteArray(RAS[:, :, n_band])
     return output_dataset
 
+def save_raster(ds, path):
+    """
+    Writes a :obj:`osgeo.ogr.DataSource` as a geotiff file
+    Parameters
+    ----------
+    ds
+    path
+
+    Returns
+    -------
+
+    """
+    driver = gdal.GetDriverByName('GTiff')
+    dataset = driver.Create(
+        path,
+        ds.RasterXSize,
+        ds.RasterXSize,
+        ds.RasterCount,
+        ds.GetRasterBand(1).DataType)
+    dataset.SetGeoTransform(ds.GetGeoTransform())
+    dataset.SetProjection(ds.GetProjection())
+    for band in range(ds.RasterCount):
+        dataset.GetRasterBand(band + 1).WriteArray(ds.GetRasterBand(band+1).ReadAsArray())
+        dataset.FlushCache()  # Write to disk.
 
 def raster_to_geotiff(raster, ref_gt, path):
     """
@@ -1049,7 +1073,7 @@ def basemap_dict_from_gt(DS):
     sr = _osr.SpatialReference().ImportFromWkt(DS.GetProjection)
 
 
-def clip_dataset(gt, dem_par):
+def clip_dataset(DS, dem_par):
     """
     Segement a geotif to correspond to the size
     specified by "dem_par"
@@ -1069,7 +1093,7 @@ def clip_dataset(gt, dem_par):
             dem_par = _gpf.par_to_dict(dem_par)
         except FileNotFoundError:
             FileNotFoundError('The file {dem_par} does not exist'.format(dem_par=dem_par))
-    DS = gdal.Open(gt)
+    # DS = gdal.Open(gt)
     seg_gt = get_geotransform(dem_par)
     mem_drv = gdal.GetDriverByName('MEM')
     # pixel_spacing_x = seg_gt[1]
@@ -1103,10 +1127,10 @@ def rasterize_shapefile(outline, attribute_filter, x_posting=1, y_posting=1):
     x_min, x_max, y_min, y_max = outline_layer.GetExtent()
     raster_x = int(abs(x_max - x_min) // x_posting)
     raster_y = int(abs(y_max - y_min) // y_posting)
-    gt = [x_min, x_posting, 0, y_min, y_posting, 0]
+    gt = [x_min, x_posting, 0, y_min, 0,y_posting]
 
     #Set the out raster
-    goal_raster = gdal.GetDriverByName('Mem').Create(raster_x, raster_y, 1, gdal.GDT_Byte)
+    goal_raster = gdal.GetDriverByName('MEM').Create('a',raster_x, raster_y, 1, gdal.GDT_Byte)
     goal_raster.SetGeoTransform(gt)
     goal_raster.SetProjection(outline_layer.GetSpatialRef().ExportToWkt())
     band = goal_raster.GetRasterBand(1)
