@@ -93,3 +93,6 @@ ENV/
 
 #Snakemake stuff
 .snakemake*
+
+#Intellj folder
+.idea
