@@ -2,12 +2,13 @@ import itertools as _iter
 
 import numpy as _np
 import scipy.ndimage as _ndim
-from osgeo import osr as _osr, gdal
+from osgeo import osr as _osr, gdal, ogr as _ogr
 
 from . import transforms as _transf
 from pyrat.visualization.visfun import bilinear_interpolate
 from ..fileutils import gpri_files as _gpf
 from ..fileutils import parameters as _params
+
 
 import matplotlib.pyplot as plt
 
@@ -932,7 +933,7 @@ def gdal_to_dict(ds):
         proj_dict['false_easting'] = {'value': ell_arr[6]}
         proj_dict['false_northing'] = {'value': ell_arr[7]}
     proj_dict['file_title'] = {'value': 'DEM Parameters'}
-    proj_dict = _params.ParameterFile(proj_dict)
+    proj_dict = _params.ParameterFile.from_dict(proj_dict)
     return proj_dict
 
 
@@ -1080,6 +1081,39 @@ def clip_dataset(gt, dem_par):
                               DS.GetProjection(), DS.GetProjection(),
                               gdal.GRA_Bilinear)
     return dest
+
+
+def rasterize_shapefile(outline, attribute_filter, x_posting=1, y_posting=1):
+    """
+    Rasterizes the selected features in a shapefile, selected using `attribute_filter
+    and returns a memory driver object
+    Parameters
+    ----------
+    shapefile
+    input_raster
+    output_raster
+
+    Returns
+    -------
+
+    """
+    outline_layer = outline.GetLayer()
+    outline_layer.SetAttributeFilter(attribute_filter)
+
+    x_min, x_max, y_min, y_max = outline_layer.GetExtent()
+    raster_x = int(abs(x_max - x_min) // x_posting)
+    raster_y = int(abs(y_max - y_min) // y_posting)
+    gt = [x_min, x_posting, 0, y_min, y_posting, 0]
+
+    #Set the out raster
+    goal_raster = gdal.GetDriverByName('Mem').Create(raster_x, raster_y, 1, gdal.GDT_Byte)
+    goal_raster.SetGeoTransform(gt)
+    goal_raster.SetProjection(outline_layer.GetSpatialRef().ExportToWkt())
+    band = goal_raster.GetRasterBand(1)
+    #write the shapefile
+    band.Fill(255)
+    gdal.RasterizeLayer(goal_raster,[1], outline_layer, burn_values=[0] )
+    return goal_raster
 
 
 def interpolate_complex(data, LUT, **kwargs):
