@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from pyrat.fileutils.gpri_files import rawData, gammaDataset
+from pyrat.fileutils.gpri_files import rawData, gammaDataset, default_slc_dict, type_mapping
 
 import matplotlib.pyplot as plt
 
@@ -22,8 +22,11 @@ import matplotlib.pyplot as plt
 
 class TestSLC(unittest.TestCase):
     def setUp(self):
-        self.slc_path = './20150803_060749_AAAl.slc'
-        self.slc = gammaDataset(self.slc_path + '.par', self.slc_path)
+        self.slc_par = default_slc_dict()
+        #Generate fake slc data
+        a = np.zeros([self.slc_par.range_samples,self.slc_par.azimuth_lines], dtype=type_mapping['FCOMPLEX'])
+        a += np.random.randn(*a.shape) + 1j * np.random.randn(*a.shape)
+        self.slc = gammaDataset(self.slc_par, a)
 
     def testSingleSlicing(self):
         slc_sl = self.slc[1]
@@ -51,6 +54,8 @@ class TestSLC(unittest.TestCase):
 
     def testMask(self):
         slc_mask = np.ma.masked_array(self.slc)
+        plt.imshow(np.abs(slc_mask))
+        plt.show()
         slc_mask.min()
 
     def testRaw(self):
