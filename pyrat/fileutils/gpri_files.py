@@ -787,7 +787,7 @@ class rawData(gammaDataset):
             data, par_dict = args[1], args[0]
         obj = data.view(cls)
         obj._params = par_dict.copy()
-        obj.nsamp = obj.CHP_num_samp // 1
+        obj.nsamp = int(obj.CHP_num_samp // 1)
         obj.block_length = obj.CHP_num_samp + 1
         obj.chirp_duration = obj.block_length / obj.ADC_sample_rate
         obj.pn1 = _np.arange(obj.nsamp // 2 + 1)  # list of slant range pixel numbers
@@ -942,7 +942,7 @@ class rawData(gammaDataset):
 
     @property
     def nl_acc(self):
-        return self.TSC_acc_ramp_time // self.tcycle
+        return int(self.TSC_acc_ramp_time // self.tcycle)
 
     def compute_slc_parameters(self, kbeta=3.0, rmin=50, dec=5, zero=300,
                                **kwargs):  # compute the slc parameters for a given set of input parameters
@@ -959,7 +959,7 @@ class rawData(gammaDataset):
         self.ns_out = (self.ns_max - self.ns_min) + 1
         self.rmin = self.ns_min * self.rps
         self.dec = dec
-        self.nl_acc_dec = self.nl_acc // self.dec
+        self.nl_acc_dec = int(self.nl_acc // self.dec)
         # self.nl_tot = int(self.grp.ADC_capture_time/(self.tcycle))
         self.nl_tot_dec = int(self.nl_tot / self.dec)
         self.nl_image = self.nl_tot_dec - 2 * self.nl_acc_dec
@@ -1202,7 +1202,7 @@ def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, r
     rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
     rawdata.compute_slc_parameters(kbeta=kbeta, rmin=rmin, rmax=rmax, zero=zero, dec=dec)
     # Filter for fft shift
-    fshift = _np.ones(rawdata.nsamp / 2 + 1, dtype=_np.float32)
+    fshift = _np.ones(rawdata.nsamp // 2 + 1, dtype=_np.float32)
     fshift[1::2] = -1
     # Choose wehter to decimate or not
     if dec > 1:
