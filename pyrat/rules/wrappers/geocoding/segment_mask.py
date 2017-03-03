@@ -4,8 +4,8 @@ from pyrat.geo import geofun
 from osgeo import gdalnumeric
 
 def segment_mask(inputs, outputs, threads, config, params, wildcards):
-
-    mask_seg = geofun.segment_geotif(inputs.mask, inputs.dem_seg_par)
+    ds = gdal.Open(inputs.mask)
+    mask_seg = geofun.clip_dataset(ds, inputs.dem_seg_par)
     driver = gdal.GetDriverByName('GTiff')
     dst_ds = driver.CreateCopy(outputs.mask, mask_seg, 1)
     gdalnumeric.SaveArray(dst_ds.ReadAsArray(), outputs.mask_bmp, format='BMP')
