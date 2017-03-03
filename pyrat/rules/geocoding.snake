@@ -20,7 +20,7 @@ rule convert_dem:
         gamma_dem = "{name}.dem",
         gamma_dem_par = "{name}.dem.par"
     script:
-        '../wrappers/geocoding/convert_dem.py'
+        './wrappers/geocoding/convert_dem.py'
 
 ###############################################################################
 ##	Rename DEM (to give it the same name as the DEM_SEG)
@@ -32,7 +32,7 @@ rule rename_dem:
         dem = config['geocoding']['DEM'],
         dem_par = config['geocoding']['DEM'] + '.par'
     script:
-        '../wrappers/geocoding/rename_dem.py'
+        './wrappers/geocoding/rename_dem.py'
 
 ###############################################################################
 ##	Rename MLI (to give it the same name as the DEM_SEG)
@@ -81,7 +81,7 @@ rule geocoding_table:
         ccp= "geo/{tablename}_refinement.ccp",
         scan_heading = config['geocoding']['scan_heading'],
     script:
-        '../wrappers/geocoding/geocoding_table.py'
+        './wrappers/geocoding/geocoding_table.py'
 
 
 
@@ -98,7 +98,7 @@ rule geocode_back:
     log:
         "logs/gc.log"
     script:
-        '../wrappers/geocoding/geocode_back.py'
+        './wrappers/geocoding/geocode_back.py'
 
 ##############################################################################
 ##	This is the forward transformation (DEM -> radar coordinates)
@@ -113,7 +113,7 @@ rule geocode_forward:
     log:
         "logs/gc.log"
     script:
-        '../wrappers/geocoding/geocode_forward.py'
+        './wrappers/geocoding/geocode_forward.py'
 
 
 
@@ -127,7 +127,7 @@ rule sh_map:
     output:
         sh_map = 'geo/{dataname}.sh_map'
     script:
-        '../wrappers/geocoding/shadow_map.py'
+        './wrappers/geocoding/shadow_map.py'
 
 
 
@@ -141,7 +141,7 @@ rule gc_map_inversion:
     output:
         inverse_lut = "geo/{tablename}.dem_to_gpri"
     script:
-        '../wrappers/geocoding/gc_map_inversion.py'
+        './wrappers/geocoding/gc_map_inversion.py'
 
 
 #############################################################################
@@ -154,7 +154,7 @@ rule to_geotiff:
     output:
         gt = "{filename}.{ext}.tif"
     script:
-        '../wrappers/geocoding/to_geotiff.py'
+        './wrappers/geocoding/to_geotiff.py'
 
 
 
