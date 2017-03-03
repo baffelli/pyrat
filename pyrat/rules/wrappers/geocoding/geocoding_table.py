@@ -14,7 +14,7 @@ def geocoding_table(input, output, threads, config, params, wildcards):
              "{output.lv_theta} {output.lv_phi} {output.u} {output.v} " \
              "{output.inc} {output.psi} {output.pix} {output.ls_map} " \
              "{params.frame}"
-    shell(gc_cmd.format(ref_mli=input.ref_mli_par,params=params, output=output, input=input))
+    shell(gc_cmd.format(ref_mli=input.reference_mli_par,params=params, output=output, input=input))
     # Geocode forwards
     dem_width = gpf.par_to_dict(output.dem_seg_par).width
     data_width = ref_mli_par['range_samples']
