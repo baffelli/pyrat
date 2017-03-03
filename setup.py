@@ -15,5 +15,5 @@ setup(name='pyrat',
       package_data={'rules': ['rules/*.snake'], 'default_slc_params': 'fileutils/default_slc_par.par',
                     'default_prf': 'fileutils/default_prf.prf', 'list_of_slcs':['diff/tests/list_of_slcs.csv'],
                     },
-      scripts=['gpri_utils/scripts/*.py'],
+      scripts=setuptools.findall('gpri_utils/scripts/*.py'),
       include_package_data=True)
