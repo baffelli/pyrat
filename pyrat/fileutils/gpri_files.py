@@ -297,7 +297,8 @@ class gammaDataset(_np.ndarray):
         # new_arr = super(gammaDataset,self).__array_wrap__(obj)
         new_arr = obj.view(type(self))
         dict_1 = self.__dict__.copy()  # remove params, we copy them manually
-        dict_1.pop('_params')
+        if '_params' in dict_1:
+            dict_1.pop('_params')
         new_arr.__dict__ = dict_1  # copy dict
         if '_params' in self.__dict__:
             if '_params' not in new_arr.__dict__:
