@@ -23,6 +23,12 @@ def try_format(dt, fmt):
         return dt
 
 
+def format_deco(fun):
+    def wrapper(self, *args, **kwargs):
+        return self.format_date(fun(self,*args, **kwargs))
+    return wrapper
+
+
 class ListOfDates():
     """
     Helper class to represent a list of dates in a "Fuzzy" way.
@@ -50,7 +56,28 @@ class ListOfDates():
             all_dates = ListOfDates(dat, **kwargs)
         return all_dates
 
-    def __init__(self, dates, date_format="%Y%m%d_%H%M%S"):
+    @classmethod
+    def fromregexp(cls, list_of_names,re, **kwargs):
+        """
+        Classmethod to create a :obj:`ListOfDates` object from a list
+        using a regex to extract the date
+
+        Parameters
+        ----------
+        re
+        kwargs
+
+        Returns
+        -------
+
+        """
+        dt = [re.search(dt_string).group(0) for dt_string in list_of_names]
+        all_dates = ListOfDates(dt, **kwargs)
+        return all_dates
+
+
+
+    def __init__(self, dates, date_format="%Y%m%d_%H%M%S", format_ouput=True):
         """
         Initializes the ListOfDates object
 
@@ -68,8 +95,31 @@ class ListOfDates():
                formatted_dates.append( _dt.datetime.strptime(d, date_format))
             except ValueError:
                 continue
-        self.dates = sorted(formatted_dates)
+        self.dates = _np.array(sorted(formatted_dates))
         self.format = date_format
+        self.format_output = format_ouput
+
+    def __len__(self):
+        return self.dates.__len__()
+
+    def __getitem__(self, item):
+        elems =  [self.format_date(date)for date in self.dates.__getitem__(item)]
+        if len(elems) == 1:
+            return elems[0]
+        else:
+            return elems
+
+
+
+    def __contains__(self, date):
+        return self.dates.__contains__(try_format(date, self.format))
+
+    def exists(self):
+        return True
+
+    def format_date(self, date):
+        return _dt.datetime.strftime(date, self.format)
+
 
     def select_date_range(self, start_date, end_date):
         """
@@ -86,9 +136,15 @@ class ListOfDates():
         :obj:`list` of :obj:`str`
             String of dates in the same format as the input dates
         """
-        valid_dates = [date.strftime(self.format) for date in self.dates if
+        valid_dates = [self.format_date(date) for date in self.dates if
                        try_format(start_date, self.format) <= date <= try_format(end_date, self.format)]
         return valid_dates
+
+    def select_with_distance(self, start_date, distance):
+        stop_date = try_format(start_date, self.format) + _dt.timedelta(seconds=distance)
+        valid_stop_date = self.select_n_dates(stop_date, 1)
+        return  valid_stop_date
+
 
     def select_n_dates(self, start_date, n):
         """
@@ -108,7 +164,7 @@ class ListOfDates():
 
         """
         comparison_op = _op.ge if n >= 0 else _op.le
-        valid_dates = [date.strftime(self.format) for date in self.dates if
+        valid_dates = [self.format_date(date) for date in self.dates if
                        comparison_op(date, try_format(start_date, self.format))][:abs(n):]
         if len(valid_dates) == 1:
             valid_dates = valid_dates[0]
