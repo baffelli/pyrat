@@ -263,7 +263,6 @@ class StackHelper:
         valid_comb = self.all_dates.all_combinations_with_separation(wildcards[start_str], wildcards[stop_str], bl_max=bl_max)
         files = []
         wc = dict(wildcards)
-        print(len(valid_comb))
         for m, s in valid_comb:
             wc[start_str] = m
             wc[stop_str] = s
