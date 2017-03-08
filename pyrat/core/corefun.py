@@ -36,7 +36,10 @@ def outer_product(data, data1, large=False):
             T = _np.einsum("...i,...j->...ij", data, data1.conjugate())
         else:
             T = _np.outer(data, data1.conjugate())
-        return T
+    return T
+
+def norm_mli(mli):
+    return (mli)/_np.nanmax(mli)
 
 
 def dB(arr, power=True):
