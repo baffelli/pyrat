@@ -40,8 +40,8 @@ def process_undecimated_slc(slc, squint_rate, phase_center_shift, ws=0.6, decima
     #Pad to filter length
     for idx_az in range(arr_dec.shape[1]):
         #start of convolution window
-        start_idx = idx_az * decimation_factor - np.floor(ws_samp/2)
-        stop_idx = idx_az * decimation_factor + np.ceil(ws_samp/2)
+        start_idx = int(idx_az * decimation_factor - np.floor(ws_samp/2))
+        stop_idx = int(idx_az * decimation_factor + np.ceil(ws_samp/2))
         #Padding left and right
         pad_left = 0 if start_idx > 0 else -start_idx
         pad_right = 0 if stop_idx < slc_desq.shape[1] else stop_idx - slc_desq.shape[1]
