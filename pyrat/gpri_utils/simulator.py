@@ -138,8 +138,8 @@ class RadarSimulator:
             filt, dist = _cal.distance_from_phase_center(r_ant, self.r_ph, targ[0], az_slice,
                                                          _gpf.lam(self.prf.RF_center_freq), wrap=False)
             #Compute indices of target location
-            targ_start = (min_pos - targ[1] - self.prf['STP_antenna_start'])//self.ang_per_tcycle
-            targ_stop = (max_pos - targ[1] - self.prf['STP_antenna_start'])//self.ang_per_tcycle
+            targ_start = int((min_pos - targ[1] - self.prf['STP_antenna_start'])//self.ang_per_tcycle)
+            targ_stop = int((max_pos - targ[1] - self.prf['STP_antenna_start'])//self.ang_per_tcycle)
             # Antenna pattern
 
             ant_pattern = ant_pat(az_slice,_np.deg2rad(self.antenna_bw))
