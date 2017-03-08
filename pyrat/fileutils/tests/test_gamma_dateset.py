@@ -21,12 +21,18 @@ import matplotlib.pyplot as plt
 #
 
 class TestSLC(unittest.TestCase):
+
     def setUp(self):
         self.slc_par = default_slc_dict()
         #Generate fake slc data
         a = np.zeros([self.slc_par.range_samples,self.slc_par.azimuth_lines], dtype=type_mapping['FCOMPLEX'])
         a += np.random.randn(*a.shape) + 1j * np.random.randn(*a.shape)
         self.slc = gammaDataset(self.slc_par, a)
+
+    def testNan(self):
+        a_1 = self.slc.copy()
+        a_1[0:10,0:10] = np.nan
+        a_1 / np.nanmax(a_1)
 
     def testSingleSlicing(self):
         slc_sl = self.slc[1]
