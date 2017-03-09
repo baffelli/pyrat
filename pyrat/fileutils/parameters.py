@@ -1,6 +1,7 @@
 import datetime as _dt
 
 from fileutils.parsers import flatify
+import fileutils.parsers as _parsers
 
 
 def dt_parse(s, l, t):
@@ -133,9 +134,9 @@ class ParameterFile(object):
         return instance
 
     @classmethod
-    def from_file(cls, path):
+    def from_file(cls, path, parser=_parsers.ParameterParser):
         instance = ParameterFile()
-        parser = ()
+        parser = parser()
         with open(path, 'r') as par_text:
             res_dict = parser.as_ordered_dict(par_text.read())
             file_title = res_dict.pop('file_title')
