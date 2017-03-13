@@ -57,13 +57,15 @@ class TestParameters(unittest.TestCase):
         self.assertEqual(self.params.image_format, 'FCOMPLEX')
 
     def testSaving(self):
-        self.params.file_title = "tezt + \n"
+        # self.params.file_title = "tezt + \n"
         self.params.tofile(self.copy_path)
 
     def testReload(self):
         self.params.tofile(self.copy_path)
         copy_params = ParameterFile.from_file(self.copy_path)
-        self.assertEqual(self.params.image_format, copy_params.image_format)
+        #Check if all keys are present
+        self.assertTrue(self.params.keys()==copy_params.keys())
+
 
     def testItems(self):
         print(self.params.items_with_unit())

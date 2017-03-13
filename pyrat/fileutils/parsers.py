@@ -169,7 +169,7 @@ class FasterParser:
         # Parameter name
         parameter_name = _pp.Word(_pp.alphanums + '_')
         # Text parameter
-        regular_text = _pp.Word(_pp.alphas).setParseAction(strip_text)
+        regular_text = _pp.OneOrMore(_pp.Word(_pp.printables).setParseAction(strip_text))
         # Date parameter
         year = _pp.Word(_pp.nums + '.', min=4, max=6)('year').setParseAction(int_parse)
         month = _pp.Word(_pp.nums + '.', min=2, max=4)('month').setParseAction(int_parse)
@@ -194,18 +194,20 @@ class FasterParser:
         # array = _pp.Forward()
         # array << ((number + array + _pp.Optional(unit)) | (number + _pp.Optional(unit))).setParseAction(
         #     array_container.array_parse)
-        array = _pp.Group(_pp.OneOrMore(number))('value').setParseAction(array_parse) + _pp.Group(_pp.ZeroOrMore(unit)).setParseAction(unit_parse)('unit')
+        array = _pp.Group(_pp.OneOrMore(number))('value').setParseAction(array_parse) + _pp.ZeroOrMore(unit).setParseAction(unit_parse)('unit')
         # Keyword
         kw = parameter_name + KW_SEP
         #Undefined line
         unparsed =  _pp.Combine(_pp.restOfLine()).setParseAction(strip_white)
         #A line is either a datetime object, a regular text or unparsed text
-        line_value = (array ^ unparsed ^ datetime ^ regular_text)('value')
+        line_value = (regular_text | array | unparsed | datetime)('value')
         # Line
         normal_kwpair = _pp.Dict(_pp.Group( kw + line_value))
         #The line containing "date" requires a special parsing
         date_kwpair = _pp.Dict((_pp.Group((_pp.Word('date') | _pp.Word('time_start')) + KW_SEP + datetime)))
-        line = _pp.Optional(SOL) + (date_kwpair | normal_kwpair)  + _pp.Optional(EOL)
+        #The same applied to the title
+        title_kwpair = _pp.Dict((_pp.Group((_pp.Word('title')) + KW_SEP + unparsed)))
+        line = _pp.Optional(SOL) + (date_kwpair ^ title_kwpair ^ normal_kwpair)  + _pp.Optional(EOL)
         empty_line = EOL
         # Title
         file_title = _pp.Group(_pp.Combine(_pp.ZeroOrMore(SOL + ~(kw) + unparsed + _pp.LineEnd())))('file_title')
