@@ -114,7 +114,7 @@ def unit_parse(s,l,t):
     if len(t) == 0:
         return []
     else:
-        return t[0]
+        return t
 
 def array_parse(s,l,t):
     if len(t) == 0:
@@ -199,19 +199,17 @@ class FasterParser:
         kw = parameter_name + KW_SEP
         #Undefined line
         unparsed =  _pp.Combine(_pp.restOfLine()).setParseAction(strip_white)
-
         #A line is either a datetime object, a regular text or unparsed text
-
-        line_value = (datetime ^ array ^ regular_text ^ unparsed)('value')
+        line_value = (array ^ unparsed ^ datetime ^ regular_text)('value')
         # Line
         normal_kwpair = _pp.Dict(_pp.Group( kw + line_value))
         #The line containing "date" requires a special parsing
-        date_kwpair = _pp.Dict((_pp.Group('date' + KW_SEP + datetime)))
+        date_kwpair = _pp.Dict((_pp.Group((_pp.Word('date') | _pp.Word('time_start')) + KW_SEP + datetime)))
         line = _pp.Optional(SOL) + (date_kwpair | normal_kwpair)  + _pp.Optional(EOL)
         empty_line = EOL
         # Title
         file_title = _pp.Group(_pp.Combine(_pp.ZeroOrMore(SOL + ~(kw) + unparsed + _pp.LineEnd())))('file_title')
-        self.grammar = _pp.Optional(file_title) + (_pp.ZeroOrMore(line)  ^ _pp.ZeroOrMore(empty_line))
+        self.grammar = _pp.Optional(file_title) + (_pp.ZeroOrMore(line)  | _pp.ZeroOrMore(empty_line))
 
     def parse(self, file):
         parsed = self.grammar.parseString(file)
