@@ -29,7 +29,12 @@ class TestParser(unittest.TestCase):
         parsed = self.parser.parse(hf)
 
     def testTitleParsing(self):
-        hf="""scewmo cuil\n r: 4\n a: 5\n """
+        hf="""scewmo cuil\nr: 4\na: 5\n"""
+        parsed = self.parser.parse(hf)
+        print(parsed.asDict())
+
+    def testMultilineTitle(self):
+        hf="""This is\na long\ntitle \na:4"""
         parsed = self.parser.parse(hf)
         print(parsed.asDict())
 
