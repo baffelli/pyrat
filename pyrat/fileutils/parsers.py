@@ -110,6 +110,12 @@ def compound_unit_parse(s, l, t):
     elif len(t['unit']) == 1:
         return t['unit'][0]
 
+def unit_parse(s,l,t):
+    print(t)
+    if len(t) == 0:
+        return None
+    else:
+        return t
 
 class arrayContainer:
     """
@@ -176,12 +182,13 @@ class FasterParser:
         # Numbers
         float = _pp.Regex('[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?').setParseAction(float_parse)
         int = _pp.Word(_pp.nums).setParseAction(int_parse)
-        number = (int ^ float)('value')
+        number = (int ^ float)
         # Recursive definition of array
-        unit = _pp.Word(_pp.alphanums + '/' + '^' + '-')('unit')
-        array = _pp.Forward()
-        array << ((number + array + _pp.Optional(unit)) | (number + _pp.Optional(unit))).setParseAction(
-            array_container.array_parse)
+        unit = _pp.Word(_pp.alphanums + '/' + '^' + '-')
+        # array = _pp.Forward()
+        # array << ((number + array + _pp.Optional(unit)) | (number + _pp.Optional(unit))).setParseAction(
+        #     array_container.array_parse)
+        array = _pp.Group(_pp.OneOrMore(number))('value') + _pp.Optional(_pp.ZeroOrMore(unit)('unit')).setParseAction(unit_parse)
         # Keyword
         kw = parameter_name + KW_SEP
         #Undefined line
@@ -202,6 +209,7 @@ class FasterParser:
 
     def parse(self, file):
         parsed = self.grammar.parseString(file)
+        print(parsed.asDict())
         return parsed
 
     def as_ordered_dict(self, text_object):
