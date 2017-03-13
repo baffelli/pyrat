@@ -26,18 +26,19 @@ def text_parse(s, l, t):
 
 
 def dt_parse(s, l, t):
-    tinfo = t.asDict()
-    if 'time' in tinfo['value']:
-        tim = _dt.datetime(tinfo['value']['date']['year'], tinfo['value']['date']['month'],
-                           tinfo['value']['date']['day'], tinfo['value']['time']['hour'],
-                           tinfo['value']['time']['minute'], second=tinfo['value']['time']['second'],
-                           microsecond=tinfo['value']['time']['ms'])
+    tinfo = t.asDict()['datetime']
+    if 'time' in tinfo:
+        tim = _dt.datetime(tinfo['date']['year'], tinfo['date']['month'],
+                           tinfo['date']['day'], tinfo['time']['hour'],
+                           tinfo['time']['minute'], second=tinfo['time']['second'],
+                           microsecond=tinfo['time']['ms'])
     else:
-        tim = _dt.date(tinfo['value']['date']['year'], tinfo['value']['date']['month'],
-                       tinfo['value']['date']['day'])
-    tinfo['value'] = tim
-    tinfo['unit'] = None
-    return tinfo
+        tim = _dt.date(tinfo['date']['year'], tinfo['date']['month'],
+                       tinfo['date']['day'])
+    res = {}
+    res['value'] = tim
+    res['unit'] = None
+    return res
 
 
 def dt_parse_old(s, l, t):
@@ -129,15 +130,14 @@ class arrayContainer:
 
     def reset(self):
         self.dict = {}
-        self.count = 0
 
 
 class FasterParser:
 
-    @classmethod
 
 
     def __init__(self):
+        _pp.ParserElement.setDefaultWhitespaceChars(' \t')
         array_container = arrayContainer()
         # End of line
         EOL = _pp.LineEnd().suppress().setParseAction(array_container.reset)
@@ -164,32 +164,38 @@ class FasterParser:
         second = _pp.Word(_pp.nums, min=2, )('second').setParseAction(int_parse)
         millisecond = _pp.Word(_pp.nums)('ms').setParseAction(int_parse)
         # Date
-        date = _pp.Group(year + DT_SEP + month + DT_SEP + day)('date')
+        date = _pp.Group(year + _pp.Optional(DT_SEP) + month + _pp.Optional(DT_SEP) + day)('date')
         # Hour minute second
         local_time = _pp.Group(hour + HMS_SEP + minute + HMS_SEP + second + DDOT + millisecond)('time')
         # timezone info
         tzinfo = _pp.Group(TZ_SEP + hour + HMS_SEP + minute )('tzinfo')
-        datetime = _pp.Group(date + _pp.Optional(local_time + _pp.Optional(tzinfo)))('value').setParseAction(dt_parse)
-        # datetime = date.setParseAction(dt_parse)
+        datetime = _pp.Group(date + _pp.Optional(local_time + _pp.Optional(tzinfo)))('datetime').setParseAction(dt_parse)
         # Numbers
         float = _pp.Regex('[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?').setParseAction(float_parse)
         int = _pp.Word(_pp.nums).setParseAction(int_parse)
         number = (int ^ float)('value')
         # Recursive definition of array
-        unit = _pp.Word(_pp.alphanums + '/' + '^')('unit')
+        unit = _pp.Word(_pp.alphanums + '/' + '^' + '-')('unit')
         array = _pp.Forward()
         array << ((number + array + _pp.Optional(unit)) | (number + _pp.Optional(unit))).setParseAction(
             array_container.array_parse)
         # Keyword
         kw = parameter_name + KW_SEP
+        #
+        #A line is either a datetime object, a regular text or unparsed text
+        line_value = (datetime ^ array ^ regular_text ^ _pp.Combine(_pp.restOfLine()))('value')
         # Line
-        line = _pp.Dict(_pp.Group(kw + _pp.Group(datetime ^ array ^ regular_text))) + EOL
+        normal_kwpair = _pp.Dict(_pp.Group( kw + line_value))
+        #The line containing "date" requires a special parsing
+        date_kwpair = _pp.Dict((_pp.Group('date' + KW_SEP + datetime)))
+        line = _pp.Optional(SOL) + (date_kwpair | normal_kwpair)  + _pp.Optional(EOL)
         # Title
-        file_title = _pp.Group(_pp.Combine(_pp.ZeroOrMore((~(kw) + regular_text))) + _pp.Optional(EOL))('file_title')
+        file_title = ~(kw) + _pp.SkipTo(EOL)('file_title') + _pp.Optional(EOL)
         self.grammar = _pp.Optional(file_title) + _pp.ZeroOrMore(line)
 
     def parse(self, file):
-        return self.grammar.parseString(file)
+        parsed = self.grammar.parseString(file)
+        return parsed
 
     def as_ordered_dict(self, text_object):
         parsed = self.parse(text_object)
@@ -200,6 +206,7 @@ class FasterParser:
                 result_dict[name] = value
             except ValueError:
                 result_dict['file_title'] = flatify(p)
+        print(result_dict)
         return result_dict
 
 

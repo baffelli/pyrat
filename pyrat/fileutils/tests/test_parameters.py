@@ -1,12 +1,13 @@
 import unittest
 from pyrat.fileutils.parameters import ParameterFile
+from pyrat.fileutils.parsers import  ParameterParser, FasterParser
 
 
 class TestParameters(unittest.TestCase):
 
     def setUp(self):
         self.dummy_val = 5
-        self.params = ParameterFile.from_file('../default_slc_par.par')
+        self.params = ParameterFile.from_file('../default_slc_par.par', parser=FasterParser)
         self.params_copy = self.params.copy()
         self.copy_path = './copy.par'
 

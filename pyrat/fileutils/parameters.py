@@ -1,102 +1,7 @@
 import datetime as _dt
 
-from fileutils.parsers import flatify
-import fileutils.parsers as _parsers
-
-
-def dt_parse(s, l, t):
-    if 'time' in t[0]:
-        tim = _dt.datetime(t[0]['year'], t[0]['month'], t[0]['day'],t[0]['time']['h'],t[0]['time']['m'],t[0]['time']['s'],t[0]['time']['us'])
-    else:
-        tim = _dt.date(t[0]['year'], t[0]['month'], t[0]['day'])
-    dt_dict = {'value':
-                   tim, 'unit': None}
-    return dt_dict
-
-
-def int_parse(s, l, t):
-    return int(t[0])
-
-
-def multiline_parse(s, l, t):
-    """
-    Parsing action for multiline text,
-    returns a single string joined by newlines
-    Parameters
-    ----------
-    s
-    l
-    t
-
-    Returns
-    -------
-
-    """
-    return "\n".join(t)
-
-
-def ambigous_int_parse(s, l, t):
-    """
-    This is a parse action for
-
-    the sort of ints that were saved by the previous dict_to_par as 1.0
-    Parameters
-    ----------
-    s
-    l
-    t
-
-    Returns
-    -------
-
-    """
-    try:
-        parsed = int(t[0])
-    except ValueError:
-        parsed = int(t[0].split('.')[0])
-    return parsed
-
-
-def float_parse(s, l, t):
-    return float(t[0])
-
-
-def text_parse(s, l, t):
-    t1 = t.asDict()
-    t1['value'] = t1['value'].strip()
-    return t1
-
-
-
-
-
-
-class arrayContainer:
-    """
-    Class to collect recusrive parsing output inside  of a dict
-    """
-    ""
-
-    def __init__(self):
-        self.dict = {}
-
-    def array_parse(self, s, l, t):
-        for key in t.keys():
-            if key in self.dict:#Units and keys are parsed from left to right and vice versa, hence they need to be inserted in a different order
-                if key == 'unit':
-                    self.dict[key].append(t[key])
-                elif key == 'value':
-                    self.dict[key].insert(0, t[key])
-            else:
-                self.dict[key] = [t[key]]
-
-
-
-        return self.dict
-
-    def reset(self):
-        self.dict = {}
-        self.count = 0
+from .parsers import flatify
+from . import  parsers as _parsers
 
 
 def format_multiple(par):
@@ -143,34 +48,16 @@ class ParameterFile(object):
         params = {}
         for key, item in res_dict.items():
             params[key] = {}
-            for (subkey, subitem) in item.items():
-                params[key][subkey] = flatify(subitem)
+            try:
+                for (subkey, subitem) in item.items():
+                    params[key][subkey] = flatify(subitem)
+            except AttributeError:
+                params[key]['value'] = flatify(item)
         instance.params = params
         instance.add_parameter('file_title',  file_title)
         return instance
 
 
-
-    # def __init__(self, *args):
-    #     if isinstance(args[0], str):
-    #         parser = ParameterParser()
-    #         with open(args[0], 'r') as par_text:
-    #             # parsedResults = parser.parse(par_text.read())
-    #             res_dict = parser.as_ordered_dict(par_text.read())
-    #             file_title = res_dict.pop('file_title')
-    #     elif hasattr(args[0], 'items'):
-    #         res_dict = args[0]
-    #         file_title = res_dict.get('file_title')
-    #     params = _coll.OrderedDict()
-    #     params = {}
-    #     for key, item in res_dict.items():
-    #         params[key] = {}
-    #         for (subkey, subitem) in item.items():
-    #             params[key][subkey] = flatify(subitem)
-    #     # params['file_title'] = {'value': file_title, 'unit': None}
-    #     # self.file_title = file_title
-    #     self.params = params
-    #     self.add_parameter('file_title', file_title)
 
     def __getattr__(self, key):
         try:
@@ -265,37 +152,7 @@ class ParameterFile(object):
             unit_str = ''
         return value_str + ' ' + unit_str
 
-    # def __getattr__(self, key):
-    #     dict_item = super(ParameterFile,self).__getitem__(key)
-    #     try:
-    #         item = dict_item['value']
-    #         try:#single element list
-    #             singleitem, = item
-    #         except (TypeError, ValueError):#complete list
-    #             return item
-    #         else:
-    #             return singleitem
-    #     except KeyError:
-    #         return dict_item
 
-    # def __setattr__(self, key, value):
-    #     try:
-    #         super(ParameterFile,self).__setitem__(key,{'value': value})
-    #     except KeyError:
-    #         pass
-    #
-    # def __getitem__(self, item):
-    #     dict_item = super(ParameterFile, self).__getitem__(item)
-    #     try:
-    #         item = dict_item['value']
-    #         try:#single element list
-    #             singleitem, = item
-    #         except (TypeError, ValueError):#complete list
-    #             return item
-    #         else:
-    #             return singleitem
-    #     except KeyError:
-    #         return dict_item
 
     def plain_dict(self):
         """
