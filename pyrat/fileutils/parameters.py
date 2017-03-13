@@ -85,7 +85,7 @@ class ParameterFile(object):
             raise KeyError(key_msg)
 
     def items_with_unit(self):
-        return [(key, value) for key, value in self.params.items()]
+        return [(key, value['value'], value['unit']) for key, value in self.params.items()]
 
     def keys(self):
         return self.params.keys()
@@ -163,7 +163,7 @@ class ParameterFile(object):
         -------
 
         """
-        return {key: item['value'] for (key, item) in dict(ParameterFile).items()}
+        return {key: item['value'] for (key, item) in self.params.items()}
 
     def unit_mapping(self):
         """

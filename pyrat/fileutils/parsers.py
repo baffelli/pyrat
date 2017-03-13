@@ -24,6 +24,9 @@ def text_parse(s, l, t):
     t1['unit'] = None
     return t1
 
+def strip_text(s,l,t):
+    return t[0].strip()
+
 
 def dt_parse(s, l, t):
     tinfo = t.asDict()['datetime']
@@ -35,10 +38,7 @@ def dt_parse(s, l, t):
     else:
         tim = _dt.date(tinfo['date']['year'], tinfo['date']['month'],
                        tinfo['date']['day'])
-    res = {}
-    res['value'] = tim
-    res['unit'] = None
-    return res
+    return tim
 
 
 def dt_parse_old(s, l, t):
@@ -111,11 +111,17 @@ def compound_unit_parse(s, l, t):
         return t['unit'][0]
 
 def unit_parse(s,l,t):
-    print(t)
     if len(t) == 0:
-        return None
+        return []
+    else:
+        return t[0]
+
+def array_parse(s,l,t):
+    if len(t) == 0:
+        return t[0]
     else:
         return t
+
 
 class arrayContainer:
     """
@@ -163,7 +169,7 @@ class FasterParser:
         # Parameter name
         parameter_name = _pp.Word(_pp.alphanums + '_')
         # Text parameter
-        regular_text = _pp.Word(_pp.alphas)('value').setParseAction(text_parse)
+        regular_text = _pp.Word(_pp.alphas).setParseAction(strip_text)
         # Date parameter
         year = _pp.Word(_pp.nums + '.', min=4, max=6)('year').setParseAction(int_parse)
         month = _pp.Word(_pp.nums + '.', min=2, max=4)('month').setParseAction(int_parse)
@@ -188,7 +194,7 @@ class FasterParser:
         # array = _pp.Forward()
         # array << ((number + array + _pp.Optional(unit)) | (number + _pp.Optional(unit))).setParseAction(
         #     array_container.array_parse)
-        array = _pp.Group(_pp.OneOrMore(number))('value') + _pp.Optional(_pp.ZeroOrMore(unit)('unit')).setParseAction(unit_parse)
+        array = _pp.Group(_pp.OneOrMore(number))('value').setParseAction(array_parse) + _pp.Group(_pp.ZeroOrMore(unit)).setParseAction(unit_parse)('unit')
         # Keyword
         kw = parameter_name + KW_SEP
         #Undefined line
@@ -204,12 +210,11 @@ class FasterParser:
         line = _pp.Optional(SOL) + (date_kwpair | normal_kwpair)  + _pp.Optional(EOL)
         empty_line = EOL
         # Title
-        file_title = _pp.Combine(_pp.ZeroOrMore(SOL + ~(kw) + unparsed + _pp.LineEnd()))('file_title')
+        file_title = _pp.Group(_pp.Combine(_pp.ZeroOrMore(SOL + ~(kw) + unparsed + _pp.LineEnd())))('file_title')
         self.grammar = _pp.Optional(file_title) + (_pp.ZeroOrMore(line)  ^ _pp.ZeroOrMore(empty_line))
 
     def parse(self, file):
         parsed = self.grammar.parseString(file)
-        print(parsed.asDict())
         return parsed
 
     def as_ordered_dict(self, text_object):
@@ -217,8 +222,9 @@ class FasterParser:
         result_dict = _coll.OrderedDict()
         for p in parsed.asList():  # really ugly way to obtaine ordered results, until "asDict()" supports
             try:
-                name, value = p
-                result_dict[name] = value
+                name, value, *unit = p
+                result_dict[name] = {'value': flatify(value), 'unit':  flatify(unit)}
+                # result_dict[name]['unit'] =
             except ValueError:
                 result_dict['file_title'] = flatify(p)
         return result_dict
