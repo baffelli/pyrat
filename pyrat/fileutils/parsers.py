@@ -169,7 +169,7 @@ class FasterParser:
         # Parameter name
         parameter_name = _pp.Word(_pp.alphanums + '_')
         # Text parameter
-        regular_text = _pp.OneOrMore(_pp.Word(_pp.printables).setParseAction(strip_text))
+        regular_text = _pp.OneOrMore(_pp.Word(_pp.printables).setParseAction(strip_white).setParseAction(strip_text))
         # Date parameter
         year = _pp.Word(_pp.nums + '.', min=4, max=6)('year').setParseAction(int_parse)
         month = _pp.Word(_pp.nums + '.', min=2, max=4)('month').setParseAction(int_parse)
@@ -200,7 +200,7 @@ class FasterParser:
         #Undefined line
         unparsed =  _pp.Combine(_pp.restOfLine()).setParseAction(strip_white)
         #A line is either a datetime object, a regular text or unparsed text
-        line_value = (regular_text | array | unparsed | datetime)('value')
+        line_value = (array | regular_text | unparsed | datetime)('value')
         # Line
         normal_kwpair = _pp.Dict(_pp.Group( kw + line_value))
         #The line containing "date" requires a special parsing
