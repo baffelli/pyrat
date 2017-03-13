@@ -148,9 +148,6 @@ class arrayContainer:
 
 
 class FasterParser:
-
-
-
     def __init__(self):
         _pp.ParserElement.setDefaultWhitespaceChars(' \t')
         array_container = arrayContainer()
@@ -189,12 +186,84 @@ class FasterParser:
         float = _pp.Regex('[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?').setParseAction(float_parse)
         int = _pp.Word(_pp.nums).setParseAction(int_parse)
         number = (int ^ float)
-        # Recursive definition of array
+        #Array is composed of unit and numbers
         unit = _pp.Word(_pp.alphanums + '/' + '^' + '-')
-        # array = _pp.Forward()
-        # array << ((number + array + _pp.Optional(unit)) | (number + _pp.Optional(unit))).setParseAction(
-        #     array_container.array_parse)
         array = _pp.Group(_pp.OneOrMore(number))('value').setParseAction(array_parse) + _pp.ZeroOrMore(unit).setParseAction(unit_parse)('unit')
+        # Keyword
+        kw = parameter_name + KW_SEP
+        #Undefined line
+        unparsed =  _pp.Combine(_pp.restOfLine()).setParseAction(strip_white)
+        #A line is either a datetime object, a regular text or unparsed text
+        line_value = (array | regular_text | unparsed | datetime)('value')
+        # Line
+        normal_kwpair = _pp.Dict(_pp.Group( kw + line_value))
+        #The line containing "date" requires a special parsing
+        date_kwpair = _pp.Dict((_pp.Group((_pp.Word('date') | _pp.Word('time_start')) + KW_SEP + datetime)))
+        #The same applied to the title
+        title_kwpair = _pp.Dict((_pp.Group((_pp.Word('title')) + KW_SEP + unparsed)))
+        line = _pp.Optional(SOL) + (date_kwpair ^ title_kwpair ^ normal_kwpair)  + _pp.Optional(EOL)
+        empty_line = EOL
+        # Title
+        file_title = _pp.Group(_pp.Combine(_pp.ZeroOrMore(SOL + ~(kw) + unparsed + _pp.LineEnd())))('file_title')
+        self.grammar = _pp.Optional(file_title) + (_pp.ZeroOrMore(line)  | _pp.ZeroOrMore(empty_line))
+
+    def parse(self, file):
+        parsed = self.grammar.parseString(file)
+        return parsed
+
+    def as_ordered_dict(self, text_object):
+        parsed = self.parse(text_object)
+        result_dict = _coll.OrderedDict()
+        for p in parsed.asList():  # really ugly way to obtaine ordered results, until "asDict()" supports
+            try:
+                name, value, *unit = p
+                result_dict[name] = {'value': flatify(value), 'unit':  flatify(unit)}
+                # result_dict[name]['unit'] =
+            except ValueError:
+                result_dict['file_title'] = flatify(p)
+        return result_dict
+class FastestParser:
+    def __init__(self):
+        _pp.ParserElement.setDefaultWhitespaceChars(' \t')
+        array_container = arrayContainer()
+        # End of line
+        EOL = _pp.LineEnd().suppress().setParseAction(array_container.reset)
+        SOL = _pp.LineStart().suppress()
+        # Keyword separator
+        KW_SEP = _pp.Literal(':').suppress()
+        HMS_SEP = _pp.Literal(':').suppress()
+        # Date separator
+        DT_SEP = _pp.Literal('-').suppress()
+        # Decimal dot
+        DDOT = _pp.Literal('.').suppress()
+        # Timezone symbol
+        TZ_SEP = _pp.Literal('+').suppress()
+        # Parameter name
+        parameter_name = _pp.Word(_pp.alphanums + '_')
+        # Text parameter
+        regular_text = _pp.OneOrMore(_pp.Word(_pp.printables).setParseAction(strip_white).setParseAction(strip_text))
+        # Date parameter
+        year = _pp.Word(_pp.nums + '.', min=4, max=6)('year').setParseAction(int_parse)
+        month = _pp.Word(_pp.nums + '.', min=2, max=4)('month').setParseAction(int_parse)
+        day = _pp.Word(_pp.nums + '.', min=2, max=4)('day').setParseAction(int_parse)
+        hour = _pp.Word(_pp.nums, min=2, max=2)('hour').setParseAction(int_parse)
+        minute = _pp.Word(_pp.nums, min=2, max=2)('minute').setParseAction(int_parse)
+        second = _pp.Word(_pp.nums, min=2, )('second').setParseAction(int_parse)
+        millisecond = _pp.Word(_pp.nums)('ms').setParseAction(int_parse)
+        # Date
+        date = _pp.Group(year + _pp.Optional(DT_SEP) + month + _pp.Optional(DT_SEP) + day)('date')
+        # Hour minute second
+        local_time = _pp.Group(hour + HMS_SEP + minute + HMS_SEP + second + DDOT + millisecond)('time')
+        # timezone info
+        tzinfo = _pp.Group(TZ_SEP + hour + HMS_SEP + minute )('tzinfo')
+        datetime = _pp.Group(date + _pp.Optional(local_time + _pp.Optional(tzinfo)))('datetime').setParseAction(dt_parse)
+        # Numbers
+        float = _pp.Regex('[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?').setParseAction(float_parse)
+        int = _pp.Word(_pp.nums).setParseAction(int_parse)
+        number = (int ^ float)
+        #Array is composed of unit and numbers
+        unit = _pp.Word(_pp.alphanums + '/' + '^' + '-')
+        array = _pp.Group(_pp.OneOrMore(number))('value').setParseAction(array_parse) + _pp.restOfLine().setParseAction(unit_parse)('unit')
         # Keyword
         kw = parameter_name + KW_SEP
         #Undefined line
