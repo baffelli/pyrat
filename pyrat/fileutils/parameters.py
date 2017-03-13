@@ -3,6 +3,7 @@ import datetime as _dt
 from .parsers import flatify
 from . import  parsers as _parsers
 
+import collections as _coll
 
 def format_multiple(par):
     """
@@ -39,13 +40,13 @@ class ParameterFile(object):
         return instance
 
     @classmethod
-    def from_file(cls, path, parser=_parsers.ParameterParser):
+    def from_file(cls, path, parser=_parsers.FasterParser):
         instance = ParameterFile()
         parser = parser()
         with open(path, 'r') as par_text:
             res_dict = parser.as_ordered_dict(par_text.read())
             file_title = res_dict.pop('file_title')
-        params = {}
+        params = _coll.OrderedDict()
         for key, item in res_dict.items():
             params[key] = {}
             try:

@@ -50,6 +50,9 @@ def dt_parse_old(s, l, t):
                    tim, 'unit': None}
     return dt_dict
 
+def strip_white(s,l,t):
+    return t[0].strip()
+
 def multiline_parse(s, l, t):
     """
     Parsing action for multiline text,
@@ -152,7 +155,7 @@ class FasterParser:
         # Timezone symbol
         TZ_SEP = _pp.Literal('+').suppress()
         # Parameter name
-        parameter_name = _pp.Word(_pp.alphas + '_')
+        parameter_name = _pp.Word(_pp.alphanums + '_')
         # Text parameter
         regular_text = _pp.Word(_pp.alphas)('value').setParseAction(text_parse)
         # Date parameter
@@ -181,17 +184,21 @@ class FasterParser:
             array_container.array_parse)
         # Keyword
         kw = parameter_name + KW_SEP
-        #
+        #Undefined line
+        unparsed =  _pp.Combine(_pp.restOfLine()).setParseAction(strip_white)
+
         #A line is either a datetime object, a regular text or unparsed text
-        line_value = (datetime ^ array ^ regular_text ^ _pp.Combine(_pp.restOfLine()))('value')
+
+        line_value = (datetime ^ array ^ regular_text ^ unparsed)('value')
         # Line
         normal_kwpair = _pp.Dict(_pp.Group( kw + line_value))
         #The line containing "date" requires a special parsing
         date_kwpair = _pp.Dict((_pp.Group('date' + KW_SEP + datetime)))
         line = _pp.Optional(SOL) + (date_kwpair | normal_kwpair)  + _pp.Optional(EOL)
+        empty_line = EOL
         # Title
-        file_title = ~(kw) + _pp.SkipTo(EOL)('file_title') + _pp.Optional(EOL)
-        self.grammar = _pp.Optional(file_title) + _pp.ZeroOrMore(line)
+        file_title = _pp.Combine(_pp.ZeroOrMore(SOL + ~(kw) + unparsed + _pp.LineEnd()))('file_title')
+        self.grammar = _pp.Optional(file_title) + (_pp.ZeroOrMore(line)  ^ _pp.ZeroOrMore(empty_line))
 
     def parse(self, file):
         parsed = self.grammar.parseString(file)
@@ -206,7 +213,6 @@ class FasterParser:
                 result_dict[name] = value
             except ValueError:
                 result_dict['file_title'] = flatify(p)
-        print(result_dict)
         return result_dict
 
 
