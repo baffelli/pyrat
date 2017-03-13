@@ -1,6 +1,6 @@
 import unittest
 import datetime as dt
-from pyrat.fileutils.parsers import  FasterParser, ParameterParser
+from pyrat.fileutils.parsers import  FasterParser, ParameterParser, FastestParser
 
 class TestParser(unittest.TestCase):
 
@@ -8,7 +8,7 @@ class TestParser(unittest.TestCase):
         self.n = 10
         self.array = range(1,self.n)
         self.units = ["m^{i}".format(i=i) for i in self.array]
-        self.parser = FasterParser()
+        self.parser = FastestParser()
 
     def testIntParsing(self):
         hf = "array: {arr}".format(arr=' '.join(map(str, self.array)))
@@ -48,5 +48,5 @@ class TestParser(unittest.TestCase):
         hf = """array: {arr} {units}
         """.format(arr=' '.join(map(str, self.array)), units=' '.join(map(str, self.units)))
         parsed = self.parser.parse(hf)
-        self.assertEqual(parsed.asDict()['array']['unit'] , self.units )
+        self.assertEqual(parsed.asDict()['array'] , self.units )
 
