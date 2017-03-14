@@ -215,24 +215,31 @@ def datetime_from_par_dict(par):
 
 
 class gammaDataset(_np.ndarray):
+
     def __new__(cls, *args, **kwargs):
-        par_dict = args[0]
-        image = args[1]
-        if isinstance(par_dict, str):  # user passes paths
-            try:  # user passes file paths
-                par_path = par_dict
-                bin_path = image
-                memmap = kwargs.get('memmap', False)
-                dtype = kwargs.get('dtype', None)
-                image, par_dict = load_dataset(par_path, bin_path, memmap=memmap, dtype=dtype)
-            except Exception as e:
-                Exception("Input parameters format unrecognized ")
-        else:  # user passes binary and dictionary
-            pass
+        par = args[0]
+        bin = args[1]
+        if isinstance(par, str):  # user passes paths
+            obj = cls.fromfile(par, bin)
+        else:
+            obj = cls.fromarray(par, bin)
+        return obj
+
+    @classmethod
+    def fromfile(cls, par, bin, **kwargs):
+        memmap = kwargs.get('memmap', False)
+        dtype = kwargs.get('dtype', None)
+        image, par_dict = load_dataset(par, bin, memmap=memmap, dtype=dtype)
         obj = image.view(cls)
-        # d1 = _cp.copy(par_dict)
         obj._params = par_dict.copy()
         return obj
+
+    @classmethod
+    def fromarray(cls, par_dict, image):
+        obj = image.view(cls)
+        obj._params = par_dict.copy()
+        return obj
+
 
     def __getattr__(self, key):
         if '_params' in self.__dict__:
@@ -990,10 +997,6 @@ class rawData(gammaDataset):
         image_time = (self.nl_image - 1) * (self.tcycle * self.dec)
         slc_dict = default_slc_dict()
         ts = self.time_start
-        # ymd = (ts.split()[0]).split('-')
-        # hms_tz = (ts.split()[1]).split('+')  # split into HMS and time zone information
-        # hms = (hms_tz[0]).split(':')  # split HMS string using :
-        # sod = int(hms[0]) * 3600 + int(hms[1]) * 60 + float(hms[2])  # raw data starting time, seconds of day
         sod = _dt.timedelta(hours=ts.hour, minutes=ts.minute,
                             seconds=ts.second, microseconds=ts.microsecond).total_seconds()
         st0 = sod + self.nl_acc * self.tcycle * self.dec + \
