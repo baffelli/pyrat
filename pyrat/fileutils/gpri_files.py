@@ -533,11 +533,11 @@ def par_to_dict(par_path):
     return par
 
 
-def get_width(par_path):
+def get_width(par_dict):
     """
         Helper function to get the width of a gamma format file
     """
-    par_dict = par_to_dict(par_path)
+    # par_dict = par_to_dict(par_path)
     for name_string in ["width", "range_samples", "CHP_num_samp", "map_width",
                         "interferogram_width", "range_samp_1"]:
         try:
@@ -613,7 +613,7 @@ def load_dataset(par_file, bin_file, **kwargs):
             dt = dtype
         except KeyError:
             raise TypeError('This datatype does not exist')
-    width = get_width(par_file)
+    width = get_width(par_dict)
     d_image = load_binary(bin_file, width, dtype=dt, memmap=memmap)
     return d_image, par_dict
 
