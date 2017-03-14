@@ -222,12 +222,14 @@ class FasterParser:
             except ValueError:
                 result_dict['file_title'] = flatify(p)
         return result_dict
+
 class FastestParser:
+
     def __init__(self):
         _pp.ParserElement.setDefaultWhitespaceChars(' \t')
         array_container = arrayContainer()
         # End of line
-        EOL = _pp.LineEnd().suppress().setParseAction(array_container.reset)
+        EOL = _pp.LineEnd().suppress()
         SOL = _pp.LineStart().suppress()
         # Keyword separator
         KW_SEP = _pp.Literal(':').suppress()
@@ -260,9 +262,9 @@ class FastestParser:
         # Numbers
         float = _pp.Regex('[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?').setParseAction(float_parse)
         int = _pp.Word(_pp.nums).setParseAction(int_parse)
-        number = (int ^ float)
+        number = (int | float)
         #Array is composed of unit and numbers
-        unit = _pp.Word(_pp.alphanums + '/' + '^' + '-')
+        # unit = _pp.Word(_pp.alphanums + '/' + '^' + '-')
         array = _pp.Group(_pp.OneOrMore(number))('value').setParseAction(array_parse) + _pp.restOfLine().setParseAction(unit_parse)('unit')
         # Keyword
         kw = parameter_name + KW_SEP
@@ -276,11 +278,10 @@ class FastestParser:
         date_kwpair = _pp.Dict((_pp.Group((_pp.Word('date') | _pp.Word('time_start')) + KW_SEP + datetime)))
         #The same applied to the title
         title_kwpair = _pp.Dict((_pp.Group((_pp.Word('title')) + KW_SEP + unparsed)))
-        line = _pp.Optional(SOL) + (date_kwpair ^ title_kwpair ^ normal_kwpair)  + _pp.Optional(EOL)
-        empty_line = EOL
+        line = (_pp.Optional(SOL) + (date_kwpair ^ title_kwpair ^ normal_kwpair)  + _pp.Optional(EOL)) | EOL
         # Title
         file_title = _pp.Group(_pp.Combine(_pp.ZeroOrMore(SOL + ~(kw) + unparsed + _pp.LineEnd())))('file_title')
-        self.grammar = _pp.Optional(file_title) + (_pp.ZeroOrMore(line)  | _pp.ZeroOrMore(empty_line))
+        self.grammar = _pp.Optional(file_title) + _pp.ZeroOrMore(line)
 
     def parse(self, file):
         parsed = self.grammar.parseString(file)
