@@ -11,6 +11,7 @@ from ..fileutils import parameters as _params
 
 
 import matplotlib.pyplot as plt
+import collections as _coll
 
 def copy_and_modify_gt(RAS, gt):
     from osgeo import gdal
@@ -903,15 +904,15 @@ def gdal_to_dict(ds):
      * [7]  False Northing
      * [8]  Scale Factor
     """
-    # Get projection information from wkt
+    # Srs from wkt
     wkt = ds.GetProjection()
-    srs = _osr.SpatialReference()
-    srs.ImportFromWkt(wkt)
+    srs = _osr.SpatialReference(wkt=wkt)
+    #Get projection info
     proj_arr = srs.ExportToPCI()
     # Array for the ellipsoid
     ell_arr = proj_arr[2]
     # Create new dict
-    proj_dict = {}
+    proj_dict = _coll.OrderedDict()
     # Part 1: General Parameters
     proj_dict['title'] = {'value': 'DEM'}
     proj_dict['DEM_projection'] = {'value': 'OMCH'}
@@ -935,28 +936,31 @@ def gdal_to_dict(ds):
     # TODO allow using other ellipsods
     # Part 2: Ellipsoid Parameters
     proj_dict['ellipsoid_name'] = {'value': 'Bessel 1841'}
-    proj_dict['ellipsoid_ra'] = {'value': ell_arr[0], 'unit': 'm'}
-    rf = ell_arr[0] / (ell_arr[0] - ell_arr[1])
+    proj_dict['ellipsoid_ra'] = {'value': srs.GetSemiMajor(), 'unit': 'm'}
+    rf = srs.GetSemiMajor() / (srs.GetSemiMajor() - srs.GetSemiMinor())
     proj_dict['ellipsoid_reciprocal_flattening'] = {'value': rf}
     # TODO allow using other datums
     # Part 3: Datum Parameters
-    proj_dict['datum_name'] = {'value': 'SWiss National 3PAR'}
-    proj_dict['datum_shift_dx'] = {'value': 679.396, 'unit': 'm'}
-    proj_dict['datum_shift_dy'] = {'value': -0.095, 'unit': 'm'}
-    proj_dict['datum_shift_dz'] = {'value': 406.471, 'unit': 'm'}
+    datum_info =srs.GetTOWGS84()
+    proj_dict['datum_name'] = {'value': 'SWiss National 7PAR'}
+    proj_dict['datum_country_list'] = {'value': 'Switzerland'}
+    proj_dict['datum_shift_dx'] = {'value': datum_info[0], 'unit': 'm'}
+    proj_dict['datum_shift_dy'] = {'value': datum_info[1], 'unit': 'm'}
+    proj_dict['datum_shift_dz'] = {'value': datum_info[2], 'unit': 'm'}
     proj_dict['datum_scale_m'] = {'value': 0.0, 'unit': 'm'}
     proj_dict['datum_rotation_alpha'] = {'value': 0.0, 'unit': 'arc-sec'}
     proj_dict['datum_rotation_beta'] = {'value': 0.0, 'unit': 'arc-sec'}
     proj_dict['datum_rotation_gamma'] = {'value': 0.0, 'unit': 'arc-sec'}
     # Part 4: Projection Parameters for UTM, TM, OMCH, LCC, PS, PC, AEAC, LCC2, OM, HOM coordinates
     proj_dict['projection_name'] = {'value': 'OM - Switzerland'}
-    if proj_dict['DEM_projection'] in ['UTM', "TM", "OMCH", "LCC", "PS", "PC", "AEAC", "LCC2", "OM", "HOM"]:
-        proj_dict['center_latitude'] = {'value': ell_arr[2]}
-        proj_dict['center_longitude'] = {'value': ell_arr[3]}
-        proj_dict['projection_k0'] = {'value': ell_arr[8]}
-        proj_dict['false_easting'] = {'value': ell_arr[6]}
-        proj_dict['false_northing'] = {'value': ell_arr[7]}
-    proj_dict['file_title'] = {'value': 'DEM Parameters'}
+    proj_dict['projection_zone'] = {'value': 0}
+    if proj_dict['DEM_projection']['value'] in ['UTM', "TM", "OMCH", "LCC", "PS", "PC", "AEAC", "LCC2", "OM", "HOM"]:
+        proj_dict['center_latitude'] = {'value': srs.GetProjParm('latitude_of_center')}
+        proj_dict['center_longitude'] = {'value': srs.GetProjParm('longitude_of_center')}
+        proj_dict['projection_k0'] = {'value':  srs.GetProjParm('scale_factor')}
+        proj_dict['false_easting'] = {'value': srs.GetProjParm('false_easting')}
+        proj_dict['false_northing'] = {'value': srs.GetProjParm('false_northing')}
+    proj_dict['file_title'] = {'value': 'DEM Parameters\n'}
     proj_dict = _params.ParameterFile.from_dict(proj_dict)
     return proj_dict
 
