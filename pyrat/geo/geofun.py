@@ -960,7 +960,7 @@ def gdal_to_dict(ds):
         proj_dict['projection_k0'] = {'value':  srs.GetProjParm('scale_factor')}
         proj_dict['false_easting'] = {'value': srs.GetProjParm('false_easting')}
         proj_dict['false_northing'] = {'value': srs.GetProjParm('false_northing')}
-    proj_dict['file_title'] = {'value': 'DEM Parameters\n'}
+    proj_dict['file_title'] = {'value': 'Gamma DIFF&GEO DEM/MAP parameter file\n'}
     proj_dict = _params.ParameterFile.from_dict(proj_dict)
     return proj_dict
 
