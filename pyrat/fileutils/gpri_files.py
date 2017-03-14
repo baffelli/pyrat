@@ -220,16 +220,16 @@ class gammaDataset(_np.ndarray):
         par = args[0]
         bin = args[1]
         if isinstance(par, str):  # user passes paths
-            obj = cls.fromfile(par, bin)
+            obj = cls.fromfile(par, bin, **kwargs)
         else:
-            obj = cls.fromarray(par, bin)
+            obj = cls.fromarray(par, bin, **kwargs)
         return obj
 
     @classmethod
     def fromfile(cls, par, bin, **kwargs):
-        memmap = kwargs.get('memmap', False)
-        dtype = kwargs.get('dtype', None)
-        image, par_dict = load_dataset(par, bin, memmap=memmap, dtype=dtype)
+        # memmap = kwargs.get('memmap', False)
+        # dtype = kwargs.get('dtype', None)
+        image, par_dict = load_dataset(par, bin, **kwargs)
         obj = image.view(cls)
         obj._params = par_dict.copy()
         return obj
@@ -523,16 +523,6 @@ def dict_to_par(par_dict, par_file):
     None
     """
     par_dict.tofile(par_file)
-    # with open(par_file, 'w') as fout:
-    #     for key in iter(par_dict):
-    #         par = par_dict[key]
-    #         try:
-    #             par_str = ' '.join(str(x) for x in par)
-    #         except TypeError:
-    #             par_str = str(par)
-    #         par_str_just = par_str.ljust(30)
-    #         line = "{key}: {par_str} \n".format(key=key, par_str = par_str_just)
-    #         fout.write(line)
 
 
 def par_to_dict(par_path):
@@ -545,15 +535,27 @@ def get_width(par_dict):
         Helper function to get the width of a gamma format file
     """
     # par_dict = par_to_dict(par_path)
-    for name_string in ["width", "range_samples", "CHP_num_samp", "map_width",
-                        "interferogram_width", "range_samp_1"]:
-        try:
-            width = getattr(par_dict, name_string)
-            return int(width)
-        except (AttributeError, KeyError):
-            continue
-        else:
-            KeyError('Did not find any keyword describing width of dataset')
+    #
+    wd_attrs =  ["width", "range_samples", "CHP_num_samp", "map_width",
+                        "interferogram_width", "range_samp_1"]
+    try:
+        wd = [getattr(par_dict, attr) for attr in par_dict.keys() if attr in wd_attrs]
+        #Return first match
+        return wd[0]
+    except AttributeError:
+        par_dict = par_to_dict(par_dict)
+        wd = [getattr(par_dict, attr) for attr in par_dict.keys() if attr in wd_attrs]
+        return wd[0]
+    # for name_string in ["width", "range_samples", "CHP_num_samp", "map_width",
+    #                     "interferogram_width", "range_samp_1"]:
+    #     try:
+    #         width = getattr(par_dict, name_string)
+    #         return int(width)
+    #     except (AttributeError, KeyError):
+    #         continue
+    else:
+        raise KeyError('Did not find any keyword describing width of dataset')
+    return wd
 
 
 def datatype_from_extension(filename):
@@ -587,7 +589,7 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
     # Get itemsize
     itemsize = dtype.itemsize
     # Compute the number of lines
-    nlines = int(filesize) // (itemsize * width)
+    nlines = int(filesize // (itemsize * width))
     # Shape of binary
     shape = (int(width), nlines)
     # load binary
