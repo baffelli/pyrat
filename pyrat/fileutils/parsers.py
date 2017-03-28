@@ -223,6 +223,9 @@ class FasterParser:
                 result_dict['file_title'] = flatify(p)
         return result_dict
 
+
+
+
 class FastestParser:
 
     def __init__(self):
@@ -262,7 +265,7 @@ class FastestParser:
         # Numbers
         float = _pp.Regex('[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?').setParseAction(float_parse)
         int = _pp.Word(_pp.nums).setParseAction(int_parse)
-        number = (int | float)
+        number = (float | int)
         #Array is composed of unit and numbers
         # unit = _pp.Word(_pp.alphanums + '/' + '^' + '-')
         array = _pp.Group(_pp.OneOrMore(number))('value').setParseAction(array_parse) + _pp.restOfLine().setParseAction(unit_parse)('unit')
