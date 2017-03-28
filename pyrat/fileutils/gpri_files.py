@@ -60,6 +60,11 @@ type_mapping = {
     'UCHAR': _np.dtype('>B')
 }
 
+#Add types to the globals
+for k,v in type_mapping.items():
+    globals()[k] = v
+
+
 ls_mapping = {
     0: 'NOT_TESTED',
     1: 'TESTED',
