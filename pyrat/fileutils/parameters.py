@@ -85,7 +85,7 @@ class ParameterFile(object):
             raise KeyError(key_msg)
 
     def items_with_unit(self):
-        return [(key, value['value'], value['unit']) for key, value in self.params.items()]
+        return [(key, value['value'], value.get('unit')) for key, value in self.params.items()]
 
     def keys(self):
         return self.params.keys()
@@ -177,18 +177,18 @@ class ParameterFile(object):
 
 
     def __str__(self):
-        self_1 = self.copy()
         out_str = ""
-        if 'file_title' in self_1:
-            title = self_1.params.pop('file_title')
+        if 'file_title' in self:
+            title = self.params.get('file_title', None)
             if title['value'] is not None:
                 out_str += title['value'] + '\n'
-        for key, value in self_1.params.items():
-            par_str = self_1.format_key_unit_dict(key)
-            key_str = "{key}:".format(key=key).ljust(40)
-            par_str_just = par_str.rjust(20)
-            line = "{key} {par_str}\n".format(key=key_str, par_str=par_str_just)
-            out_str += line
+        for key, value in self.params.items():
+            if key != 'file_title':
+                par_str = self.format_key_unit_dict(key)
+                key_str = "{key}:".format(key=key).ljust(40)
+                par_str_just = par_str.rjust(20)
+                line = "{key} {par_str}\n".format(key=key_str, par_str=par_str_just)
+                out_str += line
         return out_str
 
     def tofile(self, par_file):
