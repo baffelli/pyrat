@@ -13,6 +13,8 @@ import pickle
 
 import numpy as _np
 
+import networkx as _nx
+
 
 def try_format(dt, fmt):
     try:
@@ -402,30 +404,35 @@ class Itab:
         self.counter = 0
         self.it_counter = 0
         # Logic to select the list of reference slcs
-        if stride == 0:  # if the master is not changing
-            self.master = (x for x in n_ref)
-            # self.window = 0
-        else:
-            self.master = iter(range(0, self.stack_size, stride))
-
-        self.slave = range(self.step, self.step + self.max_distance, self.step)
-        for master, slave in _iter.product(self.master, self.slave):
-            line = [master, slave + master]
-            stack_tab.append(line)
-        list_of_slcs = list(range(n_slc))
-        line_counter = 0
-        for stack_counter, idx_stack in enumerate(range(0, self.n_slc // self.stack_size, 1)):
-            for master, slave in stack_tab:
-                master_idx = master + idx_stack * self.stack_size
-                slave_idx = slave + idx_stack * self.stack_size
-                if master_idx < self.n_slc and slave_idx < self.n_slc:
-                    line = [list_of_slcs[master_idx], list_of_slcs[slave_idx], line_counter, 1, stack_counter]
-                    self.tab.append(line)
-                    # # print(self.tab)
-                    line_counter += 1
+        master = range(0, n_slc, stride) if stride > 0 else [n_ref] * n_slc
+        #The slave increment of step with respect to the master
+        slave = [master + step for master in master]
+        tab = [[master, slave, counter, 1] for counter, (master,slave) in enumerate(zip(master, slave))]
+        self.tab = tab
+        # if stride == 0:  # if the master is not changing
+        #     self.master = [self.n_ref,]
+        #     # self.window = 0
+        # else:
+        #     self.master = iter(range(0, self.stack_size, stride))
+        #
+        # self.slave = range(self.step, self.step + self.max_distance, self.step)
+        # for master, slave in _iter.product(self.master, self.slave):
+        #     line = [master, slave + master]
+        #     stack_tab.append(line)
+        # list_of_slcs = list(range(n_slc))
+        # line_counter = 0
+        # for stack_counter, idx_stack in enumerate(range(0, self.n_slc // self.stack_size, 1)):
+        #     for master, slave in stack_tab:
+        #         master_idx = master + idx_stack * self.stack_size
+        #         slave_idx = slave + idx_stack * self.stack_size
+        #         if master_idx < self.n_slc and slave_idx < self.n_slc:
+        #             line = [list_of_slcs[master_idx], list_of_slcs[slave_idx], line_counter, 1, stack_counter]
+        #             self.tab.append(line)
+        #             # # print(self.tab)
+        #             line_counter += 1
 
     def __iter__(self):
-        return self
+        return iter(self.tab)
 
     def __str__(self):
         a = ""
@@ -434,6 +441,17 @@ class Itab:
             line[1] += 1  # Add one because itab files are one-based indexed and python is zero based
             a = a + (" ".join(map(str, line)) + '\n')
         return a
+
+    def __len__(self):
+        return self.tab.__len__()
+
+    @property
+    def masters(self):
+        return [t[0] for t in self.tab]
+
+    @property
+    def slaves(self):
+        return [t[1] for t in self.tab]
 
     def __next__(self):
         try:
@@ -479,4 +497,21 @@ class Itab:
         for idx_master, idx_slave, idx_itab, *rest in self:
             A[idx_itab - 1, idx_master - 1] = 1
             A[idx_itab - 1, idx_slave - 1] = -1
+        return A
+
+
+    def to_graph(self):
+        G = _nx.Graph()
+        for master, slave, *rest in self:
+            G.add_edge(str(master), str(slave))
+        return G
+
+    def to_sbas_matrix(self):
+        n_slc = self.n_slc
+        A = _np.zeros((len(self.tab), n_slc))
+        #For each interferogram
+        for idx_master, idx_slave, idx_itab, *rest in self:
+            #Find the ones between master and slave
+            k = range(idx_slave-1, idx_master-1,-1)
+            A[idx_itab-1, k] = (idx_slave + idx_master)
         return A

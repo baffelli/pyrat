@@ -3,12 +3,13 @@ from .. import utils
 
 class TestItab(TestCase):
 
-    def setUp(self):
-        self.nslc = 50
-        self.file = './data/itab'
-        self.itab = utils.Itab(self.nslc, step=1, stride=1, max_distance=1, stack_size=5)
-        print(self.itab)
 
+    def testTimeSeries(self):
+        tab = utils.Itab(8,step=1,stride=1)
+
+    def testStride(self):
+        tab = utils.Itab(12, step=2, stride=2)
+        print(tab)
 
     def test_tofile(self):
         self.itab.tofile(self.file)
