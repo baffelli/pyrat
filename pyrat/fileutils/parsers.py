@@ -278,12 +278,12 @@ class FastestParser:
         # Line
         normal_kwpair = _pp.Dict(_pp.Group( kw + line_value))
         #The line containing "date" requires a special parsing
-        date_kwpair = _pp.Dict((_pp.Group((_pp.Word('date') | _pp.Word('time_start')) + KW_SEP + datetime)))
+        date_kwpair = _pp.Dict((_pp.Group((_pp.Literal('date') | _pp.Literal('time_start')) + KW_SEP + datetime)))
         #The same applied to the title
         title_kwpair = _pp.Dict((_pp.Group((_pp.Word('title')) + KW_SEP + unparsed)))
         line = (_pp.Optional(SOL) + (date_kwpair ^ title_kwpair ^ normal_kwpair)  + _pp.Optional(EOL)) | EOL
         # Title
-        file_title = _pp.Group(_pp.Combine(_pp.ZeroOrMore(SOL + ~(kw) + unparsed + _pp.LineEnd())))('file_title')
+        file_title = _pp.Group(_pp.Combine(_pp.ZeroOrMore(SOL + ~(kw) + unparsed )))('file_title')
         self.grammar = _pp.Optional(file_title) + _pp.ZeroOrMore(line)
 
     def parse(self, file):

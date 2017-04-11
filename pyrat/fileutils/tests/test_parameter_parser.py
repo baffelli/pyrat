@@ -22,7 +22,7 @@ class TestParser(unittest.TestCase):
         parsed = self.parser.parse(hf)
         pd = parsed.asDict()
         print(parsed.pprint())
-        self.assertEqual(pd['date']['value'], date)
+        self.assertEqual(pd['date'], date)
 
     def testSimpleParsing(self):
         hf ='a: 45'
@@ -50,3 +50,10 @@ class TestParser(unittest.TestCase):
         parsed = self.parser.parse(hf)
         self.assertEqual(parsed.asDict()['array'] , self.units )
 
+    def testTimeStart(self):
+        hf= """Boring titel\n
+
+            time_start: 2016-11-04 16:43:26.512548+00:00\n
+            """
+        parsed = self.parser.parse(hf)
+        print(parsed)
