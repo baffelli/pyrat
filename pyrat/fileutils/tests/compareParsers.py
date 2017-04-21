@@ -5,5 +5,6 @@ import timeit
 
 
 
-# fast = ParameterFile.from_file('../default_slc_par.par', parser=FasterParser)
+fast = ParameterFile.from_file('../default_slc_par.par', parser=FasterParser)
+# print(fast)
 slow = ParameterFile.from_file('../default_slc_par.par', parser=ParameterParser)

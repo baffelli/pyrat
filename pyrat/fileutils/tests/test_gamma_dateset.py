@@ -1,24 +1,8 @@
 import unittest
-
 import numpy as np
 from pyrat.fileutils.gpri_files import rawData, gammaDataset, default_slc_dict, type_mapping
-
 import matplotlib.pyplot as plt
 
-# class TestRaw(unittest.TestCase):
-
-# def setUp(self):
-#     self.raw_path = './20160614_090528.raw'
-#     self.raw = rawData(self.raw_path + '_par', self.raw_path)
-#
-# def testAddAttribute(self):
-#     self.raw.olo = 5
-#
-# def test_to_file(self):
-#     self.raw.tofile(self.raw_path + '_temp_par', self.raw_path + '_temp')
-#     new_raw = rawData(self.raw_path + '_temp_par', self.raw_path + '_temp')
-#
-#
 
 class TestSLC(unittest.TestCase):
 
@@ -26,7 +10,7 @@ class TestSLC(unittest.TestCase):
         self.slc_par = default_slc_dict()
         #Generate fake slc data
         a = np.zeros([self.slc_par.range_samples,self.slc_par.azimuth_lines], dtype=type_mapping['FCOMPLEX'])
-        a += np.random.randn(*a.shape) + 1j * np.random.randn(*a.shape)
+        # a += np.random.randn(*a.shape) + 1j * np.random.randn(*a.shape)
         self.slc = gammaDataset(self.slc_par, a)
 
     def testNan(self):
@@ -61,15 +45,9 @@ class TestSLC(unittest.TestCase):
     def testMask(self):
         slc_mask = np.ma.masked_array(self.slc)
         plt.imshow(np.abs(slc_mask))
-        plt.show()
+        # plt.show()
         slc_mask.min()
 
     def testRaw(self):
         raw = rawData('/home/baffelli/PhD/trunk/Code/pyrat/pyrat/fileutils/tests/20160614_090528.raw_par',
                       '/home/baffelli/PhD/trunk/Code/pyrat/pyrat/fileutils/tests/20160614_090528.raw')
-        #
-        # def testDecimation(self):
-        #     slc_sl = self.slc.decimate(5)
-        #     self.assertAlmostEqual(slc_sl.GPRI_az_angle_step, self.slc.GPRI_az_angle_step *5)
-        #     self.assertAlmostEqual(slc_sl.near_range_slc, self.slc.near_range_slc )
-        #     self.assertAlmostEqual(slc_sl.near_range_slc, self.slc.near_range_slc)

@@ -1,13 +1,14 @@
 import unittest
 from pyrat.fileutils.parameters import ParameterFile
 from pyrat.fileutils.parsers import  ParameterParser, FasterParser, FastestParser
-
+import pathlib
 
 class TestParameters(unittest.TestCase):
 
     def setUp(self):
         self.dummy_val = 5
-        self.params = ParameterFile.from_file('../default_slc_par.par', parser=FastestParser)
+        self.path = '../default_slc_par.par'
+        self.params = ParameterFile.from_file(self.path, parser=FastestParser)
         self.params_copy = self.params.copy()
         self.copy_path = './copy.par'
 
@@ -93,6 +94,11 @@ class TestParameters(unittest.TestCase):
 
     def testRepr(self):
         print(str(self.params))
+
+
+    def testPosixPath(self):
+        path = pathlib.Path(self.path)
+        par =  ParameterFile.from_file(str(path))
 
 class TestRawParameters(unittest.TestCase):
     def setUp(self):
