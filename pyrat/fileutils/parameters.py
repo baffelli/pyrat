@@ -62,7 +62,7 @@ class ParameterFile(object):
 
     def __getattr__(self, key):
         try:
-            value = self.params[key]['value']
+            value = self[key]
             return value
         except KeyError:
             attr_msg = "The attribute {key} does not exist in the specified parameterfile".format(key=key)
