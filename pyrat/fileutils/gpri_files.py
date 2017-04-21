@@ -1210,7 +1210,6 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
 
 
 
-
 def range_compression(rawdata, rmin=50, rmax=None, kbeta=3.0, dec=1, zero=300, rvp_corr=False,
                       scale=True):
     rvp = _np.exp(1j * 4. * _np.pi * rawdata.RF_chirp_rate * (rawdata.slr / C) ** 2)
