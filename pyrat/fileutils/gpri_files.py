@@ -224,10 +224,12 @@ class gammaDataset(_np.ndarray):
     def __new__(cls, *args, **kwargs):
         par = args[0]
         bin = args[1]
-        if isinstance(par, str):  # user passes paths
+        try:  # user passes paths
             obj = cls.fromfile(par, bin, **kwargs)
-        else:
+        except:
             obj = cls.fromarray(par, bin, **kwargs)
+        else:
+            raise ValueError('The passed files are neither path-like nor a pair of dicts and array')
         return obj
 
     @classmethod
@@ -1204,6 +1206,7 @@ def correct_squint_in_SLC(SLC, squint_function=linear_squint, squint_rate=4.2e-9
     SLC_corr = SLC.__array_wrap__(SLC_corr)  # Call array wrap to make sure properties are correctly set
     assert SLC_corr.shape == SLC.shape, "failed"
     return SLC_corr
+
 
 
 

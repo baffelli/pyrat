@@ -982,6 +982,23 @@ def geotif_to_dem(gt, par_path, bin_path):
     dem = DS.GetRasterBand(1).ReadAsArray()
     dem.astype(_gpf.type_mapping[dem_dic['data_format']]).tofile(bin_path)
 
+
+
+def dem_to_geotif(dem):
+    """
+    This function converts a gammaDataset containting
+    a DEM to a gdal Dataset (stored in a memory driver)
+    Parameters
+    ----------
+    dem
+
+    Returns
+    -------
+
+    """
+    
+
+
 def extent_to_corners(ext):
     corners = []
     for x,y in zip(ext[0:2],ext[2:4]):
