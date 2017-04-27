@@ -40,6 +40,24 @@ class block:
             clipped_indices += (slice(start_clip, stop_clip),)
         return indices, clipped_indices
 
+
+    def original_indices(self):
+        """
+        Returns the valid indices of the block, that is the indices of the block that are
+        inside the edges of the data array
+        Returns
+        -------
+
+        """
+        indices = ()
+        for index, overlap, bs, shp in zip(self.location, self.overlap, self.block_shape, self.original_data.shape):
+            #clip everything outside of the array edges
+            start = bs * index
+            stop = bs * index + bs
+            indices += (slice(start, stop),)
+        return indices
+
+
     def overlap_pad(self):
         pads = ()
         indices, clipped_indices = self.valid_indices()
@@ -72,14 +90,6 @@ class block:
             trim = trim if trim > 0  else 0
             trims += (trim,)
         return pads, trims
-    #
-    # def trimming(self):
-    #     indices, clipped_indices = self.valid_indices()
-    #     for i, clip_i, bs, ov in zip(indices, clipped_indices, self.block_shape, self.overlap):
-    #         left_trim = ov
-    #         right_trim =
-    #
-
 
 
 
@@ -93,12 +103,24 @@ class block:
         data = _np.pad(self.original_data[clipped_indices], pads + ((0,0),)*(self.original_data.ndim-2), mode='constant')
         return data
 
+    @data.setter
+    def data(self, value):
+        pads, trims = self.pads()
+        pad_cut = lambda x: -x if x > 0 else None
+        if not _np.isscalar(value):
+            data_proc =  value[self.overlap[0]:pad_cut(self.overlap[0] + trims[0]),self.overlap[1]:pad_cut(self.overlap[1] + trims[1])]
+        else:
+            data_proc = value
+        indices = self.original_indices()
+        self.original_data[indices] = data_proc
+
+
     def process(self, fun, trim=True):
         pad_cut = lambda x: -x  if x > 0 else None
         pads, trims = self.pads()
         # Compute padding
         data_proc = fun(self)
-        if trim and not _np.isscalar(data_proc):
+        if not _np.isscalar(data_proc):
             data_proc = data_proc[self.overlap[0]:pad_cut(self.overlap[0] + trims[0]),self.overlap[1]:pad_cut(self.overlap[1] + trims[1])]
         return data_proc
 
