@@ -149,12 +149,28 @@ class block_array:
         current_block = block(self.A, (i, j), self.bs, self.A.shape, overlap=self.overlap, trim=self.trim_ouput)
         return current_block
 
-    def __copy__(self):
+    def copy(self):
         new = type(self)(self.A * 1, self.bs, overlap=self.overlap)
         new.__dict__.update(self.__dict__)
         # Copy array
         new.A = self.A * 1
         return new
+
+    @classmethod
+    def zeros_like(cls, instance):
+        """
+        Returns a copy of the block array in `instance`
+        containing zeros only
+        Parameters
+        ----------
+        instance
+
+        Returns
+        -------
+
+        """
+        instance_cp = instance.copy()
+        instance_cp.A *= 0
 
     def process(self, function):
         bl_arr = [[0 for i in range(self.nblocks[0])] for j in range(self.nblocks[1])]
