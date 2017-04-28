@@ -612,7 +612,7 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
 def load_dataset(par_file, bin_file, **kwargs):
     dtype = kwargs.get('dtype', None)
     memmap = kwargs.get('memmap', False)
-    par_dict = _PF.from_file(par_file)
+    par_dict = _PF.from_file(str(par_file))
     # Map type to gamma
     if dtype is None:
         try:
