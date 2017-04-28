@@ -171,6 +171,7 @@ class block_array:
         """
         instance_cp = instance.copy()
         instance_cp.A *= 0
+        return instance_cp
 
     def process(self, function):
         bl_arr = [[0 for i in range(self.nblocks[0])] for j in range(self.nblocks[1])]
