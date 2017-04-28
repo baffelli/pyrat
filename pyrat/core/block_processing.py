@@ -10,12 +10,13 @@ def full_indices(index, overlap, bs):
 
 
 class block:
-    def __init__(self, data, location, block_shape, image_shape, overlap=[0, 0]):
+    def __init__(self, data, location, block_shape, image_shape, overlap=[0, 0], trim=True):
         self.original_data = data
         self.overlap = overlap
         self.location = location
         self.block_shape = block_shape
         self.image_shape = image_shape
+        self.trim = trim
         #Start and stop indices
 
 
@@ -94,8 +95,6 @@ class block:
 
 
 
-
-
     @property
     def data(self):
         indices, clipped_indices = self.valid_indices()
@@ -107,7 +106,7 @@ class block:
     def data(self, value):
         pads, trims = self.pads()
         pad_cut = lambda x: -x if x > 0 else None
-        if not _np.isscalar(value):
+        if not _np.isscalar(value) and self.trim:
             data_proc =  value[self.overlap[0]:pad_cut(self.overlap[0] + trims[0]),self.overlap[1]:pad_cut(self.overlap[1] + trims[1])]
         else:
             data_proc = value
@@ -115,12 +114,12 @@ class block:
         self.original_data[indices] = data_proc
 
 
-    def process(self, fun, trim=True):
+    def process(self, fun):
         pad_cut = lambda x: -x  if x > 0 else None
         pads, trims = self.pads()
         # Compute padding
         data_proc = fun(self)
-        if not _np.isscalar(data_proc):
+        if not _np.isscalar(data_proc) and self.trim:
             data_proc = data_proc[self.overlap[0]:pad_cut(self.overlap[0] + trims[0]),self.overlap[1]:pad_cut(self.overlap[1] + trims[1])]
         return data_proc
 
@@ -134,15 +133,6 @@ class block_array:
         # Compute shapes
         for current_shape, block_shape, overlap in zip(A.shape[0:2], block_size, overlap):
             obj.nblocks.append(int(_np.ceil(((current_shape) / (block_shape )))))
-        #Compute padding for the partial blocks
-        # if pad_partial_blocks:
-        #     pads = _np.mod(-_np.array(A.shape[0:2]), block_size)
-        #     pads = tuple([(0,int(p)) for p in pads]) + ((0,0),) * (A.ndim - 2)
-        #     A = _np.pad(A,pads, mode='constant')
-        # #Compute padding for the border
-        # overlap_pad = tuple([(o,o) for o in overlap]) +  ((0, 0),) * (A.ndim - 2)
-        # A = _np.pad(A, overlap_pad, mode='constant')
-        # print(A.shape)
         obj.A = A
         obj.maxiter = _np.prod(obj.nblocks)
         obj.current = -1
@@ -156,7 +146,7 @@ class block_array:
         # generate block structure
         # i_read, j_read = clip_indices((i, j), self.overlap, self.bs, self.A.shape)
         # Create block object
-        current_block = block(self.A, (i, j), self.bs, self.A.shape, overlap=self.overlap,)
+        current_block = block(self.A, (i, j), self.bs, self.A.shape, overlap=self.overlap, trim=self.trim_ouput)
         return current_block
 
     def __copy__(self):
