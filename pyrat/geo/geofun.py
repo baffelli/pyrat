@@ -982,23 +982,6 @@ def geotif_to_dem(gt, par_path, bin_path):
     dem = DS.GetRasterBand(1).ReadAsArray()
     dem.astype(_gpf.type_mapping[dem_dic['data_format']]).tofile(bin_path)
 
-
-
-def dem_to_geotif(dem):
-    """
-    This function converts a gammaDataset containting
-    a DEM to a gdal Dataset (stored in a memory driver)
-    Parameters
-    ----------
-    dem
-
-    Returns
-    -------
-
-    """
-    
-
-
 def extent_to_corners(ext):
     corners = []
     for x,y in zip(ext[0:2],ext[2:4]):
@@ -1128,7 +1111,7 @@ def clip_dataset(DS, dem_par):
     return dest
 
 
-def rasterize_shapefile(outline, attribute_filter, x_posting=1, y_posting=1):
+def rasterize_shapefile(outline, attribute_filter, x_posting=1, y_posting=1, burn_value=255):
     """
     Rasterizes the selected features in a shapefile, selected using `attribute_filter
     and returns a memory driver object
@@ -1156,8 +1139,8 @@ def rasterize_shapefile(outline, attribute_filter, x_posting=1, y_posting=1):
     goal_raster.SetProjection(outline_layer.GetSpatialRef().ExportToWkt())
     band = goal_raster.GetRasterBand(1)
     #write the shapefile
-    band.Fill(255)
-    gdal.RasterizeLayer(goal_raster,[1], outline_layer, burn_values=[0] )
+    band.Fill(0)
+    gdal.RasterizeLayer(goal_raster,[1], outline_layer, burn_values=[burn_value] )
     return goal_raster
 
 
@@ -1233,18 +1216,6 @@ class GeocodingTable(object):
     def radar_coord_to_geo_coord(self, coord):
         return self.gt.transform(self.radar2dem.transform(coord))
 
-    # def radar_coord_to_dem_coord(self, coord):
-    #     dist = _np.sqrt((self.lut.imag - coord[1]) ** 2 + (self.lut.real - coord[0]) ** 2)
-    #     i = _np.argmin(dist)
-    #     dem_coord = _np.unravel_index(i, self.lut.shape)
-    #     # dem_coord = self.geocode_data(coord[0] + coord[1] * 1j)#first compute
-    #     return dem_coord
-
-    # def dem_coord_to_geo_coord(self, coord):
-    #     gt = self.geotransform
-    #     x = coord[0] * gt[1] + gt[0]
-    #     y = coord[1] * gt[5] + gt[3]
-    #     return [x, y]
 
     def get_extent(self):
         return get_extent(self.geotransform, [self.params.width,self.params.nlines])
