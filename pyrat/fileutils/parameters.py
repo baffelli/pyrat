@@ -110,6 +110,26 @@ class ParameterFile(object):
         except KeyError:
             return default
 
+
+    def get_first_match(self, keys):
+        """
+        Returns the first matching key
+        among a list of given attributes
+        Parameters
+        ----------
+        keys
+
+        Returns
+        -------
+
+        """
+        res = next(v for v in (self.get(key) for key in keys) if v)['value']
+        if not res:
+            raise KeyError('None of these keys {} are found in this file'.format(keys))
+        else:
+            return res
+
+
     def add_parameter(self,key,value, unit=None):
         if key not in self:
             self.params.update({key: {'value': value, 'unit': unit}})
