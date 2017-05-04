@@ -13,6 +13,9 @@ from ..fileutils import parameters as _params
 import matplotlib.pyplot as plt
 import collections as _coll
 
+import gdal
+import gdalnumeric
+
 def copy_and_modify_gt(RAS, gt):
     from osgeo import gdal
 
@@ -40,9 +43,10 @@ def save_raster(ds, path):
     dataset = driver.Create(
         path,
         ds.RasterXSize,
-        ds.RasterXSize,
+        ds.RasterYSize,
         ds.RasterCount,
         ds.GetRasterBand(1).DataType)
+    print(dataset)
     dataset.SetGeoTransform(ds.GetGeoTransform())
     dataset.SetProjection(ds.GetProjection())
     for band in range(ds.RasterCount):
@@ -113,7 +117,7 @@ def upgrade_CH1903_gt(ds):
 
 def numeric_dt_to_gdal_dt(number):
     from osgeo import gdal
-
+    print(number)
     conversion_dict = {
         1: gdal.GDT_Byte,
         2: gdal.GDT_UInt16,
@@ -121,6 +125,8 @@ def numeric_dt_to_gdal_dt(number):
         4: gdal.GDT_UInt32,
         5: gdal.GDT_Int32,
         6: gdal.GDT_Float32,
+        7: gdal.GDT_Float64,
+        10: gdal.GDT_CFloat64,
     }
     return conversion_dict[number]
 
@@ -891,6 +897,33 @@ def paletted_to_rgb(gt):
     return output_dataset
 
 
+def dict_to_gdal(par):
+    """
+    Converts dem_parameters to
+    a gdal dataset
+    Parameters
+    ----------
+    par
+
+    Returns
+    -------
+
+    """
+    #FIXME only works for swiss coordinates
+    #Create raster
+    (cols ,rows) = _gpf.get_shape(par)
+    dt = _gpf.get_dtype(par)
+    driver = gdal.GetDriverByName('MEM')
+    outRaster = driver.Create('', cols, rows, 1,
+                              numeric_dt_to_gdal_dt(gdalnumeric.NumericTypeCodeToGDALTypeCode(dt.type)))
+    #Set coordinate system
+    srs = _osr.SpatialReference()
+    srs.ImportFromEPSG(21781)
+    outRaster.SetProjection(srs.ExportToWkt())
+    outRaster.SetGeoTransform(get_geotransform(par))
+    return outRaster
+
+
 def gdal_to_dict(ds):
     # Mapping from wkt to parameters
     """
@@ -1187,6 +1220,10 @@ class GeocodingTable(object):
         self.dem_idx_to_geo_t = self.gt
         self.geo_to_dem_idx_t = self.gt.inverted()
         self.params = dem_par.copy()
+
+    @classmethod
+    def fromfile(cls, dem_par, lut, mli_par, inverse_lut ):
+        return cls.__init__(dem_par, lut, mli_par, inverse_lut)
 
     def __getitem__(self, item):
         return self.lut.__getitem__(item)
