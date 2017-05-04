@@ -1,7 +1,5 @@
 import numpy as _np
-import matplotlib.pyplot as plt
 
-import matplotlib.patches as patch
 
 def full_indices(index, overlap, bs):
     start = bs * index - overlap
