@@ -537,32 +537,64 @@ def par_to_dict(par_path):
     return par
 
 
+
 def get_width(par_dict):
     """
         Helper function to get the width of a gamma format file
     """
-    # par_dict = par_to_dict(par_path)
-    #
     wd_attrs =  ["width", "range_samples", "CHP_num_samp", "map_width",
                         "interferogram_width", "range_samp_1"]
     try:
-        wd = [getattr(par_dict, attr) for attr in par_dict.keys() if attr in wd_attrs]
-        #Return first match
-        return wd[0]
+        wd  = par_dict.get_first_match(wd_attrs)
+        # wd = [getattr(par_dict, attr) for attr in par_dict.keys() if attr in wd_attrs]
+        # #Return first match
+        return wd
     except AttributeError:
         par_dict = par_to_dict(par_dict)
-        wd = [getattr(par_dict, attr) for attr in par_dict.keys() if attr in wd_attrs]
-        return wd[0]
-    # for name_string in ["width", "range_samples", "CHP_num_samp", "map_width",
-    #                     "interferogram_width", "range_samp_1"]:
-    #     try:
-    #         width = getattr(par_dict, name_string)
-    #         return int(width)
-    #     except (AttributeError, KeyError):
-    #         continue
+        wd = par_dict.get_first_match(wd_attrs)
+        return wd
     else:
         raise KeyError('Did not find any keyword describing width of dataset')
     return wd
+
+def get_nlines(par_dict):
+    """
+    Helper function to get the number of lines
+    of a gamma format file
+    Parameters
+    ----------
+    par_dict
+
+    Returns
+    -------
+
+    """
+    nlines = par_dict.get_first_match(['azimuth_lines', 'nlines', 'map_azimuth_lines'])
+    return nlines
+
+
+def get_shape(par_dict):
+    """
+    Helper function to get the (2D)
+    shape of a gamma dataset
+    Parameters
+    ----------
+    par_dict
+
+    Returns
+    -------
+
+    """
+    try:
+        (width, nlines) = (get_width(par_dict), get_nlines(par_dict))
+        return width, nlines
+    except KeyError:
+        print('I fail')
+
+def get_dtype(par_dict):
+    dt = par_dict.get_first_match(['image_format', 'data_format'])
+    final_dt = type_mapping[dt]
+    return final_dt
 
 
 def datatype_from_extension(filename):
@@ -596,7 +628,7 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
     # Get itemsize
     itemsize = dtype.itemsize
     # Compute the number of lines
-    nlines = int(filesize // (itemsize * width))
+    nlines = filesize // (itemsize * width)
     # Shape of binary
     shape = (int(width), nlines)
     # load binary
@@ -612,25 +644,26 @@ def load_binary(bin_file, width, dtype=type_mapping['FCOMPLEX'], memmap=False):
 def load_dataset(par_file, bin_file, **kwargs):
     dtype = kwargs.get('dtype', None)
     memmap = kwargs.get('memmap', False)
-    par_dict = _PF.from_file(str(par_file))
+    par_dict = _PF.from_file(par_file)
     # Map type to gamma
     if dtype is None:
         try:
-            dt = type_mapping[par_dict['image_format']]
+            dt = par_dict.get_first_match(['image_format','data_format'])
+            final_dt = type_mapping[dt]
         except:
-            try:
-                dt = type_mapping[par_dict['data_format']]
-            except:
-                dt = type_mapping['FLOAT']
-                _warn.warn(
-                    "This file does not contain datatype specification in a known format, using default FLOAT datatype")
-    else:
+            final_dt = type_mapping['FLOAT']
+            _warn.warn(
+                "This file does not contain datatype specification in a known format, using default FLOAT datatype")
+    elif isinstance(dtype, str):
         try:
-            dt = dtype
+            final_dt =type_mapping[dtype]
         except KeyError:
-            raise TypeError('This datatype does not exist')
+            raise KeyError('This datatype does not exist')
+    elif isinstance(dtype, _np.dtype):
+        final_dt = dtype
+    # (width, nlines) = get_shape(par_dict)
     width = get_width(par_dict)
-    d_image = load_binary(bin_file, width, dtype=dt, memmap=memmap)
+    d_image = load_binary(bin_file, width, dtype=final_dt, memmap=memmap)
     return d_image, par_dict
 
 
