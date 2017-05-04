@@ -226,10 +226,11 @@ class gammaDataset(_np.ndarray):
         bin = args[1]
         try:  # user passes paths
             obj = cls.fromfile(par, bin, **kwargs)
-        except:
-            obj = cls.fromarray(par, bin, **kwargs)
-        else:
-            raise ValueError('The passed files are neither path-like nor a pair of dicts and array')
+        except Exception as e:
+            try:
+                obj = cls.fromarray(par, bin, **kwargs)
+            except Exception as nested_e:
+                raise ValueError('The passed files are neither path-like nor a pair of dicts and array')
         return obj
 
     @classmethod
