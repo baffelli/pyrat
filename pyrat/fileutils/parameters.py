@@ -123,11 +123,11 @@ class ParameterFile(object):
         -------
 
         """
-        res = next(v for v in (self.get(key) for key in keys) if v)['value']
+        res = [v for v in [self.get(key) for key in keys] if v]
         if not res:
             raise KeyError('None of these keys {} are found in this file'.format(keys))
         else:
-            return res
+            return res[0]['value']
 
 
     def add_parameter(self,key,value, unit=None):
