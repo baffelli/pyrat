@@ -72,7 +72,7 @@ def raster_to_geotiff(raster, ref_gt, path):
 
     driver = gdal.GetDriverByName('GTiff')
     if raster.ndim is 3:
-        nchan = raster.shape[2]
+        nchan = raster.shape[-1]
     else:
         nchan = 1
     dataset = driver.Create(
@@ -84,13 +84,14 @@ def raster_to_geotiff(raster, ref_gt, path):
     dataset.SetGeoTransform(ref_gt.GetGeoTransform())
     dataset.SetProjection(ref_gt.GetProjection())
     if nchan > 1:
-        for n_band in range(nchan - 1):
-            band = raster[:, :, n_band]
-            dataset.GetRasterBand(n_band + 1).WriteArray(band)
-            dataset.FlushCache()  # Write to disk.
+        for n_band in range(1, nchan + 1):
+            band = raster[:, :, n_band-1]
+            print(band.shape)
+            dataset.GetRasterBand(n_band).WriteArray(band)
+
     else:
         dataset.GetRasterBand(1).WriteArray(raster)
-        dataset.FlushCache()  # Write to disk.
+    dataset.FlushCache()  # Write to disk.
     # dataset.GDALClose()
     return dataset
 
